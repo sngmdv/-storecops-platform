@@ -92,6 +92,7 @@ const { createDataExportService } = require("./server/dataExport");
 const { createOnboardingService } = require("./server/onboardingService");
 const { createWebhookRetryQueue } = require("./server/webhookRetryQueue");
 const { createTieredRateLimiter } = require("./server/tieredRateLimiter");
+const { createDemoSimulator } = require("./server/demoSimulator");
 
 function createPlatform(overrides = {}) {
   // Each platform gets its own config copy so instances never mutate
@@ -352,6 +353,8 @@ function createPlatform(overrides = {}) {
   platform.webhookQueue = createWebhookRetryQueue({ store, notificationService: platform.notificationService });
   // Per-plan tiered rate limiter.
   platform.tieredRateLimiter = createTieredRateLimiter({ platform });
+  // Live demo simulator — generates realistic events when no real credentials exist.
+  platform.demoSimulator = createDemoSimulator(platform);
 
   return platform;
 }

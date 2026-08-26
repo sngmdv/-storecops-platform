@@ -1982,6 +1982,23 @@ function createApiRouter(platform) {
     })
   );
 
+  // ── Demo Simulator ──────────────────────────────────────────────────
+  router.get(
+    "/demo/status",
+    wrap(async () => ({
+      running: platform.demoSimulator.isRunning(),
+      events_generated: platform.demoSimulator.eventCount(),
+    }))
+  );
+
+  router.post(
+    "/demo/tick/:store_id",
+    wrap(async (req) => {
+      const result = await platform.demoSimulator.tickOnce(req.params.store_id);
+      return { success: true, ...result };
+    })
+  );
+
   return router;
 }
 

@@ -15,14 +15,50 @@ const app = createApp(platform);
 
 const PORT = platform.config.port;
 
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, "0.0.0.0", async () => {
   console.log(`[BOOT] Storecops Growth Platform live on port ${PORT}`);
   console.log("[BOOT] Layers: Data → Intelligence → Decision → Execution → Reporting → Growth Loop");
   const publicUrl = platform.config.publicUrl || `http://localhost:${PORT}`;
   console.log(`[BOOT] API: ${publicUrl}/api/v1 (X-API-Key required) | Health: /health`);
   console.log(`[BOOT] Dashboard: ${publicUrl}/app`);
   console.log(`[BOOT] Environment: ${platform.config.env} | Storage: ${platform.config.storage}`);
+
+  // ── Start demo simulator if no real integrations exist ──────────────
+  try {
+    const storeId = platform.config.defaultStoreId;
+    const hasRealCreds = await hasRealCredentials(platform, storeId);
+    if (!hasRealCreds) {
+      // Seed demo data if the store is empty
+      const seeded = await platform.demoSeed.seed(storeId);
+      if (seeded.seeded) {
+        console.log(`[BOOT] Seeded demo data: ${seeded.events} events, ${seeded.products} products`);
+      }
+      // Start the live simulator
+      platform.demoSimulator.start(storeId, 5000);
+      console.log("[BOOT] Demo simulator active — dashboard will show live activity");
+    } else {
+      console.log("[BOOT] Real integrations detected — simulator skipped");
+    }
+  } catch (err) {
+    console.error("[BOOT] Simulator startup failed:", err.message);
+  }
 });
+
+/** Check if a store has real integration credentials (Shopify/WooCommerce/BigCommerce). */
+async function hasRealCredentials(platform, storeId) {
+  try {
+    const connectors = await platform.store.get("connectors") || {};
+    if (connectors.shopify?.access_token || connectors.woocommerce?.consumer_key || connectors.bigcommerce?.access_token) {
+      return true;
+    }
+    // Also check integrations collection
+    const integration = await platform.store.findOne("integrations", { store_id: storeId });
+    if (integration?.shopify?.access_token || integration?.woocommerce?.consumer_key || integration?.bigcommerce?.access_token) {
+      return true;
+    }
+  } catch (_) {}
+  return false;
+}
 
 // Growth loop heartbeat: run a full automation cycle for the default
 // store every 15 minutes. Multi-store deployments register more stores
