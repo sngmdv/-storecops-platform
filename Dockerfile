@@ -17,8 +17,8 @@ RUN mkdir -p data
 # Expose the port (overridden by hosting platform)
 EXPOSE 4000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+# Health check - longer interval for cold starts
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=5 \
   CMD wget -qO- http://localhost:4000/health || exit 1
 
 # Start the server
