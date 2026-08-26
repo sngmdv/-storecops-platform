@@ -1,12 +1,82 @@
 "use strict";
 
-/* Landing page interactions: use-case tabs + tiny live-ticker mock. */
+/* ─────────────────────────────────────────────────────────────────
+   Storecops landing — Enterprise interactions
+   Scroll reveal, dark mode, tabs, counters, command palette.
+   ───────────────────────────────────────────────────────────────── */
 
 (function () {
-  // ── Tabs ──────────────────────────────────────────────────────────
+  /* ── Dark Mode ── */
+  const savedTheme = localStorage.getItem("storecops-theme");
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  if (savedTheme === "dark" || (!savedTheme && prefersDark)) {
+    document.documentElement.classList.add("dark");
+  }
+  document.querySelectorAll(".theme-toggle").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.documentElement.classList.toggle("dark");
+      localStorage.setItem(
+        "storecops-theme",
+        document.documentElement.classList.contains("dark") ? "dark" : "light"
+      );
+    });
+  });
+
+  /* ── Scroll Reveal (IntersectionObserver) ── */
+  const revealElements = document.querySelectorAll(".reveal, .stagger");
+  if (revealElements.length && "IntersectionObserver" in window) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("visible");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: "0px 0px -40px 0px" }
+    );
+    revealElements.forEach((el) => observer.observe(el));
+  } else {
+    document.querySelectorAll(".reveal, .stagger").forEach((el) => el.classList.add("visible"));
+  }
+
+  /* ── Number Counter Animation ── */
+  const counters = document.querySelectorAll(".counter[data-target]");
+  if (counters.length && "IntersectionObserver" in window) {
+    const counterObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            animateCounter(entry.target);
+            counterObserver.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.5 }
+    );
+    counters.forEach((el) => counterObserver.observe(el));
+  }
+
+  function animateCounter(el) {
+    const target = parseInt(el.dataset.target, 10);
+    const prefix = el.dataset.prefix || "";
+    const suffix = el.dataset.suffix || "";
+    const duration = 1200;
+    const start = performance.now();
+    function update(now) {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      el.textContent = prefix + Math.round(target * eased).toLocaleString() + suffix;
+      if (progress < 1) requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+  }
+
+  /* ── Use-case Tabs ── */
   const tabs = document.querySelectorAll(".tab");
   const panels = document.querySelectorAll(".panel");
-
   tabs.forEach((tab) => {
     tab.addEventListener("click", () => {
       tabs.forEach((t) => t.classList.remove("active"));
@@ -17,7 +87,7 @@
     });
   });
 
-  // ── Rotate the fake live-order line in the hero mock ─────────────
+  /* ── Live ticker in hero mock ── */
   const liveCard = document.querySelector(".mock-card.live");
   if (liveCard) {
     const buyers = [
@@ -36,7 +106,7 @@
     }, 3200);
   }
 
-  // ── Lead capture (newsletter signup) ──────────────────────────────
+  /* ── Lead capture (newsletter) ── */
   const leadForm = document.getElementById("lead-form");
   if (leadForm) {
     leadForm.addEventListener("submit", async (e) => {
@@ -46,7 +116,7 @@
       const email = emailInput?.value?.trim();
       if (!email) return;
       msgEl.textContent = "Subscribing...";
-      msgEl.style.color = "var(--ink-soft)";
+      msgEl.style.color = "var(--text-dim)";
       try {
         const res = await fetch("/api/v1/leads", {
           method: "POST",
@@ -65,6 +135,32 @@
         msgEl.textContent = err.message;
         msgEl.style.color = "var(--red)";
       }
+    });
+  }
+
+  /* ── Pricing Toggle (Monthly / Annual) ── */
+  const pricingToggle = document.querySelector(".toggle-track");
+  if (pricingToggle) {
+    const monthlyLabel = document.querySelector(".pricing-toggle .monthly");
+    const annualLabel = document.querySelector(".pricing-toggle .annual");
+    const prices = document.querySelectorAll(".plan .price");
+    const monthlyPrices = ["$0", "$49", "$149"];
+    const annualPrices = ["$0", "$39", "$119"];
+    let isAnnual = false;
+
+    pricingToggle.addEventListener("click", () => {
+      isAnnual = !isAnnual;
+      pricingToggle.classList.toggle("active", isAnnual);
+      monthlyLabel?.classList.toggle("active", !isAnnual);
+      annualLabel?.classList.toggle("active", isAnnual);
+      const selected = isAnnual ? annualPrices : monthlyPrices;
+      prices.forEach((p, i) => {
+        if (selected[i]) {
+          const span = p.querySelector("span");
+          p.childNodes[0].textContent = selected[i];
+          if (span) p.appendChild(span);
+        }
+      });
     });
   }
 })();
