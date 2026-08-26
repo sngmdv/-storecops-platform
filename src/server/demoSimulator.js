@@ -228,7 +228,7 @@ function createDemoSimulator(platform) {
       const fluctuation = rand(-12, 12);
       signals.push({
         store_id,
-        source: pick(["google_trends", "reddit", "pinterest", "twitter"]),
+        source: pick(["google_trends", "reddit", "pinterest"]),
         keyword: t.keyword,
         score: Math.max(5, Math.min(100, t.base + fluctuation)),
       });
