@@ -1708,7 +1708,6 @@
         <div class="card"><h3>Connection</h3>
           <p class="muted" style="margin-bottom:8px">Store: <b style="color:var(--text)">${esc(sess.storeId || "")}</b></p>
           <p class="muted" style="margin-bottom:8px">API key: <span class="mono">${esc((sess.apiKey || "").slice(0, 3))}•••••</span></p>
-          <p class="muted">API base: <span class="mono">/api/v1</span> · every request sends <span class="mono">X-API-Key</span>.</p>
         </div>
         <div class="card"><h3>GDPR — customer data</h3>
           <input id="gdpr-id" placeholder="customer id or email" style="width:100%;padding:11px;border-radius:10px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);margin-bottom:10px" />
