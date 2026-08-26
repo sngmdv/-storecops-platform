@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Storecops Admin</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/app.css">
+  <script src="/vendor/chart.umd.min.js"></script>
+  <style>
+    .admin-login { max-width: 420px; margin: 100px auto; }
+    .admin-login input { width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--card-border); background: var(--input-bg); color: var(--text); font-size: 15px; margin-bottom: 12px; }
+    .admin-grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .admin-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    @media (max-width: 768px) { .admin-grid2 { grid-template-columns: 1fr; } }
+    .a-card { background: var(--surface); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 22px; box-shadow: var(--clay-sm); margin-bottom: 16px; }
+    .a-card h3 { font-family: var(--font-head); font-size: 15px; color: var(--text-dim); margin-bottom: 8px; }
+    .a-kpi { font-size: 28px; font-weight: 800; color: var(--text); }
+    .a-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    .a-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .a-table th { text-align: left; padding: 10px 14px; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); border-bottom: 1px solid var(--card-border); }
+    .a-table td { padding: 10px 14px; border-bottom: 1px solid var(--card-border); }
+    .a-pill { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+    .a-pill-red { background: rgba(226,99,95,.12); color: var(--red); }
+    .a-pill-amber { background: rgba(217,154,43,.12); color: var(--amber); }
+    .a-pill-green { background: rgba(47,174,127,.12); color: var(--green); }
+    .a-pill-violet { background: rgba(139,124,246,.12); color: var(--violet); }
+    .a-pill-blue { background: rgba(106,169,240,.12); color: var(--sky); }
+    .a-alert { display: flex; align-items: flex-start; gap: 12px; padding: 14px; border-radius: 14px; margin-bottom: 10px; }
+    .a-alert-red { background: rgba(226,99,95,.08); border-left: 3px solid var(--red); }
+    .a-alert-amber { background: rgba(217,154,43,.08); border-left: 3px solid var(--amber); }
+    .a-alert-green { background: rgba(47,174,127,.08); border-left: 3px solid var(--green); }
+    .chart-wrap { position: relative; height: 220px; }
+    .chart-wrap canvas { max-height: 100%; }
+    .a-section { margin-bottom: 24px; }
+    .a-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .a-btn { padding: 6px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: var(--grad); color: #fff; }
+    .a-btn:hover { opacity: .9; }
+    .a-btn-sm { padding: 4px 12px; font-size: 12px; border-radius: 8px; cursor: pointer; border: 1px solid var(--card-border); background: var(--surface); color: var(--text); }
+    .a-btn-sm:hover { background: var(--surface-2); }
+    .a-empty { text-align: center; padding: 40px 20px; color: var(--muted); }
+    .a-scroll { max-height: 360px; overflow-y: auto; }
+    .a-tag { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: var(--code-bg); color: var(--text-dim); }
+  </style>
+</head>
+<body>
+
+  <!-- ── LOGIN GATE ──────────────────────────────────────────────── -->
+  <div id="admin-login" class="admin-login">
+    <div class="a-card" style="text-align:center">
+      <div style="font-family:var(--font-head);font-size:24px;margin-bottom:6px">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--violet)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px"><path d="M12 22s8-3.6 8-10V5.5L12 2 4 5.5V12c0 6.4 8 10 8 10z"/><path d="m9 11.5 2 2 4-4.5"/></svg>
+        Storecops Admin
+      </div>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:18px">Platform operator console — enter your master API key.</p>
+      <input id="admin-key" type="password" placeholder="Master API key" autocomplete="current-password">
+      <button class="a-btn" style="width:100%;padding:12px" onclick="adminLogin()">Enter Admin Console →</button>
+      <p id="admin-error" style="color:var(--red);font-size:13px;margin-top:10px"></p>
+    </div>
+  </div>
+
+  <!-- ── APP SHELL ───────────────────────────────────────────────── -->
+  <div id="admin-app" class="app hidden">
+    <aside class="sidebar">
+      <div class="side-logo"><span class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-3.6 8-10V5.5L12 2 4 5.5V12c0 6.4 8 10 8 10z"/><path d="m9 11.5 2 2 4-4.5"/></svg></span> storecops <span class="a-tag" style="vertical-align:middle">admin</span></div>
+      <nav class="side-nav">
+        <a href="#/" data-route="overview"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span> Overview</a>
+        <a href="#/stores" data-route="stores"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span> Store Health</a>
+        <a href="#/leads" data-route="leads"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> Leads Pipeline</a>
+        <a href="#/renewals" data-route="renewals"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span> Renewals & ROI</a>
+        <a href="#/conversion" data-route="conversion"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></span> Conversion Intel</a>
+        <a href="#/brief" data-route="brief"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span> CEO Brief</a>
+        <a href="#/forecast" data-route="forecast"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span> Revenue Forecast</a>
+        <a href="#/campaigns" data-route="campaigns"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span> Campaigns</a>
+        <a href="#/features" data-route="features"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span> Feature Adoption</a>
+        <a href="#/billing" data-route="billing"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span> Billing & Payments</a>
+      </nav>
+      <div class="side-foot">
+        <span style="font-size:12px;color:var(--muted)">Platform Operator</span>
+        <button class="btn btn-ghost-sm" onclick="adminLogout()">Log out</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <h1 id="admin-title">Overview</h1>
+        </div>
+        <div class="topbar-right"></div>
+      </header>
+      <div id="admin-view" class="view"><!-- views render here --></div>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+  /* ── Admin SPA ─────────────────────────────────────────────────── */
+  (function () {
+    const API = "/api/v1";
+    const $ = (s) => document.querySelector(s);
+    const view = $("#admin-view");
+    let charts = [];
+    let API_KEY = localStorage.getItem("storecops_admin_key") || "";
+
+    function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" })[c]); }
+    function money(n) { return n == null ? "—" : "$" + Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 }); }
+    function toast(msg) { const t = $("#toast"); t.innerHTML = msg; t.classList.add("show"); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("show"), 4000); }
+    function destroyCharts() { charts.forEach(c => c.destroy()); charts = []; }
+    function makeChart(el, opts) { if (!el) return null; const c = new Chart(el, opts); charts.push(c); return c; }
+    const GRAD = ["#8b7cf6", "#6aa9f0", "#7dd8b0", "#d99a2b", "#e2635f", "#ff9f74"];
+
+    async function api(path) {
+      const res = await fetch(API + path, { headers: { "X-API-Key": API_KEY } });
+      if (res.status === 401) { adminLogout(); throw new Error("Session expired"); }
+      return res.json();
+    }
+
+    /* ── Auth ─────────────────────────────────────────────────── */
+    window.adminLogin = async function () {
+      API_KEY = $("#admin-key").value.trim();
+      if (!API_KEY) { $("#admin-error").textContent = "Enter your API key"; return; }
+      try {
+        const res = await fetch(API + "/admin/stores", { headers: { "X-API-Key": API_KEY } });
+        if (!res.ok) throw new Error("Invalid key");
+        localStorage.setItem("storecops_admin_key", API_KEY);
+        showApp();
+      } catch (e) { $("#admin-error").textContent = "Invalid API key. Use the master key from .env"; }
+    };
+    window.adminLogout = function () {
+      localStorage.removeItem("storecops_admin_key");
+      API_KEY = "";
+      $("#admin-app").classList.add("hidden");
+      $("#admin-login").classList.remove("hidden");
+    };
+    function showApp() {
+      $("#admin-login").classList.add("hidden");
+      $("#admin-app").classList.remove("hidden");
+      route();
+    }
+
+    /* ── Router ───────────────────────────────────────────────── */
+    const ROUTES = {
+      "": { title: "Overview", render: renderOverview },
+      "stores": { title: "Store Health", render: renderStores },
+      "leads": { title: "Leads Pipeline", render: renderLeads },
+      "renewals": { title: "Renewals & ROI", render: renderRenewals },
+      "conversion": { title: "Conversion Intelligence", render: renderConversion },
+      "brief": { title: "CEO Daily Brief", render: renderBrief },
+      "forecast": { title: "Revenue Forecast", render: renderForecast },
+      "campaigns": { title: "Campaigns", render: renderCampaigns },
+      "features": { title: "Feature Adoption", render: renderFeatures },
+      "billing": { title: "Billing & Payments", render: renderBilling },
+    };
+    function route() {
+      const hash = (location.hash || "#/").replace("#/", "") || "";
+      const target = ROUTES[hash] || ROUTES[""];
+      $("#admin-title").textContent = target.title;
+      document.querySelectorAll(".side-nav a").forEach(a => a.classList.toggle("active", a.dataset.route === (hash || "")));
+      destroyCharts();
+      view.innerHTML = '<div class="a-empty"><span class="spinner"></span> Loading…</div>';
+      target.render().catch(e => { view.innerHTML = `<div class="a-card"><h3>Error</h3><p class="a-sub">${esc(e.message)}</p></div>`; });
+    }
+    window.addEventListener("hashchange", route);
+
+    /* ── Overview ─────────────────────────────────────────────── */
+    async function renderOverview() {
+      const [retention, pipeline, reminders] = await Promise.all([
+        api("/admin/retention/dashboard"),
+        api("/admin/leads/pipeline"),
+        api("/admin/revenue/reminders"),
+      ]);
+      const m = retention.metrics || {};
+      const risk = retention.risk_summary || {};
+      const stores = retention.stores || [];
+      const upgrades = retention.upgrade_candidates || [];
+      const criticalStores = stores.filter(s => s.health?.risk?.band === "CRITICAL" || s.health?.risk?.band === "HIGH");
+      const criticalReminders = (reminders.reminders || []).filter(r => r.urgency === "critical");
+
+      view.innerHTML = `
+        <div class="admin-grid4">
+          <div class="a-card"><h3>Monthly Recurring Revenue</h3><div class="a-kpi">${money(m.mrr)}</div><div class="a-sub">ARR: ${money(m.arr)} · ARPA: ${money(m.arpa)}</div></div>
+          <div class="a-card"><h3>Churn Rate</h3><div class="a-kpi" style="color:${(m.churn_rate||0)>10?'var(--red)':(m.churn_rate||0)>5?'var(--amber)':'var(--green)'}">${(m.churn_rate||0).toFixed(1)}%</div><div class="a-sub">NRR: ${(m.nrr||0).toFixed(1)}% · LTV: ${money(m.ltv)}</div></div>
+          <div class="a-card"><h3>Active Stores</h3><div class="a-kpi">${m.active_subscriptions||0}</div><div class="a-sub">${m.total_stores||0} total · ${m.past_due_subscriptions||0} past due</div></div>
+          <div class="a-card"><h3>Lead Pipeline</h3><div class="a-kpi">${pipeline.total_leads||0}</div><div class="a-sub">${pipeline.hot_leads||0} hot · ${(pipeline.conversion_rate||0).toFixed(1)}% converted</div></div>
+        </div>
+        <div class="admin-grid2">
+          <div class="a-card"><h3>Risk Distribution</h3><div class="chart-wrap"><canvas id="ov-risk"></canvas></div></div>
+          <div class="a-card"><h3>Revenue Metrics</h3><div class="chart-wrap"><canvas id="ov-revenue"></canvas></div></div>
+        </div>
+        <div class="a-card a-section">
+          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">⚠️ Needs Attention</h3><span class="a-pill a-pill-red">${criticalStores.length} at-risk stores</span></div>
+          <div class="a-scroll" id="ov-alerts"></div>
+        </div>
+        <div class="a-card a-section">
+          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">🚀 Upgrade Candidates</h3><span class="a-pill a-pill-green">${upgrades.length} ready</span></div>
+          <div class="a-scroll" id="ov-upgrades"></div>
+        </div>`;
+
+      makeChart($("#ov-risk"), { type: "doughnut", data: { labels: ["Critical","High","Medium","Low","Thriving"], datasets: [{ data: [risk.critical||0,risk.high||0,risk.medium||0,risk.low||0,risk.thriving||0], backgroundColor: ["#e2635f","#e2635f","#d99a2b","#2fae7f","#2fae7f"], borderWidth: 0 }] }, options: { plugins: { legend: { position: "bottom" } }, cutout: "62%" } });
+      makeChart($("#ov-revenue"), { type: "bar", data: { labels: ["MRR","ARR","LTV","ARPA"], datasets: [{ data: [m.mrr||0,m.arr||0,m.ltv||0,m.arpa||0], backgroundColor: GRAD.slice(0,4), borderRadius: 8 }] }, options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } } });
+
+      const alerts = $("#ov-alerts");
+      if (!criticalStores.length) { alerts.innerHTML = '<div class="a-empty">All stores healthy — no interventions needed.</div>'; }
+      else { alerts.innerHTML = criticalStores.map(s => `<div class="a-alert a-alert-${s.health.score<25?'red':'amber'}"><div style="flex:1"><b>${esc(s.store_name)}</b> <span class="a-pill a-pill-${s.health.score<25?'red':'amber'}">${s.health.score}/100</span><br><small class="a-sub">${esc(s.platform)} · ${esc(s.plan)} plan · ${esc(s.health?.reasons?.[0]?.reason?.replace(/_/g," ")||"unknown")}</small></div></div>`).join(""); }
+
+      const upg = $("#ov-upgrades");
+      if (!upgrades.length) { upg.innerHTML = '<div class="a-empty">No upgrade candidates yet.</div>'; }
+      else { upg.innerHTML = upgrades.map(u => `<div class="a-alert a-alert-green"><div style="flex:1"><b>${esc(u.store_name)}</b> — ${esc(u.reason)}<br><small class="a-sub">Utilization: ${u.utilization_pct}% · Recommended: <b>${esc(u.recommended_plan)}</b></small></div><span class="a-pill a-pill-green">${esc(u.recommended_plan)}</span></div>`).join(""); }
+    }
+
+    /* ── Store Health ─────────────────────────────────────────── */
+    async function renderStores() {
+      const data = await api("/admin/retention/dashboard");
+      const stores = (data.stores || []).sort((a, b) => a.health.score - b.health.score);
+
+      view.innerHTML = `
+        <div class="a-card a-section">
+          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">All Stores — Health Scores</h3><span class="a-pill a-pill-violet">${stores.length} stores</span></div>
+          <div style="overflow-x:auto"><table class="a-table">
+            <thead><tr><th>Store</th><th>Platform</th><th>Plan</th><th>Health</th><th>Risk</th><th>Top Issue</th><th>Actions</th></tr></thead>
+            <tbody id="store-tbody"></tbody>
+          </table></div>
+        </div>`;
+
+      const tbody = $("#store-tbody");
+      if (!stores.length) { tbody.innerHTML = '<tr><td colspan="7" class="a-empty">No stores connected yet.</td></tr>'; return; }
+      tbody.innerHTML = stores.map(s => {
+        const band = s.health?.risk?.band || "MEDIUM";
+        const issue = s.health?.reasons?.[0]?.reason?.replace(/_/g," ") || "none";
+        const pillCls = band==="CRITICAL"||band==="HIGH" ? "a-pill-red" : band==="MEDIUM" ? "a-pill-amber" : "a-pill-green";
+        return `<tr><td><b>${esc(s.store_name)}</b></td><td>${esc(s.platform)}</td><td><span class="a-pill a-pill-violet">${esc(s.plan)}</span></td><td><b>${s.health?.score||0}</b>/100</td><td><span class="a-pill ${pillCls}">${band}</span></td><td>${esc(issue)}</td><td><button class="a-btn-sm" onclick="showInterventions('${esc(s.store_id)}')">Intervene</button></td></tr>`;
+      }).join("");
+    }
+
+    window.showInterventions = async function (storeId) {
+      try {
+        const data = await api("/admin/retention/interventions/" + storeId);
+        const items = data.interventions || [];
+        if (!items.length) { toast("✅ Store is healthy — no interventions needed!"); return; }
+        toast(`🔔 ${items.length} intervention(s) ready for ${storeId}`);
+      } catch (e) { toast("⚠️ " + e.message); }
+    };
+
+    /* ── Leads Pipeline ───────────────────────────────────────── */
+    async function renderLeads() {
+      const [pipeline, leads] = await Promise.all([
+        api("/admin/leads/pipeline"),
+        api("/admin/leads?limit=50"),
+      ]);
+      const p = pipeline;
+      const allLeads = Array.isArray(leads) ? leads : [];
+      const bySt = p.by_status || {};
+      const byGr = p.by_grade || {};
+
+      view.innerHTML = `
+        <div class="admin-grid4">
+          <div class="a-card"><h3>Total Leads</h3><div class="a-kpi">${p.total_leads||0}</div><div class="a-sub">${p.hot_leads||0} hot · ${p.stale_leads||0} stale</div></div>
+          <div class="a-card"><h3>Conversion Rate</h3><div class="a-kpi">${(p.conversion_rate||0).toFixed(1)}%</div><div class="a-sub">${bySt.converted||0} converted of ${p.total_leads||0}</div></div>
+          <div class="a-card"><h3>By Grade</h3><div class="a-kpi" style="font-size:20px">A:${byGr.A||0} B:${byGr.B||0} C:${byGr.C||0}</div><div class="a-sub">D:${byGr.D||0} F:${byGr.F||0}</div></div>
+          <div class="a-card"><h3>By Status</h3><div class="a-kpi" style="font-size:20px">New:${bySt.new||0}</div><div class="a-sub">Contacted:${bySt.contacted||0} · Engaged:${bySt.engaged||0} · Lost:${bySt.lost||0}</div></div>
+        </div>
+        <div class="admin-grid2">
+          <div class="a-card"><h3>Lead Grades</h3><div class="chart-wrap"><canvas id="lead-grade"></canvas></div></div>
+          <div class="a-card"><h3>Pipeline Stages</h3><div class="chart-wrap"><canvas id="lead-stage"></canvas></div></div>
+        </div>
+        <div class="a-card a-section">
+          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">All Leads</h3></div>
+          <div style="overflow-x:auto"><table class="a-table">
+            <thead><tr><th>Store / Contact</th><th>Source</th><th>Score</th><th>Grade</th><th>Status</th><th>Audits</th><th>Last Activity</th><th>Action</th></tr></thead>
+            <tbody id="leads-tbody"></tbody>
+          </table></div>
+        </div>`;
+
+      makeChart($("#lead-grade"), { type: "doughnut", data: { labels: ["A (Hot)","B (Warm)","C (Lukewarm)","D (Cold)","F (Ice)"], datasets: [{ data: [byGr.A||0,byGr.B||0,byGr.C||0,byGr.D||0,byGr.F||0], backgroundColor: ["#2fae7f","#6aa9f0","#d99a2b","#e2635f","#8a90ad"], borderWidth: 0 }] }, options: { plugins: { legend: { position: "bottom" } }, cutout: "62%" } });
+      makeChart($("#lead-stage"), { type: "bar", data: { labels: ["New","Contacted","Engaged","Converted","Lost"], datasets: [{ data: [bySt.new||0,bySt.contacted||0,bySt.engaged||0,bySt.converted||0,bySt.lost||0], backgroundColor: GRAD.slice(0,5), borderRadius: 8 }] }, options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } } });
+
+      const tbody = $("#leads-tbody");
+      if (!allLeads.length) { tbody.innerHTML = '<tr><td colspan="8" class="a-empty">No leads yet. Leads auto-capture from deep audits at /api/v1/audit/deep.</td></tr>'; return; }
+      tbody.innerHTML = allLeads.map(l => {
+        const gCls = l.lead_grade==="A"?"a-pill-green":l.lead_grade==="B"?"a-pill-blue":l.lead_grade==="C"?"a-pill-amber":"a-pill-red";
+        const ago = l.last_engagement_at ? Math.round((Date.now()-new Date(l.last_engagement_at).getTime())/86400000) + "d ago" : "never";
+        return `<tr><td><b>${esc(l.store_name||l.store_url||"?")}</b><br><small class="a-sub">${esc(l.name||l.email||"—")}</small></td><td>${esc(l.source||"—")}</td><td><b>${l.lead_score||0}</b></td><td><span class="a-pill ${gCls}">${esc(l.lead_grade||"—")}</span></td><td><span class="a-pill a-pill-violet">${esc(l.status||"new")}</span></td><td>${l.audit_count||0}</td><td>${ago}</td><td><button class="a-btn-sm" onclick="updateLead('${esc(l._id)}','contacted')">Mark contacted</button></td></tr>`;
+      }).join("");
+    }
+
+    window.updateLead = async function (id, status) {
+      try {
+        await fetch(API + "/admin/leads/" + id, { method: "PATCH", headers: { "X-API-Key": API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ status, notes: "Marked " + status + " from admin console" }) });
+        toast("✅ Lead updated to " + status);
+        renderLeads();
+      } catch (e) { toast("⚠️ " + e.message); }
+    };
+
+    /* ── Renewals & ROI ───────────────────────────────────────── */
+    async function renderRenewals() {
+      const [reminders, retention] = await Promise.all([
+        api("/admin/revenue/reminders"),
+        api("/admin/retention/dashboard"),
+      ]);
+      const rems = reminders.reminders || [];
+      const m = retention.metrics || {};
+      const subs = retention.stores || [];
+
+      view.innerHTML = `
+        <div class="admin-grid4">
+          <div class="a-card"><h3>Active Subscriptions</h3><div class="a-kpi">${m.active_subscriptions||0}</div><div class="a-sub">${m.cancelled_subscriptions||0} cancelled · ${m.past_due_subscriptions||0} past due</div></div>
+          <div class="a-card"><h3>Smart Reminders</h3><div class="a-kpi">${reminders.total||0}</div><div class="a-sub">${reminders.by_urgency?.critical||0} critical · ${reminders.by_urgency?.high||0} high</div></div>
+          <div class="a-card"><h3>MRR</h3><div class="a-kpi">${money(m.mrr)}</div><div class="a-sub">Churn: ${(m.churn_rate||0).toFixed(1)}%</div></div>
+          <div class="a-card"><h3>LTV</h3><div class="a-kpi">${money(m.ltv)}</div><div class="a-sub">ARPA: ${money(m.arpa)}/mo</div></div>
+        </div>
+        <div class="a-card a-section">
+          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">🔔 Renewal Reminders — Irresistible Sequences</h3><span class="a-pill a-pill-violet">${rems.length} pending</span></div>
+          <div class="a-scroll" id="renewal-list"></div>
+        </div>
+        <div class="a-card a-section">
+          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">💰 ROI Reports — Per Store</h3></div>
+          <div style="overflow-x:auto"><table class="a-table">
+            <thead><tr><th>Store</th><th>Plan</th><th>Health</th><th>Subscription</th><th>Period End</th><th>Action</th></tr></thead>
+            <tbody id="roi-tbody"></tbody>
+          </table></div>
+        </div>`;
+
+      const list = $("#renewal-list");
+      if (!rems.length) { list.innerHTML = '<div class="a-empty">No renewal reminders pending — all renewals are healthy or no active subscriptions.</div>'; }
+      else {
+        list.innerHTML = rems.slice(0, 15).map(r => {
+          const cls = r.urgency==="critical"?"a-alert-red":r.urgency==="high"?"a-alert-amber":"a-alert-green";
+          return `<div class="a-alert ${cls}"><div style="flex:1"><b>${esc(r.store_name)}</b> — ${esc(r.id)} <span class="a-tag">${esc(r.psychological_trigger||r.trigger)}</span><br><small class="a-sub">${esc(r.personalized?.subject||"")}</small><br><small>${esc(r.personalized?.roi_summary||"")}</small></div><span class="a-pill a-pill-${r.urgency==='critical'?'red':r.urgency==='high'?'amber':'green'}">${r.urgency}</span></div>`;
+        }).join("");
+      }
+
+      const roiTbody = $("#roi-tbody");
+      const storesWithSubs = subs.filter(s => s.subscription);
+      if (!storesWithSubs.length) { roiTbody.innerHTML = '<tr><td colspan="6" class="a-empty">No active subscriptions.</td></tr>'; return; }
+      roiTbody.innerHTML = storesWithSubs.map(s => {
+        const periodEnd = s.subscription?.current_period_end ? new Date(s.subscription.current_period_end).toLocaleDateString() : "—";
+        return `<tr><td><b>${esc(s.store_name)}</b></td><td><span class="a-pill a-pill-violet">${esc(s.plan)}</span></td><td><b>${s.health?.score||0}</b>/100</td><td>${esc(s.subscription?.status||"—")}</td><td>${periodEnd}</td><td><button class="a-btn-sm" onclick="showROI('${esc(s.store_id)}')">View ROI</button></td></tr>`;
+      }).join("");
+    }
+
+    window.showROI = async function (storeId) {
+      try {
+        const roi = await api("/admin/revenue/roi/" + storeId);
+        toast(`💰 ${roi.headline || "No ROI data yet"}`);
+      } catch (e) { toast("⚠️ " + e.message); }
+    };
+
+    /* ── Conversion Intelligence ──────────────────────────────── */
+    async function renderConversion() {
+      const data = await api("/admin/revenue/conversion");
+      const f = data.funnel || {};
+      const expOpps = data.expansion_opportunities || [];
+
+      view.innerHTML = `
+        <div class="admin-grid4">
+          <div class="a-card"><h3>Total Audits</h3><div class="a-kpi">${f.total_audits||0}</div><div class="a-sub">Public deep scans</div></div>
+          <div class="a-card"><h3>Audit → Lead</h3><div class="a-kpi">${(f.audit_to_lead_pct||0).toFixed(1)}%</div><div class="a-sub">${f.total_leads||0} leads captured</div></div>
+          <div class="a-card"><h3>Lead → Signup</h3><div class="a-kpi">${(f.lead_to_signup_pct||0).toFixed(1)}%</div><div class="a-sub">${f.total_signups||0} signups</div></div>
+          <div class="a-card"><h3>Expansion Revenue</h3><div class="a-kpi" style="color:var(--green)">${money(data.expansion_revenue_potential)}</div><div class="a-sub">${expOpps.length} stores ready to upgrade</div></div>
+        </div>
+        <div class="admin-grid2">
+          <div class="a-card"><h3>Conversion Funnel</h3><div class="chart-wrap"><canvas id="conv-funnel"></canvas></div></div>
+          <div class="a-card"><h3>Revenue at Risk</h3><div class="a-kpi" style="color:${(data.revenue_at_risk||0)>100?'var(--red)':'var(--amber)'};margin-top:20px">${money(data.revenue_at_risk)}</div><div class="a-sub">Subscriptions renewing in next 14 days</div><div style="margin-top:30px"><h3>By Lead Source</h3><div id="conv-source" style="margin-top:8px"></div></div></div>
+        </div>
+        <div class="a-card a-section">
+          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">🚀 Expansion Opportunities</h3><span class="a-pill a-pill-green">${expOpps.length} candidates</span></div>
+          <div class="a-scroll" id="conv-expansion"></div>
+        </div>`;
+
+      makeChart($("#conv-funnel"), { type: "bar", data: { labels: ["Audits","Leads","Signups","Paid"], datasets: [{ data: [f.total_audits||0,f.total_leads||0,f.total_signups||0,f.total_paid||0], backgroundColor: GRAD.slice(0,4), borderRadius: 8 }] }, options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } } });
+
+      const srcDiv = $("#conv-source");
+      const sources = Object.entries(data.by_source || {});
+      if (!sources.length) { srcDiv.innerHTML = '<small class="a-sub">No source data yet.</small>'; }
+      else { srcDiv.innerHTML = sources.map(([src, d]) => `<div style="margin-bottom:4px"><b>${esc(src)}</b>: ${d.total} leads → ${d.converted} converted (${d.total>0?((d.converted/d.total)*100).toFixed(0):0}%)</div>`).join(""); }
+
+      const expDiv = $("#conv-expansion");
+      if (!expOpps.length) { expDiv.innerHTML = '<div class="a-empty">No expansion opportunities identified yet.</div>'; }
+      else { expDiv.innerHTML = expOpps.map(e => `<div class="a-alert a-alert-green"><div style="flex:1"><b>${esc(e.store_name)}</b> — ${e.utilization_pct}% plan utilization on <b>${esc(e.current_plan)}</b><br><small class="a-sub">Recommended: <b>${esc(e.recommended_plan)}</b> · Revenue uplift: +${money(e.revenue_uplift)}/mo</small></div><span class="a-pill a-pill-green">+${money(e.revenue_uplift)}/mo</span></div>`).join(""); }
+    }
+
+    /* ── CEO Daily Brief ────────────────────────────────────────── */
+    async function renderBrief() {
+      const brief = await api("/admin/ceo/brief");
+      const m = brief.metrics || {};
+      const priorities = brief.priorities || [];
+
+      view.innerHTML = `
+        <div style="background:var(--grad);border-radius:20px;padding:28px;color:#fff;margin-bottom:20px;box-shadow:var(--clay)">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+            <div>
+              <h2 style="font-family:var(--font-head);font-size:22px;margin:0">Good ${new Date().getHours()<12?'morning':new Date().getHours()<17?'afternoon':'evening'} — here's your brief.</h2>
+              <p style="opacity:.9;margin:6px 0 0;font-size:14px">${esc(brief.date)} · ${priorities.length} action items</p>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:32px;font-weight:800">${money(m.totalMRR)}</div>
+              <div style="opacity:.85;font-size:13px">MRR · ${money(m.totalARR)} ARR</div>
+            </div>
+          </div>
+        </div>
+        <div class="admin-grid4">
+          <div class="a-card"><h3>Revenue at Risk</h3><div class="a-kpi" style="color:${m.atRiskPct>15?'var(--red)':'var(--amber)'}">${money(m.atRiskRevenue)}</div><div class="a-sub">${m.atRiskPct}% of MRR</div></div>
+          <div class="a-card"><h3>Pipeline Value</h3><div class="a-kpi" style="color:var(--green)">${money(brief.pipelineValue)}</div><div class="a-sub">${m.totalLeads} total leads</div></div>
+          <div class="a-card"><h3>Hot Leads</h3><div class="a-kpi">${m.hotLeads}</div><div class="a-sub">${m.newLeadsToday} new today · ${m.newLeadsThisWeek} this week</div></div>
+          <div class="a-card"><h3>Conversion Rate</h3><div class="a-kpi">${m.conversionRate}%</div><div class="a-sub">Delivery rate: ${m.deliveryRate}%</div></div>
+        </div>
+        <div class="a-card a-section">
+          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">🎯 Today's Priorities</h3><span class="a-pill a-pill-violet">${priorities.length} actions</span></div>
+          <div id="brief-priorities"></div>
+        </div>`;
+
+      const pDiv = $("#brief-priorities");
+      if (!priorities.length) { pDiv.innerHTML = '<div class="a-empty">No urgent items — everything is running smoothly!</div>'; }
+      else {
+        pDiv.innerHTML = priorities.map(p => {
+          const cls = p.type==='urgent'?'a-alert-red':p.type==='revenue'?'a-alert-amber':'a-alert-green';
+          return `<div class="a-alert ${cls}"><div style="flex:1"><b>${p.icon} ${esc(p.title)}</b><br><small class="a-sub">${esc(p.detail||'')}</small>${p.action?`<br><small style="color:var(--violet);font-weight:600">→ ${esc(p.action)}</small>`:''}</div>${p.revenueAtRisk?`<span class="a-pill a-pill-red">${money(p.revenueAtRisk)} at risk</span>`:p.potentialRevenue?`<span class="a-pill a-pill-green">+${money(p.potentialRevenue)} potential</span>`:''}</div>`;
+        }).join("");
+      }
+    }
+
+    /* ── Revenue Forecast ───────────────────────────────────────── */
+    async function renderForecast() {
+      const fc = await api("/admin/ceo/forecast");
+      const proj = fc.projections || [];
+      const breakdown = fc.breakdown || {};
+
+      view.innerHTML = `
+        <div class="admin-grid4">
+          <div class="a-card"><h3>Current MRR</h3><div class="a-kpi">${money(fc.currentMRR)}</div><div class="a-sub">${money(fc.currentARR)} ARR</div></div>
+          <div class="a-card"><h3>Monthly Churn Loss</h3><div class="a-kpi" style="color:var(--red)">-${money(fc.monthlyChurnLoss)}</div><div class="a-sub">Weighted by risk band</div></div>
+          <div class="a-card"><h3>Pipeline Gain</h3><div class="a-kpi" style="color:var(--green)">+${money(fc.monthlyPipelineGain)}</div><div class="a-sub">Weighted by stage probability</div></div>
+          <div class="a-card"><h3>Net Monthly Change</h3><div class="a-kpi" style="color:${fc.netMonthlyChange>=0?'var(--green)':'var(--red)'}">${fc.netMonthlyChange>=0?'+':''}${money(fc.netMonthlyChange)}</div><div class="a-sub">+${money(fc.monthlyExpansionGain)} expansion</div></div>
+        </div>
+        <div class="admin-grid2">
+          <div class="a-card"><h3>MRR Projections</h3><div class="chart-wrap"><canvas id="fc-proj"></canvas></div></div>
+          <div class="a-card"><h3>Revenue Breakdown</h3><div class="chart-wrap"><canvas id="fc-breakdown"></canvas></div></div>
+        </div>
+        <div class="a-card a-section">
+          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">📊 Forecast Details</h3></div>
+          <div id="fc-details"></div>
+        </div>`;
+
+      makeChart($("#fc-proj"), { type: "bar", data: { labels: proj.map(p => p.period), datasets: [{ label: "Projected MRR", data: proj.map(p => p.projectedMRR), backgroundColor: GRAD.slice(0,3), borderRadius: 8 }] }, options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } } });
+      makeChart($("#fc-breakdown"), { type: "doughnut", data: { labels: ["Churn Loss","Pipeline Gain","Expansion Gain","Current"], datasets: [{ data: [fc.monthlyChurnLoss, fc.monthlyPipelineGain, fc.monthlyExpansionGain, fc.currentMRR], backgroundColor: ["#e2635f","#2fae7f","#6aa9f0","#8b7cf6"], borderWidth: 0 }] }, options: { plugins: { legend: { position: "bottom" } }, cutout: "62%" } });
+
+      const details = $("#fc-details");
+      const churnBands = breakdown.churnByBand || {};
+      const pipelineStages = breakdown.pipelineByStage || {};
+      details.innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          <div>
+            <h4 style="font-size:14px;margin-bottom:8px">Churn Risk by Band</h4>
+            ${Object.entries(churnBands).map(([band, d]) => `<div style="margin-bottom:6px"><span class="a-pill a-pill-${band==='critical'||band==='high'?'red':band==='medium'?'amber':'green'}">${band}</span> ${d.stores} stores · <b>${money(d.mrrAtRisk)}</b> at risk</div>`).join("")}
+          </div>
+          <div>
+            <h4 style="font-size:14px;margin-bottom:8px">Pipeline by Stage</h4>
+            ${Object.entries(pipelineStages).map(([stage, d]) => `<div style="margin-bottom:6px"><b style="text-transform:capitalize">${stage}</b>: ${d.leads} leads → <b>${d.expectedConversions}</b> expected · <b>${money(d.value)}</b></div>`).join("")}
+          </div>
+        </div>
+        <div style="margin-top:16px;padding:14px;background:var(--surface-2);border-radius:12px">
+          <small class="a-sub">Confidence decreases over time: 30d=${proj[0]?.confidence||0}% · 60d=${proj[1]?.confidence||0}% · 90d=${proj[2]?.confidence||0}%</small>
+        </div>`;
+    }
+
+    /* ── Campaigns ──────────────────────────────────────────────── */
+    async function renderCampaigns() {
+      const suggestions = await api("/admin/ceo/campaign-suggestions");
+
+      view.innerHTML = `
+        <div class="a-card a-section">
+          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">🚀 Suggested Campaigns — High-Impact Outreach</h3><span class="a-pill a-pill-violet">${suggestions.length} recommendations</span></div>
+          <p class="a-sub" style="margin-bottom:16px">Based on current platform data, these campaigns will drive the most revenue. Click to create.</p>
+          <div id="camp-suggestions"></div>
+        </div>
+        <div class="a-card a-section">
+          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">➕ Create Custom Campaign</h3></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            <div><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Campaign Name</label><input id="camp-name" type="text" placeholder="e.g. Q4 Win-back" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:14px"></div>
+            <div><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Type</label><select id="camp-type" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:14px"><option value="win_back">Win-back</option><option value="upsell">Upsell</option><option value="onboarding">Onboarding</option><option value="seasonal">Seasonal</option><option value="referral">Referral</option><option value="trial_expiry">Trial Expiry</option></select></div>
+            <div><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Channel</label><select id="camp-channel" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:14px"><option value="email">Email</option><option value="whatsapp">WhatsApp</option><option value="push">Push</option><option value="multi">Multi-channel</option></select></div>
+            <div><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">&nbsp;</label><button class="a-btn" onclick="createCampaign()" style="width:100%;padding:10px">Create Campaign →</button></div>
+          </div>
+        </div>`;
+
+      const sDiv = $("#camp-suggestions");
+      if (!suggestions.length) { sDiv.innerHTML = '<div class="a-empty">No campaign suggestions yet — need more data.</div>'; }
+      else {
+        sDiv.innerHTML = suggestions.map(s => {
+          const cls = s.priority==='critical'?'a-alert-red':s.priority==='high'?'a-alert-amber':'a-alert-green';
+          return `<div class="a-alert ${cls}" style="cursor:pointer" onclick="quickCreateCamp('${esc(s.type)}','${esc(s.title)}','${esc(s.channel)}')"><div style="flex:1"><b>${esc(s.title)}</b><br><small class="a-sub">${esc(s.description)}</small><br><small style="color:var(--violet);font-weight:600">${esc(s.estimatedImpact)} · ${s.targetCount} targets · ${esc(s.channel)}</small></div><span class="a-pill a-pill-${s.priority==='critical'?'red':s.priority==='high'?'amber':'green'}">${s.priority}</span></div>`;
+        }).join("");
+      }
+    }
+
+    window.quickCreateCamp = async function (type, name, channel) {
+      try {
+        const res = await fetch(API + "/admin/ceo/campaigns", { method: "POST", headers: { "X-API-Key": API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ type, name, channel }) });
+        const data = await res.json();
+        if (data.campaign) toast("✅ Campaign created: " + data.campaign.name);
+        else toast("⚠️ " + (data.error || "Failed"));
+      } catch (e) { toast("⚠️ " + e.message); }
+    };
+
+    window.createCampaign = async function () {
+      const name = $("#camp-name")?.value?.trim();
+      const type = $("#camp-type")?.value;
+      const channel = $("#camp-channel")?.value;
+      if (!name) { toast("⚠️ Enter a campaign name"); return; }
+      try {
+        const res = await fetch(API + "/admin/ceo/campaigns", { method: "POST", headers: { "X-API-Key": API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ name, type, channel }) });
+        const data = await res.json();
+        if (data.campaign) toast("✅ Campaign created: " + data.campaign.name);
+        else toast("⚠️ " + (data.error || "Failed"));
+      } catch (e) { toast("⚠️ " + e.message); }
+    };
+
+    /* ── Feature Adoption ───────────────────────────────────────── */
+    async function renderFeatures() {
+      const data = await api("/admin/ceo/feature-adoption");
+      const adoption = data.adoption || {};
+      const topFeatures = data.topFeatures || [];
+      const underused = data.underusedFeatures || [];
+
+      view.innerHTML = `
+        <div class="admin-grid4">
+          <div class="a-card"><h3>Total Stores</h3><div class="a-kpi">${data.totalStores||0}</div></div>
+          <div class="a-card"><h3>Features Tracked</h3><div class="a-kpi">${Object.keys(adoption).length}</div></div>
+          <div class="a-card"><h3>Top Feature</h3><div class="a-kpi" style="font-size:18px">${topFeatures[0]?.name?.replace(/_/g," ")||"—"}</div><div class="a-sub">${topFeatures[0]?.activeUsers||0} users (${topFeatures[0]?.adoptionRate||0}%)</div></div>
+          <div class="a-card"><h3>Underused</h3><div class="a-kpi" style="font-size:18px">${underused.length} features</div><div class="a-sub">Low adoption but high retention lift</div></div>
+        </div>
+        <div class="admin-grid2">
+          <div class="a-card"><h3>Feature Adoption Rates</h3><div class="chart-wrap"><canvas id="feat-adoption"></canvas></div></div>
+          <div class="a-card"><h3>Top 5 Features</h3><div id="feat-top" style="margin-top:12px"></div></div>
+        </div>
+        <div class="a-card a-section">
+          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">⚡ Underused Features — High Retention Impact</h3></div>
+          <p class="a-sub" style="margin-bottom:12px">These features correlate with better retention but have low adoption. Consider promoting them more.</p>
+          <div id="feat-underused"></div>
+        </div>`;
+
+      const featureNames = Object.keys(adoption).map(n => n.replace(/_/g, " "));
+      const adoptionRates = Object.values(adoption).map(a => a.adoptionRate);
+      makeChart($("#feat-adoption"), { type: "bar", data: { labels: featureNames, datasets: [{ label: "Adoption %", data: adoptionRates, backgroundColor: GRAD.slice(0, featureNames.length), borderRadius: 8 }] }, options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, max: 100 } } } });
+
+      const topDiv = $("#feat-top");
+      topDiv.innerHTML = topFeatures.map((f, i) => `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="font-size:18px;font-weight:800;color:var(--violet)">#${i+1}</span><div style="flex:1"><b>${esc(f.name.replace(/_/g," "))}</b><div style="background:#e2e8f0;height:6px;border-radius:3px;overflow:hidden;margin-top:4px"><div style="background:var(--grad);height:100%;width:${f.adoptionRate}%;border-radius:3px"></div></div></div><span style="font-weight:700;font-size:14px">${f.adoptionRate}%</span></div>`).join("");
+
+      const unDiv = $("#feat-underused");
+      if (!underused.length) { unDiv.innerHTML = '<div class="a-empty">No underused features with high retention correlation found.</div>'; }
+      else {
+        unDiv.innerHTML = underused.map(f => `<div class="a-alert a-alert-amber"><div style="flex:1"><b>${esc(f.name.replace(/_/g," "))}</b><br><small class="a-sub">Adoption: ${f.adoptionRate}% · Retention lift: <b style="color:var(--green)">${f.retentionCorrelation}%</b></small></div><span class="a-pill a-pill-amber">${f.adoptionRate}% adopted</span></div>`).join("");
+      }
+    }
+
+    /* ── Billing & Payments ───────────────────────────────────────── */
+    async function renderBilling() {
+      const [analytics, compliance, plans] = await Promise.all([
+        api("/admin/payment/analytics"),
+        api("/admin/payment/compliance"),
+        api("/payment/plans"),
+      ]);
+
+      view.innerHTML = `
+        <div class="admin-grid4">
+          <div class="a-card"><h3>Total MRR</h3><div class="a-kpi">${money(analytics.totalMRR)}</div><div class="a-sub">Revenue: ${money(analytics.totalRevenue)}</div></div>
+          <div class="a-card"><h3>Active Subscriptions</h3><div class="a-kpi">${analytics.activeSubscriptions||0}</div><div class="a-sub">${analytics.pausedSubscriptions||0} paused · ${analytics.cancelledSubscriptions||0} cancelled</div></div>
+          <div class="a-card"><h3>Payment Providers</h3><div class="a-kpi" style="font-size:18px">Stripe: ${analytics.byProvider?.stripe||0}</div><div class="a-sub">Razorpay: ${analytics.byProvider?.razorpay||0}</div></div>
+          <div class="a-card"><h3>Upcoming Renewals</h3><div class="a-kpi">${analytics.upcomingRenewals||0}</div><div class="a-sub">${money(analytics.upcomingRenewalValue)} in 30 days</div></div>
+        </div>
+        <div class="admin-grid2">
+          <div class="a-card"><h3>Revenue by Region</h3><div class="chart-wrap"><canvas id="bill-region"></canvas></div></div>
+          <div class="a-card"><h3>Plan Distribution</h3><div class="chart-wrap"><canvas id="bill-plans"></canvas></div></div>
+        </div>
+        <div class="admin-grid2">
+          <div class="a-card">
+            <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">💳 Plans & Pricing</h3></div>
+            <div id="bill-plans-list"></div>
+          </div>
+          <div class="a-card">
+            <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">🛡️ Compliance Status</h3></div>
+            <div id="bill-compliance"></div>
+          </div>
+        </div>
+        <div class="a-card a-section">
+          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">💰 Refunds</h3><span class="a-pill a-pill-amber">${money(analytics.refundAmount)} refunded</span></div>
+          <div class="a-sub">${analytics.refundCount||0} refunds issued · 14-day refund policy · GST credit applied automatically</div>
+        </div>`;
+
+      makeChart($("#bill-region"), { type: "doughnut", data: { labels: ["India (INR)", "Global (USD)"], datasets: [{ data: [analytics.indianRevenue||0, analytics.globalRevenue||0], backgroundColor: ["#8b7cf6", "#6aa9f0"], borderWidth: 0 }] }, options: { plugins: { legend: { position: "bottom" } }, cutout: "62%" } });
+      makeChart($("#bill-plans"), { type: "doughnut", data: { labels: ["Starter", "Growth", "Premium"], datasets: [{ data: [analytics.planBreakdown?.starter||0, analytics.planBreakdown?.growth||0, analytics.planBreakdown?.premium||0], backgroundColor: ["#7dd8b0", "#8b7cf6", "#6aa9f0"], borderWidth: 0 }] }, options: { plugins: { legend: { position: "bottom" } }, cutout: "62%" } });
+
+      // Plans list
+      const plansDiv = $("#bill-plans-list");
+      const planList = plans.plans || {};
+      plansDiv.innerHTML = Object.entries(planList).map(([key, p]) => {
+        const isINR = key.endsWith("_inr");
+        const name = key.replace("_inr", "").charAt(0).toUpperCase() + key.replace("_inr", "").slice(1);
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--card-border)"><div><b>${esc(name)}</b> <span class="a-tag">${isINR?"INR":"USD"}</span></div><div style="text-align:right"><b>${isINR?"₹":"$"}${p.monthly}</b>/mo <small class="a-sub">· ${isINR?"₹":"$"}${p.annual}/yr</small></div></div>`;
+      }).join("");
+
+      // Compliance status
+      const compDiv = $("#bill-compliance");
+      const c = compliance || {};
+      compDiv.innerHTML = `
+        <div style="margin-bottom:10px"><span class="a-pill a-pill-green">✓ PCI-DSS</span> <small class="a-sub">No raw card data stored · Tokenized only</small></div>
+        <div style="margin-bottom:10px"><span class="a-pill a-pill-green">✓ RBI E-Mandate</span> <small class="a-sub">24h advance notice · Max amount cap · Auto-debit controls</small></div>
+        <div style="margin-bottom:10px"><span class="a-pill a-pill-green">✓ GST Compliant</span> <small class="a-sub">CGST/SGST split · HSN codes · GSTIN: ${esc(c.gst?.gstin||"N/A")}</small></div>
+        <div style="margin-bottom:10px"><span class="a-pill a-pill-green">✓ GDPR</span> <small class="a-sub">Data protection · PII masking · Right to erasure</small></div>
+        <div style="margin-bottom:10px"><span class="a-pill a-pill-green">✓ Refund Policy</span> <small class="a-sub">14-day window · Auto GST credit · ${analytics.refundCount||0} refunds processed</small></div>
+        <div style="margin-top:12px;padding:10px;background:var(--surface-2);border-radius:10px"><small class="a-sub">GST Collected: <b>${money(c.gst?.totalGstCollected||0)}</b> · ${c.gst?.invoicesWithGst||0} invoices with GST</small></div>`;
+    }
+
+    /* ── Init ─────────────────────────────────────────────────── */
+    if (API_KEY) { showApp(); }
+    $("#admin-key").addEventListener("keydown", (e) => { if (e.key === "Enter") adminLogin(); });
+  })();
+  </script>
+</body>
+</html>

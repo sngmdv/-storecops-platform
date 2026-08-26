@@ -1,0 +1,25 @@
+{
+  "name": "storecops-growth-platform",
+  "version": "1.0.0",
+  "description": "AI-driven e-commerce growth platform: customer intelligence, competitive monitoring, market trends and automated revenue generation in one unified 6-layer system.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "keywords": [
+    "ecommerce",
+    "growth",
+    "recovery",
+    "intelligence",
+    "saas"
+  ],
+  "license": "UNLICENSED",
+  "dependencies": {
+    "express": "^4.21.2",
+    "pdfkit": "^0.19.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

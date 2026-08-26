@@ -1,0 +1,64 @@
+{
+  "name": "Storecops Tracker",
+  "handle": "storecops-tracker",
+  "description": "GDPR-compliant tracker disclosure and consent banner for your Shopify storefront.",
+  "type": "theme_extension",
+  "version": "1.0.0",
+  "extensions": [
+    {
+      "type": "block",
+      "handle": "tracker-disclosure",
+      "name": "Tracker Disclosure & Consent",
+      "description": "Displays a cookie consent banner and loads the Storecops tracking snippet after consent is granted.",
+      "target": "section",
+      "settings": [
+        {
+          "type": "select",
+          "id": "banner_position",
+          "label": "Banner position",
+          "options": [
+            { "value": "top", "label": "Top" },
+            { "value": "bottom", "label": "Bottom" }
+          ],
+          "default": "bottom"
+        },
+        {
+          "type": "text",
+          "id": "consent_message",
+          "label": "Consent message",
+          "default": "We use cookies and tracking technologies to improve your experience and analyze store performance."
+        },
+        {
+          "type": "url",
+          "id": "privacy_url",
+          "label": "Privacy policy URL",
+          "default": "/pages/privacy-policy"
+        },
+        {
+          "type": "color",
+          "id": "primary_color",
+          "label": "Primary color",
+          "default": "#667eea"
+        },
+        {
+          "type": "color",
+          "id": "bg_color",
+          "label": "Background color",
+          "default": "#1a1a2e"
+        },
+        {
+          "type": "color",
+          "id": "text_color",
+          "label": "Text color",
+          "default": "#ffffff"
+        },
+        {
+          "type": "checkbox",
+          "id": "auto_hide",
+          "label": "Hide banner by default",
+          "default": true
+        }
+      ]
+    }
+  ]
+}

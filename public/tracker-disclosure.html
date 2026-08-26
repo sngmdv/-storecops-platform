@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tracker Data Disclosure — Storecops</title>
+  <link rel="stylesheet" href="/styles/landing.css" />
+  <style>
+    .legal { max-width: 800px; margin: 80px auto; padding: 0 24px; font-family: 'Nunito', sans-serif; color: #1a1a2e; line-height: 1.7; }
+    .legal h1 { font-family: 'Baloo 2', cursive; font-size: 2rem; margin-bottom: 8px; }
+    .legal h2 { font-size: 1.25rem; margin-top: 32px; color: #2d2d44; }
+    .legal h3 { font-size: 1.05rem; margin-top: 20px; color: #2d2d44; }
+    .legal p, .legal li { font-size: 0.95rem; color: #444; }
+    .legal ul { padding-left: 20px; }
+    .legal .updated { color: #888; font-size: 0.85rem; margin-bottom: 32px; }
+    .legal a { color: #6366f1; }
+    .legal .back { display: inline-block; margin-bottom: 24px; font-size: 0.9rem; text-decoration: none; }
+    .legal table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 0.9rem; }
+    .legal th, .legal td { padding: 8px 12px; text-align: left; border: 1px solid #e2e8f0; }
+    .legal th { background: #f8f9fa; font-weight: 600; color: #2d2d44; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    .legal td code { background: #f1f5f9; padding: 1px 6px; border-radius: 3px; font-size: 0.85rem; }
+    .legal .note { background: #f0f4ff; border-left: 3px solid #6366f1; padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 16px 0; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="legal">
+    <a href="/" class="back">&larr; Back to Storecops</a>
+    <h1>Tracker Data Disclosure</h1>
+    <p class="updated">Last updated: August 15, 2026</p>
+
+    <p>This page discloses every piece of data collected by the Storecops storefront tracker script (<code>tracker.js</code>). This disclosure is provided for Shopify app review compliance, GDPR/CCPA transparency, and merchant awareness.</p>
+
+    <h2>1. How the Tracker is Installed</h2>
+    <p>The tracker is injected into merchant storefronts via the <strong>Shopify Script Tag API</strong> (or manually pasted before <code>&lt;/body&gt;</code>). It loads from the Storecops platform server and communicates exclusively with the platform's <code>/api/v1/track</code> endpoint using a write-only ingest key.</p>
+
+    <h2>2. Identifiers</h2>
+    <table>
+      <thead>
+        <tr><th>Identifier</th><th>Storage</th><th>Purpose</th><th>Lifetime</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>visitor_id</code></td><td>localStorage (<code>sc_vid</code>)</td><td>Links behavioral events across pages for the same visitor</td><td>Persistent until browser clear</td></tr>
+        <tr><td><code>session_id</code></td><td>sessionStorage (<code>sc_sid</code>)</td><td>Groups events within a single browsing session</td><td>Session only (cleared on tab close)</td></tr>
+      </tbody>
+    </table>
+    <div class="note">Neither identifier contains PII. Both are random UUIDs generated client-side. No cookies are used.</div>
+
+    <h2>3. Events Collected</h2>
+    <table>
+      <thead>
+        <tr><th>Event Type</th><th>Trigger</th><th>Consent Required</th><th>Data Sent</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>session_start</code></td>
+          <td>Page load (once per session)</td>
+          <td>Analytics</td>
+          <td>store_id, event_type, timestamp, visitor_id, session_id</td>
+        </tr>
+        <tr>
+          <td><code>product_view</code></td>
+          <td>Visiting a product page (auto-detected or via <code>Storecops.view()</code>)</td>
+          <td>Analytics</td>
+          <td>product_id, product_price, page_url</td>
+        </tr>
+        <tr>
+          <td><code>cart_updated</code></td>
+          <td>Adding/updating cart (AJAX interception or <code>Storecops.cart()</code>)</td>
+          <td>Marketing</td>
+          <td>product_id, quantity (if provided)</td>
+        </tr>
+        <tr>
+          <td><code>cart_abandoned</code></td>
+          <td>Mouse-leave exit intent or <code>Storecops.abandon()</code></td>
+          <td>Marketing</td>
+          <td>exit_intent flag, product_id (if provided)</td>
+        </tr>
+        <tr>
+          <td><code>purchase</code></td>
+          <td>Merchant calls <code>Storecops.purchase(order)</code></td>
+          <td>Marketing</td>
+          <td>Order data as provided by merchant (customer_id, total, items)</td>
+        </tr>
+        <tr>
+          <td><code>lead_captured</code></td>
+          <td>Email typed into a form field (detected on blur)</td>
+          <td>Marketing</td>
+          <td>email address</td>
+        </tr>
+        <tr>
+          <td><code>scroll_depth</code></td>
+          <td>Scrolling past 50%, 75%, 90% of page</td>
+          <td>Analytics</td>
+          <td>depth percentage</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>4. Common Fields in Every Event</h2>
+    <table>
+      <thead>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>store_id</code></td><td>string</td><td>The merchant's unique store identifier (from script tag URL parameter)</td></tr>
+        <tr><td><code>event_type</code></td><td>string</td><td>One of the event types listed above</td></tr>
+        <tr><td><code>timestamp</code></td><td>ISO 8601</td><td>UTC timestamp of the event</td></tr>
+        <tr><td><code>visitor_id</code></td><td>UUID string</td><td>Random visitor identifier (see Section 2)</td></tr>
+        <tr><td><code>session_id</code></td><td>UUID string</td><td>Random session identifier (see Section 2)</td></tr>
+      </tbody>
+    </table>
+
+    <h2>5. Data NOT Collected</h2>
+    <ul>
+      <li><strong>No IP address</strong> — the tracker does not read or send the visitor's IP.</li>
+      <li><strong>No user-agent string</strong> — browser/OS info is not collected.</li>
+      <li><strong>No cookies</strong> — only localStorage and sessionStorage are used.</li>
+      <li><strong>No full page HTML/DOM</strong> — only specific meta tag values are read.</li>
+      <li><strong>No cross-site tracking</strong> — identifiers are scoped to the merchant's domain.</li>
+      <li><strong>No fingerprinting</strong> — no canvas, WebGL, font, or screen resolution data.</li>
+    </ul>
+
+    <h2>6. Consent Gating</h2>
+    <p>The tracker enforces a two-tier consent model:</p>
+    <ul>
+      <li><strong>Analytics events</strong> (session_start, product_view, scroll_depth): Sent only when analytics consent is granted. On Shopify stores, this reads from the <strong>Shopify Customer Privacy API</strong> (<code>window.Shopify.customerPrivacy.analyticsProcessingAllowed</code>). Default (no consent banner): <strong>allowed</strong>.</li>
+      <li><strong>Marketing events</strong> (cart_updated, cart_abandoned, purchase, lead_captured): Sent only when marketing consent is granted. Reads from <code>window.Shopify.customerPrivacy.marketingAllowed</code>. Default (no consent banner): <strong>blocked</strong>.</li>
+    </ul>
+    <div class="note">Before any consent signal exists, only anonymous analytics events are sent. Marketing events (including cart activity and email capture) are blocked until explicit opt-in. Merchants can override via <code>window.STORECOPS_CONSENT = "granted" | "denied"</code>.</div>
+
+    <h2>7. Consent Change Listeners</h2>
+    <p>The tracker listens for runtime consent changes via:</p>
+    <ul>
+      <li><code>tracking_consent</code> event (Shopify Customer Privacy API)</li>
+      <li><code>cmp:consentupdate</code> event (Google Consent Mode v2)</li>
+      <li><code>storecops:consent</code> event (merchant custom banner)</li>
+    </ul>
+    <p>When consent is newly granted, tracking begins. When consent is revoked, all transmission stops immediately.</p>
+
+    <h2>8. Data Transmission</h2>
+    <ul>
+      <li><strong>Endpoint:</strong> <code>POST /api/v1/track</code> on the Storecops platform server.</li>
+      <li><strong>Authentication:</strong> Write-only ingest key (passed as <code>?api_key=</code> query param or <code>X-API-Key</code> header). This key can <em>only</em> write events — it cannot read any data.</li>
+      <li><strong>Method:</strong> Uses <code>navigator.sendBeacon()</code> when available (survives page unload), falls back to <code>fetch()</code> with <code>keepalive: true</code>.</li>
+      <li><strong>Rate limiting:</strong> Maximum one transmission per 1.5 seconds to prevent excessive network usage.</li>
+    </ul>
+
+    <h2>9. Merchant API</h2>
+    <p>Merchants can programmatically trigger events via the global <code>window.Storecops</code> object:</p>
+    <table>
+      <thead>
+        <tr><th>Method</th><th>Event</th><th>Parameters</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>Storecops.view(productId)</code></td><td>product_view</td><td>Product identifier string</td></tr>
+        <tr><td><code>Storecops.cart(productId, qty)</code></td><td>cart_updated</td><td>Product ID, quantity (default 1)</td></tr>
+        <tr><td><code>Storecops.abandon(productId)</code></td><td>cart_abandoned</td><td>Product identifier string</td></tr>
+        <tr><td><code>Storecops.purchase(order)</code></td><td>purchase</td><td>Order object (merchant-defined)</td></tr>
+        <tr><td><code>Storecops.debug()</code></td><td>—</td><td>Returns current consent state and identifiers (no transmission)</td></tr>
+      </tbody>
+    </table>
+
+    <h2>10. Contact</h2>
+    <p>Questions about this tracker? <a href="mailto:privacy@storecops.com">privacy@storecops.com</a></p>
+    <p>See also: <a href="/privacy">Privacy Policy</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/support">Support</a></p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Free Store Audit — Storecops</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/styles/landing.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet" />
+  <style>
+    .audit-wrap { max-width: 980px; margin: 0 auto; padding: 56px 24px 90px; }
+    .audit-hero { text-align: center; margin-bottom: 34px; }
+    .audit-hero h1 { font-size: 44px; font-weight: 800; letter-spacing: -1px; margin: 12px 0 10px; }
+    .audit-hero p { color: var(--ink-soft); font-size: 18px; max-width: 620px; margin: 0 auto; }
+    .audit-form { display: flex; gap: 10px; max-width: 640px; margin: 30px auto 8px; }
+    .audit-form input {
+      flex: 1; padding: 15px 20px; border-radius: 16px; border: 1px solid var(--card-border);
+      font-size: 16px; outline: none; background: var(--surface); color: var(--ink);
+      font-family: var(--font-body); box-shadow: var(--clay-inset);
+    }
+    .audit-form input:focus { border-color: var(--violet); }
+    .audit-hint { text-align: center; color: var(--ink-soft); font-size: 13.5px; font-weight: 600; margin-top: 10px; }
+    .audit-error { color: var(--red); text-align: center; margin-top: 14px; font-weight: 700; min-height: 20px; }
+    .audit-progress { text-align: center; margin-top: 26px; color: var(--ink-soft); font-size: 15px; font-weight: 600; display: none; }
+    .audit-progress .spin { display: inline-block; width: 16px; height: 16px; border: 2.5px solid rgba(138,144,173,.3); border-top-color: var(--violet); border-radius: 50%; animation: rot .8s linear infinite; vertical-align: -3px; margin-right: 8px; }
+    @keyframes rot { to { transform: rotate(360deg); } }
+
+    .report-card { background: var(--surface); border: 1px solid rgba(255,255,255,.7); border-radius: 26px; padding: 30px; box-shadow: var(--clay); margin-top: 36px; display: none; }
+    .report-head { display: flex; align-items: center; gap: 26px; flex-wrap: wrap; border-bottom: 1px solid var(--card-border); padding-bottom: 22px; margin-bottom: 22px; }
+    .score-ring { width: 108px; height: 108px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
+    .score-ring b { font-size: 34px; line-height: 1; }
+    .score-ring span { font-size: 12px; opacity: .9; margin-top: 3px; }
+    .report-meta h2 { font-size: 22px; word-break: break-all; margin-bottom: 4px; }
+    .report-meta .sub { color: var(--ink-soft); font-size: 14px; }
+    .report-actions { margin-left: auto; display: flex; gap: 10px; }
+
+    .actions-list { background: var(--surface-2); border: 1px solid var(--card-border); border-radius: 18px; padding: 18px 22px; margin-bottom: 24px; box-shadow: var(--clay-inset); }
+    .actions-list h3 { font-size: 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    .actions-list li { margin: 7px 0 7px 18px; color: var(--ink); font-size: 14.5px; font-weight: 600; }
+
+    .check { display: grid; grid-template-columns: 90px 1fr; gap: 4px 16px; padding: 16px 4px; border-bottom: 1px solid rgba(122,132,180,.10); }
+    .check:last-child { border-bottom: none; }
+    .pill-status { align-self: start; justify-self: start; padding: 5px 0; width: 82px; text-align: center; border-radius: 999px; font-size: 12px; font-weight: 800; letter-spacing: .4px; }
+    .pill-PASS { background: rgba(47,174,127,.14); color: var(--green); }
+    .pill-WARN { background: rgba(217,154,43,.15); color: var(--amber); }
+    .pill-FAIL { background: rgba(226,99,95,.14); color: var(--red); }
+    .check-body b { font-size: 15.5px; }
+    .check-body .value { font-size: 13.5px; color: var(--ink); font-weight: 600; margin-top: 2px; }
+    .check-body .detail { font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
+    .check-body .fix { font-size: 13.5px; margin-top: 6px; background: var(--surface-2); border-left: 3px solid var(--violet); padding: 8px 12px; border-radius: 8px; color: var(--ink); font-weight: 600; }
+
+    .cta-strip { text-align: center; margin-top: 40px; padding: 34px; border-radius: 26px; background: var(--grad); color: #fff; display: none; box-shadow: var(--clay); }
+    .cta-strip h3 { font-size: 24px; margin-bottom: 8px; }
+    .cta-strip p { opacity: .95; margin-bottom: 18px; font-weight: 600; }
+    .cta-strip .btn { background: #fff; color: var(--violet-deep); box-shadow: 5px 6px 16px rgba(58,63,92,.22); }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="logo" href="/"><span class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-3.6 8-10V5.5L12 2 4 5.5V12c0 6.4 8 10 8 10z"/><path d="m9 11.5 2 2 4-4.5"/></svg></span> storecops</a>
+      <div class="nav-cta">
+        <a class="btn btn-ghost" href="/">Home</a>
+        <a class="btn btn-primary" href="/app">Open app</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="audit-wrap">
+    <div class="audit-hero">
+      <h1>Run a <span class="grad">free audit</span> of your store</h1>
+      <p>No signup. No connection. We measure <b>30+ parameters</b> across SEO, performance, security, crawlability, and AI search readiness — and hand you a downloadable report with fixes.</p>
+      <div class="audit-form">
+        <input id="audit-url" type="text" placeholder="https://your-store.com" autocomplete="url" />
+        <button id="audit-btn" class="btn btn-primary btn-lg">Audit my store</button>
+      </div>
+      <div style="max-width:640px;margin:8px auto 0;display:flex;gap:10px;">
+        <input id="audit-email" type="email" placeholder="Email for full report (optional)" style="flex:1;padding:12px 16px;border-radius:14px;border:1px solid var(--card-border);font-size:14px;outline:none;background:var(--surface);color:var(--ink);font-family:var(--font-body);box-shadow:var(--clay-inset);" />
+      </div>
+      <div class="audit-hint">Takes ~15 seconds · deep-crawls your store for SEO, speed, TLS, security headers, compression, structured data, AI readiness &amp; more</div>
+      <div class="audit-error" id="audit-error"></div>
+      <div class="audit-progress" id="audit-progress"><span class="spin"></span> Deep-crawling your store and running 30+ checks…</div>
+    </div>
+
+    <div class="report-card" id="report-card">
+      <div class="report-head">
+        <div class="score-ring" id="score-ring"><b id="score-num">0</b><span>GRADE <em id="score-grade">-</em></span></div>
+        <div class="report-meta">
+          <h2 id="report-url"></h2>
+          <div class="sub" id="report-sub"></div>
+        </div>
+        <div class="report-actions">
+          <button class="btn btn-primary" id="download-btn"><svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download report</button>
+          <button class="btn btn-ghost" id="email-btn" style="display:none;"><svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Email PDF</button>
+        </div>
+      </div>
+      <div class="actions-list" id="category-scores">
+        <h3><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--violet)"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Health Score Breakdown</h3>
+      </div>
+      <div class="actions-list">
+        <h3><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--amber)"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg> Top issues to fix first</h3>
+        <ol id="top-actions"></ol>
+      </div>
+      <div id="checks-list"></div>
+      <div id="gated-message" style="display:none;"></div>
+      <div id="full-actions" style="display:none; text-align:center; margin-top:20px; gap:12px;">
+        <button class="btn btn-primary" onclick="document.getElementById('download-btn').click()">Download Full PDF Report</button>
+        <button class="btn btn-ghost" id="email-report-btn">Email Report to Me</button>
+      </div>
+    </div>
+
+    <div class="cta-strip" id="cta-strip">
+      <h3>This is one snapshot. Get the full cop on duty.</h3>
+      <p>Connect your store and Storecops watches inventory, customers, competitors and revenue 24/7 — then acts automatically.</p>
+      <a class="btn btn-lg" href="/app">Create free account →</a>
+    </div>
+  </div>
+
+  <script src="/js/audit.js"></script>
+</body>
+</html>

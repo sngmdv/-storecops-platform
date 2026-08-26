@@ -1,0 +1,234 @@
+{% comment %}
+  Storecops Tracker Disclosure & Consent Banner
+  Shopify Theme App Extension Block
+
+  Renders:
+  1. A cookie/tracker consent banner (GDPR/ePrivacy compliant)
+  2. A tracker disclosure notice (Shopify compliance requirement)
+  3. The Storecops tracking snippet (only after consent)
+
+  Merchant can customize:
+  - Banner position (top/bottom)
+  - Banner colors
+  - Consent message text
+  - Privacy policy URL
+{% endcomment %}
+
+{% assign banner_position = block.settings.banner_position | default: 'bottom' %}
+{% assign primary_color = block.settings.primary_color | default: '#667eea' %}
+{% assign bg_color = block.settings.bg_color | default: '#1a1a2e' %}
+{% assign text_color = block.settings.text_color | default: '#ffffff' %}
+{% assign consent_message = block.settings.consent_message | default: 'We use cookies and tracking technologies to improve your experience and analyze store performance.' %}
+{% assign privacy_url = block.settings.privacy_url | default: '/pages/privacy-policy' %}
+{% assign store_name = shop.name | default: 'Our store' %}
+
+<style>
+  .storecops-consent-banner {
+    position: fixed;
+    {{ banner_position }}: 0;
+    left: 0;
+    right: 0;
+    z-index: 999999;
+    background: {{ bg_color }};
+    color: {{ text_color }};
+    padding: 16px 24px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    transform: translateY(0);
+    transition: transform 0.3s ease, opacity 0.3s ease;
+  }
+  .storecops-consent-banner.hidden {
+    transform: translateY(100%);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .storecops-consent-banner p {
+    margin: 0;
+    flex: 1;
+  }
+  .storecops-consent-banner a {
+    color: {{ primary_color }};
+    text-decoration: underline;
+  }
+  .storecops-consent-banner .btn-group {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .storecops-consent-banner button {
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: opacity 0.2s;
+  }
+  .storecops-consent-banner button:hover {
+    opacity: 0.9;
+  }
+  .storecops-consent-banner .btn-accept {
+    background: {{ primary_color }};
+    color: white;
+  }
+  .storecops-consent-banner .btn-decline {
+    background: transparent;
+    color: {{ text_color }};
+    border: 1px solid rgba(255,255,255,0.3);
+  }
+  .storecops-tracker-disclosure {
+    display: none;
+  }
+  @media (max-width: 640px) {
+    .storecops-consent-banner {
+      flex-direction: column;
+      text-align: center;
+      padding: 14px 16px;
+    }
+    .storecops-consent-banner .btn-group {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>
+
+<div id="storecops-consent-banner" class="storecops-consent-banner {% if block.settings.auto_hide %}hidden{% endif %}" role="dialog" aria-label="Cookie consent">
+  <p>
+    {{ consent_message }}
+    <a href="{{ privacy_url }}" target="_blank" rel="noopener">Learn more</a>
+  </p>
+  <div class="btn-group">
+    <button class="btn-decline" id="storecops-decline" type="button">Decline</button>
+    <button class="btn-accept" id="storecops-accept" type="button">Accept All</button>
+  </div>
+</div>
+
+<!-- Tracker disclosure (Shopify compliance — visible in page source) -->
+<div class="storecops-tracker-disclosure" aria-hidden="true">
+  <p>This store uses Storecops analytics to track visitor behavior, page views, and purchase events. Data is collected in compliance with GDPR and Shopify's privacy requirements. Visit {{ privacy_url }} for details.</p>
+</div>
+
+<script>
+  (function() {
+    'use strict';
+
+    var CONSENT_KEY = 'storecops_consent';
+    var banner = document.getElementById('storecops-consent-banner');
+    var acceptBtn = document.getElementById('storecops-accept');
+    var declineBtn = document.getElementById('storecops-decline');
+
+    if (!banner) return;
+
+    // Check existing consent.
+    var existing = null;
+    try { existing = localStorage.getItem(CONSENT_KEY); } catch(e) {}
+
+    if (existing === 'accepted' || existing === 'declined') {
+      banner.classList.add('hidden');
+      if (existing === 'accepted') loadTracker();
+      return;
+    }
+
+    // Show banner if no consent recorded.
+    banner.classList.remove('hidden');
+
+    acceptBtn.addEventListener('click', function() {
+      try { localStorage.setItem(CONSENT_KEY, 'accepted'); } catch(e) {}
+      banner.classList.add('hidden');
+      loadTracker();
+      // Notify Storecops platform of consent.
+      recordConsent('accepted');
+    });
+
+    declineBtn.addEventListener('click', function() {
+      try { localStorage.setItem(CONSENT_KEY, 'declined'); } catch(e) {}
+      banner.classList.add('hidden');
+      recordConsent('declined');
+    });
+
+    function loadTracker() {
+      // Load the Storecops tracking snippet.
+      var script = document.createElement('script');
+      script.src = '{{ shop.url }}/apps/storecops/tracker.js';
+      script.async = true;
+      script.setAttribute('data-store', '{{ shop.permanent_domain }}');
+      script.setAttribute('data-consent', 'granted');
+      document.head.appendChild(script);
+    }
+
+    function recordConsent(status) {
+      // Best-effort: notify the platform of the consent decision.
+      try {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '{{ routes.root_url }}apps/storecops/consent', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify({
+          shop: '{{ shop.permanent_domain }}',
+          consent: status,
+          timestamp: new Date().toISOString()
+        }));
+      } catch(e) {}
+    }
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Storecops Tracker",
+  "target": "section",
+  "settings": [
+    {
+      "type": "select",
+      "id": "banner_position",
+      "label": "Banner position",
+      "options": [
+        { "value": "top", "label": "Top" },
+        { "value": "bottom", "label": "Bottom" }
+      ],
+      "default": "bottom"
+    },
+    {
+      "type": "text",
+      "id": "consent_message",
+      "label": "Consent message",
+      "default": "We use cookies and tracking technologies to improve your experience and analyze store performance."
+    },
+    {
+      "type": "url",
+      "id": "privacy_url",
+      "label": "Privacy policy URL",
+      "default": "/pages/privacy-policy"
+    },
+    {
+      "type": "color",
+      "id": "primary_color",
+      "label": "Primary color",
+      "default": "#667eea"
+    },
+    {
+      "type": "color",
+      "id": "bg_color",
+      "label": "Background color",
+      "default": "#1a1a2e"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "checkbox",
+      "id": "auto_hide",
+      "label": "Hide banner by default (show only if no consent)",
+      "default": true
+    }
+  ]
+}
+{% endschema %}

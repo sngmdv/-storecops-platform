@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Storecops</title>
+  <link rel="stylesheet" href="/styles/landing.css" />
+  <style>
+    .legal { max-width: 800px; margin: 80px auto; padding: 0 24px; font-family: 'Nunito', sans-serif; color: #1a1a2e; line-height: 1.7; }
+    .legal h1 { font-family: 'Baloo 2', cursive; font-size: 2rem; margin-bottom: 8px; }
+    .legal h2 { font-size: 1.25rem; margin-top: 32px; color: #2d2d44; }
+    .legal p, .legal li { font-size: 0.95rem; color: #444; }
+    .legal ul { padding-left: 20px; }
+    .legal .updated { color: #888; font-size: 0.85rem; margin-bottom: 32px; }
+    .legal a { color: #6366f1; }
+    .legal .back { display: inline-block; margin-bottom: 24px; font-size: 0.9rem; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="legal">
+    <a href="/" class="back">&larr; Back to Storecops</a>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: August 15, 2026</p>
+
+    <p>Storecops ("we", "our", "us") is committed to protecting the privacy of merchants and their customers. This policy explains what data we collect, why, how long we keep it, and your rights.</p>
+
+    <h2>1. Data We Collect</h2>
+    <ul>
+      <li><strong>Store data:</strong> Shopify installation ID, store domain, access tokens (encrypted at rest), product catalog, order history.</li>
+      <li><strong>Customer data:</strong> Shopper email addresses, phone numbers (only when provided via Shopify's customer API or tracking events), behavioral events (page views, cart activity, purchases).</li>
+      <li><strong>Analytics data:</strong> Aggregated sales metrics, stock levels, competitor price snapshots, SEO performance data.</li>
+      <li><strong>Operational data:</strong> Webhook delivery logs, error records, API usage, session tokens.</li>
+    </ul>
+
+    <h2>2. Purpose of Data Collection</h2>
+    <ul>
+      <li>Operate the Storecops growth platform (live monitoring, cart recovery, stock alerts, competitor radar, SEO tools).</li>
+      <li>Send recovery messages (email/WhatsApp) to shoppers who abandoned carts or checkouts — only when consent exists.</li>
+      <li>Generate intelligence reports (churn scoring, demand forecasting, pricing recommendations).</li>
+      <li>Comply with Shopify's mandatory privacy webhooks (data requests, redaction).</li>
+    </ul>
+
+    <h2>3. Data Processors &amp; Subprocessors</h2>
+    <p>We use the following infrastructure providers to process merchant and customer data:</p>
+    <ul>
+      <li><strong>Shopify:</strong> Store data, customer data, order webhooks.</li>
+      <li><strong>Meta (WhatsApp Business API):</strong> Recovery and campaign message delivery.</li>
+      <li><strong>Resend / email provider:</strong> Transactional and marketing email delivery.</li>
+      <li><strong>SQLite / database:</strong> Persistent storage of all platform data.</li>
+      <li><strong>Redis (optional):</strong> Queue management and caching.</li>
+    </ul>
+
+    <h2>4. Data Retention</h2>
+    <ul>
+      <li><strong>Behavioral events:</strong> 365 days from collection.</li>
+      <li><strong>Message delivery records:</strong> 180 days.</li>
+      <li><strong>Consent records:</strong> Retained indefinitely (or until revocation + 2 years for audit).</li>
+      <li><strong>Session tokens:</strong> 30 days.</li>
+      <li><strong>Monitoring events:</strong> 90 days.</li>
+    </ul>
+
+    <h2>5. Data Deletion</h2>
+    <p>We honor Shopify's mandatory compliance webhooks:</p>
+    <ul>
+      <li><code>customers/data_request</code> — export all data for a specific customer.</li>
+      <li><code>customers/redact</code> — delete/redact customer-linked data.</li>
+      <li><code>shop/redact</code> — delete all store/merchant data.</li>
+    </ul>
+    <p>Upon app uninstall, all queued jobs are stopped, tracker credentials are revoked, and a full data deletion process is initiated.</p>
+
+    <h2>6. Data Security</h2>
+    <ul>
+      <li>All access tokens and secrets are encrypted at rest.</li>
+      <li>PII (email, phone) is masked in all logs.</li>
+      <li>Tenant isolation is enforced via canonical shopInstallationId on every API route.</li>
+      <li>Webhook payloads are verified using HMAC-SHA256 signatures.</li>
+    </ul>
+
+    <h2>7. Your Rights</h2>
+    <p>Merchants can export or delete all their data at any time through the app settings or by contacting support. End customers' data rights are exercised through the merchant's store or via Shopify's privacy webhook system.</p>
+
+    <h2>8. Contact</h2>
+    <p>For privacy inquiries: <a href="mailto:privacy@storecops.com">privacy@storecops.com</a></p>
+    <p>For general support: <a href="mailto:hello@storecops.com">hello@storecops.com</a></p>
+  </div>
+</body>
+</html>
