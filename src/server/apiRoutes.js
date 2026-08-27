@@ -1987,6 +1987,7 @@ function createApiRouter(platform) {
     "/demo/status",
     wrap(async () => ({
       running: platform.demoSimulator.isRunning(),
+      running_stores: platform.demoSimulator.runningStores(),
       events_generated: platform.demoSimulator.eventCount(),
     }))
   );

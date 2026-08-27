@@ -85,6 +85,14 @@ function createAuthRouter(platform) {
         }).catch((e) => console.error("[EMAIL] welcome failed:", e.message));
       }
 
+      // Auto-seed demo data and start simulator for the new store (skip in tests).
+      if (result.store_id && platform.config.env !== "test") {
+        platform.demoSeed.seed(result.store_id).catch(() => {});
+        if (!platform.demoSimulator.isRunning(result.store_id)) {
+          platform.demoSimulator.start(result.store_id, 5000);
+        }
+      }
+
       // One-click connect: an authorized store was parked before signup;
       // now that the tenant exists, sync its real data.
       let connected = null;

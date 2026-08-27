@@ -90,9 +90,9 @@ function createDemoSimulator(platform) {
   } = platform;
 
   const timers = [];
-  let running = false;
+  const runningStores = new Set();
   let eventCount = 0;
-  let tickCount = 0;
+  const tickCounts = new Map();
 
   // ── Weighted random product selection ──────────────────────────────
   function pickProduct() {
@@ -292,7 +292,8 @@ function createDemoSimulator(platform) {
 
   // ── Main tick: run one simulation cycle ────────────────────────────
   async function tick(store_id) {
-    tickCount++;
+    const tickCount = (tickCounts.get(store_id) || 0) + 1;
+    tickCounts.set(store_id, tickCount);
     const actions = [];
 
     // Always: 1-3 browse sessions (the foundation of the funnel)
@@ -353,20 +354,20 @@ function createDemoSimulator(platform) {
 
   // ── Start the simulation loop ──────────────────────────────────────
   function start(store_id, intervalMs = 5000) {
-    if (running) return;
-    running = true;
+    if (runningStores.has(store_id)) return;
+    runningStores.add(store_id);
 
-    console.log(`[SIM] Demo simulator started — events every ${(intervalMs / 1000).toFixed(0)}s`);
+    console.log(`[SIM] Simulator started for ${store_id} — events every ${(intervalMs / 1000).toFixed(0)}s`);
 
     // First tick immediately
-    tick(store_id).catch((err) => console.error("[SIM] tick error:", err.message));
+    tick(store_id).catch((err) => console.error(`[SIM] tick error (${store_id}):`, err.message));
 
     // Then on interval
     const timer = setInterval(async () => {
       try {
         await tick(store_id);
       } catch (err) {
-        console.error("[SIM] tick error:", err.message);
+        console.error(`[SIM] tick error (${store_id}):`, err.message);
       }
     }, intervalMs);
     timers.push(timer);
@@ -374,22 +375,22 @@ function createDemoSimulator(platform) {
     // Separate slower timers for background activity
     const trendTimer = setInterval(async () => {
       try { await simulateTrends(store_id); } catch (_) {}
-    }, 120_000); // trends shift every 2 min
+    }, 120_000);
     timers.push(trendTimer);
 
     const sentimentTimer = setInterval(async () => {
       try { await simulateSentiment(store_id); } catch (_) {}
-    }, 30_000); // new review every 30s
+    }, 30_000);
     timers.push(sentimentTimer);
 
     const competitorTimer = setInterval(async () => {
       try { await simulateCompetitorShift(store_id); } catch (_) {}
-    }, 45_000); // competitor change every 45s
+    }, 45_000);
     timers.push(competitorTimer);
 
     const adTimer = setInterval(async () => {
       try { await simulateAdUpdate(store_id); } catch (_) {}
-    }, 90_000); // ad update every 90s
+    }, 90_000);
     timers.push(adTimer);
   }
 
@@ -397,7 +398,7 @@ function createDemoSimulator(platform) {
   function stop() {
     for (const t of timers) clearInterval(t);
     timers.length = 0;
-    running = false;
+    runningStores.clear();
     console.log(`[SIM] Stopped. Total events generated: ${eventCount}`);
   }
 
@@ -406,7 +407,14 @@ function createDemoSimulator(platform) {
     return tick(store_id);
   }
 
-  return { start, stop, tickOnce, isRunning: () => running, eventCount: () => eventCount };
+  return {
+    start,
+    stop,
+    tickOnce,
+    isRunning: (store_id) => store_id ? runningStores.has(store_id) : runningStores.size > 0,
+    eventCount: () => eventCount,
+    runningStores: () => [...runningStores],
+  };
 }
 
 module.exports = { createDemoSimulator };

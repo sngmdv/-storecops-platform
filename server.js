@@ -23,22 +23,35 @@ app.listen(PORT, "0.0.0.0", async () => {
   console.log(`[BOOT] Dashboard: ${publicUrl}/app`);
   console.log(`[BOOT] Environment: ${platform.config.env} | Storage: ${platform.config.storage}`);
 
-  // ── Start demo simulator if no real integrations exist ──────────────
+  // ── Seed + simulate ALL stores without real credentials ─────────────
   try {
-    const storeId = platform.config.defaultStoreId;
-    const hasRealCreds = await hasRealCredentials(platform, storeId);
-    if (!hasRealCreds) {
-      // Seed demo data if the store is empty
-      const seeded = await platform.demoSeed.seed(storeId);
-      if (seeded.seeded) {
-        console.log(`[BOOT] Seeded demo data: ${seeded.events} events, ${seeded.products} products`);
+    const allStores = await platform.store.users.find({});
+    const storeIds = [...new Set(allStores.map((u) => u.store_id).filter(Boolean))];
+    let simulated = 0;
+
+    for (const storeId of storeIds) {
+      const hasReal = await hasRealCredentials(platform, storeId);
+      if (!hasReal) {
+        const seeded = await platform.demoSeed.seed(storeId);
+        if (seeded.seeded) {
+          console.log(`[BOOT] Seeded demo data for ${storeId}: ${seeded.events} events`);
+        }
+        if (!platform.demoSimulator.isRunning(storeId)) {
+          platform.demoSimulator.start(storeId, 5000);
+          simulated++;
+        }
       }
-      // Start the live simulator
-      platform.demoSimulator.start(storeId, 5000);
-      console.log("[BOOT] Demo simulator active — dashboard will show live activity");
-    } else {
-      console.log("[BOOT] Real integrations detected — simulator skipped");
     }
+
+    // Always ensure the default store is covered
+    const defaultId = platform.config.defaultStoreId;
+    if (!storeIds.includes(defaultId)) {
+      await platform.demoSeed.seed(defaultId);
+      platform.demoSimulator.start(defaultId, 5000);
+      simulated++;
+    }
+
+    console.log(`[BOOT] Demo simulator active for ${simulated} store(s) — live activity enabled`);
   } catch (err) {
     console.error("[BOOT] Simulator startup failed:", err.message);
   }
@@ -60,16 +73,23 @@ async function hasRealCredentials(platform, storeId) {
   return false;
 }
 
-// Growth loop heartbeat: run a full automation cycle for the default
-// store every 15 minutes. Multi-store deployments register more stores
-// here or call POST /api/v1/growth-cycle/:store_id on demand.
+// Growth loop heartbeat: run a full automation cycle for every
+// active store every 15 minutes.
 const CYCLE_INTERVAL_MS = 15 * 60 * 1000;
 setInterval(async () => {
   try {
-    const cycle = await platform.runGrowthCycle(platform.config.defaultStoreId);
-    console.log(
-      `[GROWTH-CYCLE] store=${platform.config.defaultStoreId} queued=${cycle.scan.queued_actions.length} executed=${cycle.execution.delivered} conversions=${cycle.attribution.conversions}`
-    );
+    const allStores = await platform.store.users.find({});
+    const storeIds = [...new Set(allStores.map((u) => u.store_id).filter(Boolean))];
+    for (const storeId of storeIds) {
+      const hasReal = await hasRealCredentials(platform, storeId);
+      if (hasReal) continue; // skip stores with real integrations (they re-sync separately)
+      // Ensure demo data exists before running growth cycle
+      await platform.demoSeed.seed(storeId);
+      const cycle = await platform.runGrowthCycle(storeId);
+      console.log(
+        `[GROWTH-CYCLE] store=${storeId} queued=${cycle.scan.queued_actions.length} executed=${cycle.execution.delivered} conversions=${cycle.attribution.conversions}`
+      );
+    }
   } catch (error) {
     console.error("[GROWTH-CYCLE] failed:", error.message);
   }
