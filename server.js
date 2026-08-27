@@ -51,6 +51,12 @@ app.listen(PORT, "0.0.0.0", async () => {
       simulated++;
     }
 
+    // Auto-check onboarding steps for all stores based on actual state
+    const allIds = [...new Set([...storeIds, defaultId])];
+    for (const storeId of allIds) {
+      try { await platform.onboarding.autoCheck(storeId); } catch (_) {}
+    }
+
     console.log(`[BOOT] Demo simulator active for ${simulated} store(s) — live activity enabled`);
   } catch (err) {
     console.error("[BOOT] Simulator startup failed:", err.message);

@@ -1924,6 +1924,15 @@ function createApiRouter(platform) {
     })
   );
 
+  router.post(
+    "/onboarding/auto-check",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.body.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      return platform.onboarding.autoCheck(store_id);
+    })
+  );
+
   router.get(
     "/admin/onboarding/analytics",
     wrap(async () => {

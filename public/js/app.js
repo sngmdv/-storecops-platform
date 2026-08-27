@@ -488,6 +488,8 @@
   // ── page: dashboard ────────────────────────────────────────────────
   async function renderDashboard() {
     const s = api.store();
+    // Auto-check onboarding steps based on current store state
+    api.post("/onboarding/auto-check", { store_id: s }).catch(() => {});
     const [report, insights, liveOrdersData, pending] = await Promise.all([
       api.get(`/report/${s}`),
       api.get(`/insights/${s}/products`).catch(() => null),
@@ -617,7 +619,13 @@
   function renderFeed(container, orders) {
     container.innerHTML = "";
     if (!orders.length) {
-      container.innerHTML = '<div class="empty">No orders yet — they will stream in here live.</div>';
+      container.innerHTML = `
+        <div class="empty" style="text-align:center;padding:24px 16px">
+          <div style="font-size:32px;margin-bottom:8px">${icon("radio")}</div>
+          <div style="font-weight:600;margin-bottom:4px">Waiting for live orders</div>
+          <div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Orders will stream here in real-time once your store is connected and events are flowing.</div>
+          <a class="btn btn-sm btn-grad" href="#/connect" style="display:inline-block">Connect Store →</a>
+        </div>`;
       return;
     }
     orders.slice(0, 30).forEach((order) => container.appendChild(feedItem(order)));
@@ -642,12 +650,23 @@
     if (health !== undefined && health < 0) {
       html.push(`<div class="alert-item red">${icon("frown")} <div>Brand sentiment negative (${health}) — review recent mentions</div></div>`);
     }
-    container.innerHTML = html.length ? html.join("") : `<div class="empty">${icon("gift")} All clear — no alerts right now.</div>`;
+    container.innerHTML = html.length ? html.join("") : `
+      <div class="empty" style="text-align:center;padding:24px 16px">
+        <div style="font-size:32px;margin-bottom:8px">${icon("check-circle")}</div>
+        <div style="font-weight:600;margin-bottom:4px">All clear</div>
+        <div style="font-size:12px;color:var(--text-dim)">No alerts, no at-risk customers, and sentiment is healthy. The system is monitoring your store.</div>
+      </div>`;
   }
 
   function renderStockAdvisor(container, insights) {
     if (!insights) {
-      container.innerHTML = '<div class="empty">No inventory data yet — set stock in the Inventory Advisor.</div>';
+      container.innerHTML = `
+        <div class="empty" style="text-align:center;padding:24px 16px">
+          <div style="font-size:32px;margin-bottom:8px">${icon("package")}</div>
+          <div style="font-weight:600;margin-bottom:4px">No inventory data yet</div>
+          <div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Set stock levels in the Inventory Advisor to get restocking alerts and stockout predictions.</div>
+          <a class="btn btn-sm btn-primary" href="#/inventory" style="display:inline-block">Open Inventory →</a>
+        </div>`;
       return;
     }
     const rows = [
@@ -657,7 +676,12 @@
       ...(insights.dead_stock || []).map((p) => ({ ...p, bucket: "DEAD STOCK" })),
     ];
     if (!rows.length) {
-      container.innerHTML = '<div class="empty">Stock levels look healthy across the board.</div>';
+      container.innerHTML = `
+        <div class="empty" style="text-align:center;padding:24px 16px">
+          <div style="font-size:32px;margin-bottom:8px">${icon("check-circle")}</div>
+          <div style="font-weight:600;margin-bottom:4px">Stock levels healthy</div>
+          <div style="font-size:12px;color:var(--text-dim)">All products are within optimal stock ranges. No restocking needed right now.</div>
+        </div>`;
       return;
     }
     container.innerHTML = rows.slice(0, 8).map((p) =>

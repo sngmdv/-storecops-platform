@@ -139,6 +139,90 @@ function createOnboardingService({ store }) {
     },
 
     /**
+     * Auto-detect completed steps based on actual store state.
+     * Call this on dashboard load, after integrations, after sync, etc.
+     */
+    async autoCheck(store_id) {
+      const state = await this.getState(store_id);
+      const updates = [];
+
+      // welcome — mark when user first accesses dashboard
+      if (!state.steps.welcome.completed) {
+        updates.push("welcome");
+      }
+
+      // connect_store — any integration with status "connected"
+      const integrations = await store.integrations?.find({ store_id }) || [];
+      if (integrations.some((i) => i.status === "connected")) {
+        updates.push("connect_store");
+      }
+
+      // activate_tracking — events have been tracked
+      const tracker = await store.events?.find({ store_id }) || [];
+      if (tracker.length > 0) {
+        updates.push("activate_tracking");
+      }
+
+      // first_audit — SEO data exists
+      const seo = await store.seoAuditResults?.findOne({ store_id });
+      if (seo) {
+        updates.push("first_audit");
+      }
+
+      // choose_plan — billing is active
+      const billing = await store.billing?.findOne({ store_id });
+      if (billing && billing.status === "active") {
+        updates.push("choose_plan");
+      }
+
+      // add_competitors — competitors are tracked
+      const competitors = await store.trackedCompetitors?.find({ store_id }) || [];
+      if (competitors.length > 0) {
+        updates.push("add_competitors");
+      }
+
+      // first_automation — automation rules exist
+      const automations = await store.automationRules?.find({ store_id }) || [];
+      if (automations.length > 0) {
+        updates.push("first_automation");
+      }
+
+      // Apply all updates
+      let changed = false;
+      for (const step_id of updates) {
+        if (!state.steps[step_id].completed) {
+          state.steps[step_id].completed = true;
+          state.steps[step_id].completed_at = new Date().toISOString();
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        const nextIncomplete = STEPS.find((s) => !state.steps[s.id].completed && !state.steps[s.id].skipped);
+        state.current_step = nextIncomplete?.id || "complete";
+
+        const completedSteps = STEPS.filter((s) => state.steps[s.id].completed).length;
+        state.completion_pct = Math.round((completedSteps / STEPS.length) * 100);
+
+        if (completedSteps === STEPS.length) {
+          state.completed = true;
+          state.completed_at = new Date().toISOString();
+        }
+
+        if (store.onboardingStates) {
+          const existing = await store.onboardingStates.findOne({ store_id });
+          if (existing) {
+            await store.onboardingStates.update(existing._id, state);
+          } else {
+            await store.onboardingStates.insert(state);
+          }
+        }
+      }
+
+      return state;
+    },
+
+    /**
      * Get the next recommended action for the merchant.
      */
     async getNextAction(store_id) {
