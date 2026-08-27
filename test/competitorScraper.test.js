@@ -118,8 +118,8 @@ describe("competitorScraper: Shopify store detection", () => {
     const scraper = platform.competitorScraper;
     const fetch = mockFetch({ products: [{ id: 1 }] });
 
-    const result = await scraper.probeShopify("https://rival.myshopify.com", fetch);
-    assert.equal(result.isShopify, true);
+    const result = await scraper.probeStorefront("https://rival.myshopify.com", fetch);
+    assert.equal(result.platform, "shopify");
     assert.ok(fetch.calls[0].url.includes("/products.json?limit=1"));
   });
 
@@ -128,7 +128,7 @@ describe("competitorScraper: Shopify store detection", () => {
     const scraper = platform.competitorScraper;
     const fetch = mockFetch({}, false, 404);
 
-    const result = await scraper.probeShopify("https://example.com", fetch);
+    const result = await scraper.probeStorefront("https://example.com", fetch);
     assert.equal(result, null);
   });
 
@@ -137,7 +137,7 @@ describe("competitorScraper: Shopify store detection", () => {
     const scraper = platform.competitorScraper;
     const fetch = async () => { throw new Error("ECONNREFUSED"); };
 
-    const result = await scraper.probeShopify("https://down.com", fetch);
+    const result = await scraper.probeStorefront("https://down.com", fetch);
     assert.equal(result, null);
   });
 });

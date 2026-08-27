@@ -38,7 +38,20 @@ function createDynamicPricingEngine({ store, competitorIngestor, inventoryIntell
       const snapshots = await competitorIngestor.latestSnapshots(store_id);
       const competitorPrices = [];
       for (const snapshot of snapshots) {
-        const match = snapshot.products.find((p) => p.id === product_id && p.in_stock);
+        // Try exact ID match first, then fuzzy name match
+        let match = snapshot.products.find((p) => p.id === product_id && p.in_stock);
+        if (!match) {
+          // Fuzzy match: find competitor product with similar name
+          const productName = product_id.replace(/[-_]/g, " ").toLowerCase();
+          match = snapshot.products.find((p) => {
+            if (!p.in_stock) return false;
+            const cname = (p.name || p.id || "").replace(/[-_]/g, " ").toLowerCase();
+            // Check if names share significant overlap
+            const words = productName.split(/\s+/).filter(Boolean);
+            const matchCount = words.filter((w) => cname.includes(w)).length;
+            return matchCount >= Math.ceil(words.length * 0.5) && words.length > 0;
+          });
+        }
         if (match) competitorPrices.push({ competitor: snapshot.competitor, price: match.price });
       }
 

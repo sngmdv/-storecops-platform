@@ -26,6 +26,7 @@ const EVENT_TYPES = new Set([
   "push_opened",
   "competitor_view",
   "refund",
+  "lead_captured",
 ]);
 
 function validateEvent(event) {

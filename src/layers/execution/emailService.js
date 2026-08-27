@@ -108,41 +108,13 @@ function createEmailService({ config }) {
      * Welcome email sent on signup.
      */
     async sendWelcome({ email, name, storeName, storeId }) {
-      const displayName = name || "there";
-      const store = storeName || storeId || "your store";
-
-      const html = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #1a1a2e;">
-  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-    <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to Storecops!</h1>
-  </div>
-  <div style="padding: 30px; background: #f8f9fa; border-radius: 0 0 12px 12px;">
-    <p style="font-size: 16px;">Hi ${displayName},</p>
-    <p style="font-size: 16px;">Your store <strong>${store}</strong> is now connected to Storecops — the AI-powered growth platform for e-commerce brands.</p>
-    <h3 style="color: #667eea;">Here's what you can do right now:</h3>
-    <ul style="font-size: 14px; line-height: 2;">
-      <li>View live orders and stock levels in real time</li>
-      <li>Get AI-powered product and pricing recommendations</li>
-      <li>Set up automated cart recovery campaigns</li>
-      <li>Track competitor pricing and market trends</li>
-      <li>Run a full SEO audit of your store</li>
-    </ul>
-    <p style="text-align: center; margin: 30px 0;">
-      <a href="#" style="background: #667eea; color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: 600;">Open Your Dashboard</a>
-    </p>
-    <p style="font-size: 13px; color: #666;">Need help? Reply to this email or visit our <a href="/support">support center</a>.</p>
-    <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
-    <p style="font-size: 12px; color: #999;">Storecops Growth Platform — AI-driven e-commerce intelligence.</p>
-  </div>
-</body>
-</html>`;
-
+      // Use the emailTemplates module for consistent, branded templates
+      const { createEmailTemplates } = require("./emailTemplates");
+      const templates = createEmailTemplates({ config: this.config });
+      const html = templates.welcome({ name, storeName, storeId });
       return this.send({
         to: email,
-        subject: `Welcome to Storecops, ${displayName}!`,
+        subject: `Welcome to Storecops, ${name || "there"}!`,
         html,
       });
     },

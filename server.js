@@ -118,3 +118,25 @@ setInterval(async () => {
     console.error("[RESYNC] failed:", error.message);
   }
 }, RESYNC_INTERVAL_MS).unref();
+
+// External signal collector: fetch trending data every 2 hours.
+const SIGNALS_INTERVAL_MS = 2 * 60 * 60 * 1000;
+setInterval(async () => {
+  try {
+    const allStores = await platform.store.users.find({});
+    const storeIds = [...new Set(allStores.map((u) => u.store_id).filter(Boolean))];
+    for (const storeId of storeIds) {
+      const hasReal = await hasRealCredentials(platform, storeId);
+      if (!hasReal) continue; // only collect for stores with real data
+      // Get product keywords from inventory
+      const products = await platform.inventoryLedger.levels(storeId);
+      const keywords = products.map((p) => p.product_id?.replace(/[-_]/g, " ")).filter(Boolean).slice(0, 5);
+      if (keywords.length > 0) {
+        const result = await platform.signalCollectors.collectAll(storeId, keywords);
+        console.log(`[SIGNALS] store=${storeId} collected=${result.collected}`);
+      }
+    }
+  } catch (error) {
+    console.error("[SIGNALS] failed:", error.message);
+  }
+}, SIGNALS_INTERVAL_MS).unref();

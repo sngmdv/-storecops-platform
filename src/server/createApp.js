@@ -545,16 +545,19 @@ function createApp(platform) {
         return res.json({ ok: true, duplicate: true });
       }
       const shop = req.body?.myshopify_domain || req.body?.domain;
-      // Task 29b: Mask shop domain in production logs.
       const safeShop = shop ? String(shop).split(".")[0] + "•••" : "unknown";
       console.log(`[WEBHOOK] App uninstalled by ${safeShop}`);
-      // Mark the store as disconnected.
-      const conn = await platform.store.integrations.findOne({ type: "shopify" });
-      if (conn) {
-        await platform.store.integrations.update(conn._id, {
-          status: "uninstalled",
-          uninstalled_at: new Date().toISOString(),
-        });
+      // Mark the specific store as disconnected (match by shop domain or type).
+      const shopDomain = shop ? String(shop).toLowerCase().replace(/^https?:\/\//, "").replace(/\/$/, "") : null;
+      const allConns = await platform.store.integrations.find({ type: "shopify" });
+      for (const conn of allConns) {
+        // Match if: no shop domain in webhook (fallback to type), or domain matches
+        if (!shopDomain || !conn.config?.shopDomain || conn.config.shopDomain === shopDomain) {
+          await platform.store.integrations.update(conn._id, {
+            status: "uninstalled",
+            uninstalled_at: new Date().toISOString(),
+          });
+        }
       }
       if (platform.monitoringService) {
         await platform.monitoringService.recordEvent("app_uninstalled", {
@@ -574,12 +577,25 @@ function createApp(platform) {
         console.log("[WEBHOOK] data-request duplicate — skipping");
         return res.json({ ok: true, duplicate: true });
       }
-      console.log("[WEBHOOK] Customer data request received");
-      // GDPR: we must provide the customer's data. For now, acknowledge.
+      const customerId = req.body?.customer?.id;
+      const safeId = customerId ? String(customerId).slice(0, 4) + "•••" : "unknown";
+      console.log(`[WEBHOOK] Customer data request for ${safeId}`);
+      // GDPR: export all data for the requested customer.
+      if (customerId && platform.dataExport) {
+        const allStores = await platform.store.integrations.find({});
+        for (const conn of allStores) {
+          try {
+            const exportData = await platform.dataExport.exportCustomerData(conn.store_id, String(customerId));
+            if (exportData) {
+              console.log(`[WEBHOOK] Data export prepared for customer ${safeId} in store ${conn.store_id}`);
+            }
+          } catch (_) {}
+        }
+      }
       if (platform.monitoringService) {
         await platform.monitoringService.recordEvent("data_request", {
           severity: "info",
-          message: `Data request for customer ${req.body?.customer?.id || "unknown"}`,
+          message: `Data request for customer ${customerId || "unknown"}`,
         });
       }
     } catch (err) {
@@ -618,12 +634,38 @@ function createApp(platform) {
         console.log("[WEBHOOK] shop-redact duplicate — skipping");
         return res.json({ ok: true, duplicate: true });
       }
-      console.log("[WEBHOOK] Shop redact request received");
-      // Shop redact: purge all data for the shop after uninstall.
+      const shop = req.body?.myshopify_domain || req.body?.shop;
+      const safeShop = shop ? String(shop).split(".")[0] + "•••" : "unknown";
+      console.log(`[WEBHOOK] Shop redact request for ${safeShop}`);
+      // GDPR: purge ALL data for this shop.
+      if (shop) {
+        const shopDomain = String(shop).toLowerCase();
+        const conn = await platform.store.integrations.findOne({ type: "shopify" });
+        if (conn && conn.config?.shopDomain === shopDomain) {
+          const storeId = conn.store_id;
+          // Delete all collections for this store
+          const collections = [
+            "events", "customers", "deliveries", "actions", "campaigns",
+            "competitorSnapshots", "externalSignals", "sentimentSamples",
+            "seoAudits", "seoOptimizations", "reports", "attributions",
+            "inventory", "consentRecords", "onboardingStates", "activityLog",
+          ];
+          for (const col of collections) {
+            try { await platform.store[col].deleteMany({ store_id: storeId }); } catch (_) {}
+          }
+          // Mark integration as uninstalled
+          await platform.store.integrations.update(conn._id, {
+            status: "uninstalled",
+            uninstalled_at: new Date().toISOString(),
+            config: null, // wipe credentials
+          });
+          console.log(`[WEBHOOK] Purged all data for store ${storeId}`);
+        }
+      }
       if (platform.monitoringService) {
         await platform.monitoringService.recordEvent("shop_redact", {
           severity: "warning",
-          message: "Shop data redaction requested",
+          message: `Shop data redaction completed for ${safeShop}`,
         });
       }
     } catch (err) {

@@ -104,7 +104,7 @@ function createAuthService({ store, config, auditLog }) {
     },
 
     /** Verify credentials and open a session. */
-    async login({ email, password } = {}) {
+    async login({ email, password, totpCode } = {}) {
       email = String(email || "").trim().toLowerCase();
       const user = await store.users.findOne({ email });
       if (!user || !user.password_hash) {
@@ -115,6 +115,19 @@ function createAuthService({ store, config, auditLog }) {
       const actual = Buffer.from(user.password_hash);
       if (candidate.length !== actual.length || !crypto.timingSafeEqual(candidate, actual)) {
         throw new Error("Invalid email or password.");
+      }
+
+      // 2FA: if enabled, require TOTP code
+      if (user.twoFactor?.enabled) {
+        if (!totpCode) {
+          return { requires2FA: true, message: "Two-factor authentication code required." };
+        }
+        // Verify TOTP code
+        const { verifyTOTP } = require("./twoFactorAuth");
+        const valid = verifyTOTP(user.twoFactor.secret, totpCode);
+        if (!valid) {
+          throw new Error("Invalid two-factor authentication code.");
+        }
       }
 
       const session = await createSession(user);

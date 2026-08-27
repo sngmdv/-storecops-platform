@@ -93,6 +93,7 @@ const { createOnboardingService } = require("./server/onboardingService");
 const { createWebhookRetryQueue } = require("./server/webhookRetryQueue");
 const { createTieredRateLimiter } = require("./server/tieredRateLimiter");
 const { createDemoSimulator } = require("./server/demoSimulator");
+const { collectAll } = require("./layers/data/signalCollectors");
 
 function createPlatform(overrides = {}) {
   // Each platform gets its own config copy so instances never mutate
@@ -355,6 +356,8 @@ function createPlatform(overrides = {}) {
   platform.tieredRateLimiter = createTieredRateLimiter({ platform });
   // Live demo simulator — generates realistic events when no real credentials exist.
   platform.demoSimulator = createDemoSimulator(platform);
+  // External signal collectors — fetches trending data from Google Trends, Reddit, etc.
+  platform.signalCollectors = { collectAll: (storeId, keywords) => collectAll(storeId, keywords, externalSignals) };
 
   return platform;
 }

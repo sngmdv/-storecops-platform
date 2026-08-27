@@ -17,6 +17,38 @@
 
 const crypto = require("crypto");
 
+// ── Token encryption for stored credentials ──────────────────────────
+// Uses AES-256-GCM so tokens can be stored in the database for re-sync.
+const TOKEN_KEY = crypto.scryptSync(
+  process.env.TOKEN_ENCRYPTION_KEY || "storecops-default-key-do-not-use-in-prod",
+  "storecops-salt",
+  32
+);
+function encryptToken(token) {
+  if (!token) return null;
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", TOKEN_KEY, iv);
+  let encrypted = cipher.update(String(token), "utf8", "hex");
+  encrypted += cipher.final("hex");
+  const tag = cipher.getAuthTag().toString("hex");
+  return `${iv.toString("hex")}:${tag}:${encrypted}`;
+}
+function decryptToken(encrypted) {
+  if (!encrypted) return null;
+  try {
+    const [ivHex, tagHex, data] = encrypted.split(":");
+    const iv = Buffer.from(ivHex, "hex");
+    const tag = Buffer.from(tagHex, "hex");
+    const decipher = crypto.createDecipheriv("aes-256-gcm", TOKEN_KEY, iv);
+    decipher.setAuthTag(tag);
+    let decrypted = decipher.update(data, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+    return decrypted;
+  } catch (_) {
+    return null;
+  }
+}
+
 // ── Task 64: Retry wrapper with exponential backoff ──────────────────
 /**
  * Wraps fetch with automatic retry for 429 (rate limit) and 5xx responses.
@@ -100,7 +132,7 @@ function rowsToObjects(rows) {
 
 // ── module ─────────────────────────────────────────────────────────
 function createIntegrations({ platform }) {
-  const { store, eventTracker, inventoryLedger, config } = platform;
+  const { store, eventTracker, inventoryLedger, customerProfiles, config } = platform;
 
   function baseUrl() {
     return config.publicUrl || `http://localhost:${config.port}`;
@@ -262,31 +294,41 @@ function createIntegrations({ platform }) {
       const base = `https://${domain.endsWith(".myshopify.com") ? domain : domain + ".myshopify.com"}/admin/api/2025-01`;
       const headers = { "X-Shopify-Access-Token": accessToken };
 
-      const [prodRes, orderRes] = await Promise.all([
-        fetchWithRetry(`${base}/products.json?limit=250`, { headers, signal: AbortSignal.timeout(20000) }),
-        fetchWithRetry(`${base}/orders.json?status=any&limit=250`, { headers, signal: AbortSignal.timeout(20000) }),
-      ]);
-      if (prodRes.status === 401 || prodRes.status === 403) throw new Error("Shopify rejected the access token (401/403).");
-      if (!prodRes.ok) throw new Error(`Shopify products API answered ${prodRes.status}.`);
-
-      const { products = [] } = await prodRes.json();
+      // Paginate through all products (Shopify caps at 250/page, max 10 pages)
       const items = [];
-      for (const p of products) {
-        for (const v of p.variants || []) {
-          items.push({
-            product_id: v.sku || `variant-${v.id}`,
-            name: `${p.title}${v.title && v.title !== "Default Title" ? " — " + v.title : ""}`,
-            stock: Number(v.inventory_quantity ?? 0),
-            price: Number(v.price || 0),
-            lead_time_days: 7,
-          });
+      let page = 1;
+      let hasMore = true;
+      while (hasMore && page <= 10) {
+        const prodRes = await fetchWithRetry(`${base}/products.json?limit=250&page=${page}`, { headers, signal: AbortSignal.timeout(20000) });
+        if (prodRes.status === 401 || prodRes.status === 403) throw new Error("Shopify rejected the access token (401/403).");
+        if (!prodRes.ok) break;
+        const { products = [] } = await prodRes.json();
+        if (products.length === 0) { hasMore = false; break; }
+        for (const p of products) {
+          for (const v of p.variants || []) {
+            items.push({
+              product_id: v.sku || `variant-${v.id}`,
+              name: `${p.title}${v.title && v.title !== "Default Title" ? " — " + v.title : ""}`,
+              stock: Number(v.inventory_quantity ?? 0),
+              price: Number(v.price || 0),
+              lead_time_days: 7,
+            });
+          }
         }
+        page++;
+        if (products.length < 250) hasMore = false;
       }
       if (items.length) await inventoryLedger.setStockBatch(store_id, items);
 
+      // Paginate through all orders
       let ordersImported = 0;
-      if (orderRes.ok) {
+      page = 1;
+      hasMore = true;
+      while (hasMore && page <= 10) {
+        const orderRes = await fetchWithRetry(`${base}/orders.json?status=any&limit=250&page=${page}`, { headers, signal: AbortSignal.timeout(20000) });
+        if (!orderRes.ok) break;
         const { orders = [] } = await orderRes.json();
+        if (orders.length === 0) { hasMore = false; break; }
         for (const o of orders) {
           const tracked = await eventTracker.track({
             store_id,
@@ -304,16 +346,46 @@ function createIntegrations({ platform }) {
           });
           if (tracked.accepted) ordersImported++;
         }
+        page++;
+        if (orders.length < 250) hasMore = false;
+      }
+
+      // Sync customers from Shopify
+      let customersImported = 0;
+      page = 1;
+      hasMore = true;
+      while (hasMore && page <= 10) {
+        const custRes = await fetchWithRetry(`${base}/customers.json?limit=250&page=${page}`, { headers, signal: AbortSignal.timeout(20000) });
+        if (!custRes.ok) break;
+        const { customers = [] } = await custRes.json();
+        if (customers.length === 0) { hasMore = false; break; }
+        for (const c of customers) {
+          await customerProfiles.findOrCreate(store_id, {
+            customer_id: String(c.id),
+            email: c.email || null,
+            name: [c.first_name, c.last_name].filter(Boolean).join(" ") || null,
+            phone: c.phone || null,
+            total_spent: Number(c.total_spent || 0),
+            orders_count: Number(c.orders_count || 0),
+            tags: c.tags || null,
+            source: "shopify",
+            created_at: c.created_at || undefined,
+          });
+          customersImported++;
+        }
+        page++;
+        if (customers.length < 250) hasMore = false;
       }
 
       await touchConnection(store_id, {
         type: "shopify",
-        config: { shopDomain: domain, tokenMasked: accessToken.slice(0, 4) + "••••" },
+        config: { shopDomain: domain, tokenEncrypted: encryptToken(accessToken), tokenMasked: accessToken.slice(0, 4) + "••••" },
         products_synced: items.length,
         orders_synced: ordersImported,
+        customers_synced: customersImported,
         last_sync_at: new Date().toISOString(),
       });
-      return { products_synced: items.length, orders_synced: ordersImported };
+      return { products_synced: items.length, orders_synced: ordersImported, customers_synced: customersImported };
     },
 
     // ── 5. WooCommerce adapter ───────────────────────────────────────
@@ -325,27 +397,40 @@ function createIntegrations({ platform }) {
       }
       const auth = `consumer_key=${encodeURIComponent(consumerKey)}&consumer_secret=${encodeURIComponent(consumerSecret)}`;
 
-      const [prodRes, orderRes] = await Promise.all([
-        fetchWithRetry(`${site}/wp-json/wc/v3/products?per_page=100&${auth}`, { signal: AbortSignal.timeout(20000) }),
-        fetchWithRetry(`${site}/wp-json/wc/v3/orders?per_page=100&${auth}`, { signal: AbortSignal.timeout(20000) }),
-      ]);
-      if (prodRes.status === 401 || prodRes.status === 403) throw new Error("WooCommerce rejected the API keys (401/403).");
-      if (!prodRes.ok) throw new Error(`WooCommerce products API answered ${prodRes.status}.`);
-
-      const products = await prodRes.json();
-      const items = (Array.isArray(products) ? products : []).map((p) => ({
-        product_id: p.sku || `woo-${p.id}`,
-        name: p.name,
-        stock: Number(p.stock_quantity ?? 0),
-        price: Number(p.price || 0),
-        lead_time_days: 7,
-      }));
+      // Paginate through all products
+      const items = [];
+      let page = 1;
+      let hasMore = true;
+      while (hasMore && page <= 10) {
+        const prodRes = await fetchWithRetry(`${site}/wp-json/wc/v3/products?per_page=100&page=${page}&${auth}`, { signal: AbortSignal.timeout(20000) });
+        if (prodRes.status === 401 || prodRes.status === 403) throw new Error("WooCommerce rejected the API keys (401/403).");
+        if (!prodRes.ok) break;
+        const products = await prodRes.json();
+        if (!Array.isArray(products) || products.length === 0) { hasMore = false; break; }
+        for (const p of products) {
+          items.push({
+            product_id: p.sku || `woo-${p.id}`,
+            name: p.name,
+            stock: Number(p.stock_quantity ?? 0),
+            price: Number(p.price || 0),
+            lead_time_days: 7,
+          });
+        }
+        page++;
+        if (products.length < 100) hasMore = false;
+      }
       if (items.length) await inventoryLedger.setStockBatch(store_id, items);
 
+      // Paginate through all orders
       let ordersImported = 0;
-      if (orderRes.ok) {
+      page = 1;
+      hasMore = true;
+      while (hasMore && page <= 10) {
+        const orderRes = await fetchWithRetry(`${site}/wp-json/wc/v3/orders?per_page=100&page=${page}&${auth}`, { signal: AbortSignal.timeout(20000) });
+        if (!orderRes.ok) break;
         const orders = await orderRes.json();
-        for (const o of Array.isArray(orders) ? orders : []) {
+        if (!Array.isArray(orders) || orders.length === 0) { hasMore = false; break; }
+        for (const o of orders) {
           const tracked = await eventTracker.track({
             store_id,
             event_type: "purchase",
@@ -362,11 +447,13 @@ function createIntegrations({ platform }) {
           });
           if (tracked.accepted) ordersImported++;
         }
+        page++;
+        if (orders.length < 100) hasMore = false;
       }
 
       await touchConnection(store_id, {
         type: "woocommerce",
-        config: { siteUrl: site, keyMasked: consumerKey.slice(0, 5) + "••••" },
+        config: { siteUrl: site, keyEncrypted: encryptToken(consumerKey + ":" + consumerSecret), keyMasked: consumerKey.slice(0, 5) + "••••" },
         products_synced: items.length,
         orders_synced: ordersImported,
         last_sync_at: new Date().toISOString(),
@@ -382,27 +469,40 @@ function createIntegrations({ platform }) {
       const headers = { "X-Auth-Token": accessToken, "Content-Type": "application/json" };
       const apiBase = `https://api.bigcommerce.com/stores/${hash}`;
 
-      const [prodRes, orderRes] = await Promise.all([
-        fetchWithRetry(`${apiBase}/v3/catalog/products?limit=250`, { headers, signal: AbortSignal.timeout(20000) }),
-        fetchWithRetry(`${apiBase}/v2/orders?limit=250`, { headers, signal: AbortSignal.timeout(20000) }),
-      ]);
-      if (prodRes.status === 401 || prodRes.status === 403) throw new Error("BigCommerce rejected the access token (401/403).");
-      if (!prodRes.ok) throw new Error(`BigCommerce products API answered ${prodRes.status}.`);
-
-      const { data: products = [] } = await prodRes.json();
-      const items = (Array.isArray(products) ? products : []).map((p) => ({
-        product_id: p.sku || `bc-${p.id}`,
-        name: p.name,
-        stock: Number(p.inventory_level ?? 0),
-        price: Number(p.price || 0),
-        lead_time_days: 7,
-      }));
+      // Paginate through all products
+      const items = [];
+      let page = 1;
+      let hasMore = true;
+      while (hasMore && page <= 10) {
+        const prodRes = await fetchWithRetry(`${apiBase}/v3/catalog/products?limit=250&page=${page}`, { headers, signal: AbortSignal.timeout(20000) });
+        if (prodRes.status === 401 || prodRes.status === 403) throw new Error("BigCommerce rejected the access token (401/403).");
+        if (!prodRes.ok) break;
+        const { data: products = [] } = await prodRes.json();
+        if (!Array.isArray(products) || products.length === 0) { hasMore = false; break; }
+        for (const p of products) {
+          items.push({
+            product_id: p.sku || `bc-${p.id}`,
+            name: p.name,
+            stock: Number(p.inventory_level ?? 0),
+            price: Number(p.price || 0),
+            lead_time_days: 7,
+          });
+        }
+        page++;
+        if (products.length < 250) hasMore = false;
+      }
       if (items.length) await inventoryLedger.setStockBatch(store_id, items);
 
+      // Paginate through all orders
       let ordersImported = 0;
-      if (orderRes.ok) {
+      page = 1;
+      hasMore = true;
+      while (hasMore && page <= 10) {
+        const orderRes = await fetchWithRetry(`${apiBase}/v2/orders?limit=250&page=${page}`, { headers, signal: AbortSignal.timeout(20000) });
+        if (!orderRes.ok) break;
         const orders = await orderRes.json();
-        for (const o of Array.isArray(orders) ? orders : []) {
+        if (!Array.isArray(orders) || orders.length === 0) { hasMore = false; break; }
+        for (const o of orders) {
           const email = o.billing_address?.email || o.customer_email || null;
           const tracked = await eventTracker.track({
             store_id,
@@ -420,11 +520,13 @@ function createIntegrations({ platform }) {
           });
           if (tracked.accepted) ordersImported++;
         }
+        page++;
+        if (orders.length < 250) hasMore = false;
       }
 
       await touchConnection(store_id, {
         type: "bigcommerce",
-        config: { storeHash: hash, tokenMasked: accessToken.slice(0, 4) + "••••" },
+        config: { storeHash: hash, tokenEncrypted: encryptToken(accessToken), tokenMasked: accessToken.slice(0, 4) + "••••" },
         products_synced: items.length,
         orders_synced: ordersImported,
         last_sync_at: new Date().toISOString(),
@@ -532,23 +634,22 @@ function createIntegrations({ platform }) {
       const cfg = connection.config || {};
 
       if (connection.type === "shopify" && cfg.shopDomain) {
-        // We don't store the full token — only a masked version.
-        // Re-sync requires the full token; if it's masked, skip gracefully.
-        if (cfg.tokenMasked && cfg.tokenMasked.includes("•")) {
-          return { skipped: true, reason: "Full token not stored — re-authenticate via OAuth." };
-        }
-        return { error: "Shopify re-sync requires stored credentials." };
+        const token = decryptToken(cfg.tokenEncrypted);
+        if (!token) return { skipped: true, reason: "Token not available — re-authenticate via OAuth." };
+        return this.syncShopify(store_id, { shopDomain: cfg.shopDomain, accessToken: token });
       }
       if (connection.type === "woocommerce" && cfg.siteUrl) {
-        if (cfg.keyMasked && cfg.keyMasked.includes("•")) {
-          return { skipped: true, reason: "Full Woo keys not stored — re-authenticate." };
-        }
-        return { error: "WooCommerce re-sync requires stored credentials." };
+        const keys = decryptToken(cfg.keyEncrypted);
+        if (!keys) return { skipped: true, reason: "Woo keys not available — re-authenticate." };
+        const [consumerKey, consumerSecret] = keys.split(":");
+        return this.syncWooCommerce(store_id, { siteUrl: cfg.siteUrl, consumerKey, consumerSecret });
+      }
+      if (connection.type === "bigcommerce" && cfg.storeHash) {
+        const token = decryptToken(cfg.tokenEncrypted);
+        if (!token) return { skipped: true, reason: "BigCommerce token not available — re-authenticate." };
+        return this.syncBigCommerce(store_id, { storeHash: cfg.storeHash, accessToken: token });
       }
       if (connection.type === "custom_public" && cfg.url) {
-        // Custom stores can re-crawl the public catalog.
-        const { crawlPublicCatalog } = require("./oauthConnectors");
-        // Not exported directly — just re-mark connected.
         await touchConnection(store_id, { last_sync_at: new Date().toISOString() });
         return { resynced: true, type: "custom_public" };
       }

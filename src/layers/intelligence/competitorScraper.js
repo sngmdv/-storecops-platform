@@ -23,21 +23,51 @@ const USER_AGENT =
 
 function createCompetitorScraper({ store, competitorIngestor }) {
   /**
-   * Detect if a URL belongs to a Shopify store by probing the public
-   * `/products.json` endpoint. Returns the parsed product list if it
-   * is a Shopify store, or null otherwise.
+   * Detect if a URL belongs to a Shopify/WooCommerce/BigCommerce store.
    */
-  async function probeShopify(baseUrl, fetchFn = globalThis.fetch) {
-    const url = `${stripTrailingSlash(baseUrl)}/products.json?limit=1`;
+  async function probeStorefront(baseUrl, fetchFn = globalThis.fetch) {
+    const base = stripTrailingSlash(baseUrl);
+
+    // Try Shopify
     try {
-      const res = await fetchWithTimeout(url, { fetchFn });
-      if (!res.ok) return null;
-      const json = await res.json();
-      if (!json.products || !Array.isArray(json.products)) return null;
-      return { isShopify: true };
-    } catch {
-      return null;
+      const res = await fetchWithTimeout(`${base}/products.json?limit=1`, { fetchFn });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.products && Array.isArray(json.products)) return { platform: "shopify" };
+      }
+    } catch {}
+
+    // Try WooCommerce REST API (public store endpoints)
+    try {
+      const res = await fetchWithTimeout(`${base}/wp-json/wc/store/products?per_page=1`, { fetchFn });
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json) && json.length > 0 && json[0].id !== undefined) return { platform: "woocommerce" };
+      }
+    } catch {}
+
+    // Try BigCommerce storefront API
+    try {
+      const res = await fetchWithTimeout(`${base}/api/storefront/products?limit=1`, { fetchFn });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) return { platform: "bigcommerce" };
+      }
+    } catch {}
+
+    // Try generic product JSON endpoints
+    const genericEndpoints = ["/api/products", "/products.json", "/collections/all/products.json"];
+    for (const endpoint of genericEndpoints) {
+      try {
+        const res = await fetchWithTimeout(`${base}${endpoint}`, { fetchFn });
+        if (!res.ok) continue;
+        const json = await res.json();
+        const products = json.products || (Array.isArray(json) ? json : null);
+        if (products && products.length > 0) return { platform: "generic" };
+      } catch {}
     }
+
+    return null;
   }
 
   /**
@@ -68,6 +98,68 @@ function createCompetitorScraper({ store, competitorIngestor }) {
       page += 1;
     }
 
+    return products;
+  }
+
+  /**
+   * Fetch products from a WooCommerce store via the Store API (public, no auth).
+   */
+  async function fetchWooCommerceProducts(baseUrl, fetchFn = globalThis.fetch) {
+    const products = [];
+    let page = 1;
+    while (page <= MAX_PAGES) {
+      const url = `${stripTrailingSlash(baseUrl)}/wp-json/wc/store/products?per_page=${PRODUCTS_PER_PAGE}&page=${page}`;
+      const res = await fetchWithTimeout(url, { fetchFn });
+      if (!res.ok) break;
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) break;
+      for (const p of data) {
+        const price = parseFloat(p.prices?.price || p.price || 0) / 100;
+        products.push({
+          id: String(p.id || p.sku || ""),
+          name: p.name || "",
+          price,
+          in_stock: p.is_in_stock !== false,
+          url: p.permalink || "",
+          promotion: p.on_sale ? "sale" : null,
+        });
+      }
+      page++;
+      if (data.length < PRODUCTS_PER_PAGE) break;
+    }
+    return products;
+  }
+
+  /**
+   * Fetch products from a BigCommerce storefront via the GraphQL Storefront API.
+   */
+  async function fetchBigCommerceProducts(baseUrl, fetchFn = globalThis.fetch) {
+    const products = [];
+    try {
+      const url = `${stripTrailingSlash(baseUrl)}/graphql`;
+      const query = `query { site { products(first: ${PRODUCTS_PER_PAGE}) { edges { node { entityId name sku prices { salePrice { value } retailPrice { value } } defaultImage { url } isVisible } } } } }`;
+      const res = await fetchWithTimeout(url, {
+        fetchFn,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+      if (!res.ok) return products;
+      const json = await res.json();
+      const edges = json.data?.site?.products?.edges || [];
+      for (const edge of edges) {
+        const p = edge.node;
+        const price = p.prices?.salePrice?.value || p.prices?.retailPrice?.value || 0;
+        products.push({
+          id: String(p.entityId || p.sku || ""),
+          name: p.name || "",
+          price: parseFloat(price) || 0,
+          in_stock: p.isVisible !== false,
+          url: `/product/${p.entityId}`,
+          promotion: p.prices?.salePrice ? "sale" : null,
+        });
+      }
+    } catch {}
     return products;
   }
 
@@ -156,48 +248,45 @@ function createCompetitorScraper({ store, competitorIngestor }) {
 
     try {
       // Step 1: Detect platform
-      const shopifyProbe = await probeShopify(url, fetchFn);
+      const probe = await probeStorefront(url, fetchFn);
 
-      if (shopifyProbe?.isShopify) {
+      if (probe?.platform === "shopify") {
         result.platform_detected = "shopify";
-
-        // Step 2: Fetch full catalog
         const products = await fetchShopifyProducts(url, fetchFn);
         result.products_scraped = products.length;
-
-        // Step 3: Ingest snapshot via the existing ingestor
         await competitorIngestor.ingestSnapshot({
-          store_id,
-          competitor,
-          source: "auto_scraper",
-          products: products.map((p) => ({
-            id: p.id,
-            name: p.name,
-            price: p.price,
-            in_stock: p.in_stock,
-            url: p.url,
-            promotion: p.promotion,
-          })),
+          store_id, competitor, source: "auto_scraper",
+          products: products.map((p) => ({ id: p.id, name: p.name, price: p.price, in_stock: p.in_stock, url: p.url, promotion: p.promotion })),
         });
-
+        result.status = "success";
+      } else if (probe?.platform === "woocommerce") {
+        result.platform_detected = "woocommerce";
+        const products = await fetchWooCommerceProducts(url, fetchFn);
+        result.products_scraped = products.length;
+        await competitorIngestor.ingestSnapshot({
+          store_id, competitor, source: "auto_scraper",
+          products: products.map((p) => ({ id: p.id, name: p.name, price: p.price, in_stock: p.in_stock, url: p.url, promotion: p.promotion })),
+        });
+        result.status = "success";
+      } else if (probe?.platform === "bigcommerce") {
+        result.platform_detected = "bigcommerce";
+        const products = await fetchBigCommerceProducts(url, fetchFn);
+        result.products_scraped = products.length;
+        await competitorIngestor.ingestSnapshot({
+          store_id, competitor, source: "auto_scraper",
+          products: products.map((p) => ({ id: p.id, name: p.name, price: p.price, in_stock: p.in_stock, url: p.url, promotion: p.promotion })),
+        });
         result.status = "success";
       } else {
-        // Non-Shopify: attempt basic metadata extraction
+        // Non-Shopify/Woo/BC: attempt basic metadata extraction
         result.platform_detected = "unknown";
         const meta = await extractBasicMeta(url, fetchFn);
         result.status = "partial";
         result.metadata = meta;
-
-        // Try to find product-like JSON at common endpoints
         const genericProducts = await tryGenericProductEndpoints(url, fetchFn);
         if (genericProducts.length > 0) {
           result.products_scraped = genericProducts.length;
-          await competitorIngestor.ingestSnapshot({
-            store_id,
-            competitor,
-            source: "auto_scraper",
-            products: genericProducts,
-          });
+          await competitorIngestor.ingestSnapshot({ store_id, competitor, source: "auto_scraper", products: genericProducts });
           result.status = "success";
         }
       }
@@ -308,8 +397,10 @@ function createCompetitorScraper({ store, competitorIngestor }) {
   }
 
   return {
-    probeShopify,
+    probeStorefront,
     fetchShopifyProducts,
+    fetchWooCommerceProducts,
+    fetchBigCommerceProducts,
     normalizeShopifyProduct,
     scrapeCompetitor,
     scrapeAll,
