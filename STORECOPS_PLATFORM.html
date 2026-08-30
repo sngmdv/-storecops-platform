@@ -1,533 +1,0 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Storecops Growth Platform — Complete Technical Reference</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
-  :root {
-    --primary: #667eea;
-    --primary-dark: #5a67d8;
-    --accent: #764ba2;
-    --text: #1a1a2e;
-    --text-light: #4a5568;
-    --text-muted: #718096;
-    --border: #e2e8f0;
-    --bg-light: #f7fafc;
-    --bg-code: #edf2f7;
-    --success: #38a169;
-    --white: #ffffff;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: var(--text);
-    line-height: 1.7;
-    font-size: 14px;
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 0 40px;
-  }
-
-  /* ── Cover Page ─────────────────────────────────────── */
-  .cover {
-    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
-    color: white;
-    padding: 80px 60px;
-    border-radius: 16px;
-    margin: 40px 0 60px;
-    text-align: center;
-    page-break-after: always;
-  }
-  .cover h1 { font-size: 48px; font-weight: 800; letter-spacing: -1px; margin-bottom: 8px; }
-  .cover .subtitle { font-size: 18px; opacity: 0.85; font-weight: 500; margin-bottom: 30px; }
-  .cover .divider { width: 120px; height: 3px; background: rgba(255,255,255,0.3); margin: 24px auto; border-radius: 2px; }
-  .cover .desc { font-size: 15px; opacity: 0.9; max-width: 500px; margin: 0 auto 20px; line-height: 1.6; }
-  .cover .stats {
-    display: flex; justify-content: center; gap: 30px; flex-wrap: wrap;
-    background: rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; margin-top: 30px;
-  }
-  .cover .stat { text-align: center; }
-  .cover .stat-num { font-size: 28px; font-weight: 800; }
-  .cover .stat-label { font-size: 11px; opacity: 0.8; text-transform: uppercase; letter-spacing: 1px; }
-  .cover .version { margin-top: 30px; font-size: 12px; opacity: 0.6; }
-
-  /* ── Table of Contents ──────────────────────────────── */
-  .toc {
-    page-break-after: always;
-    padding: 40px 0;
-  }
-  .toc h2 { font-size: 28px; color: var(--primary); margin-bottom: 24px; }
-  .toc-list { list-style: none; }
-  .toc-list li {
-    padding: 10px 16px; border-bottom: 1px solid var(--border);
-    font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 12px;
-  }
-  .toc-list li:nth-child(odd) { background: var(--bg-light); }
-  .toc-num {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 32px; height: 32px; border-radius: 8px;
-    background: var(--primary); color: white; font-size: 13px; font-weight: 700; flex-shrink: 0;
-  }
-
-  /* ── Headings ───────────────────────────────────────── */
-  h1 { font-size: 32px; font-weight: 800; color: var(--text); margin: 40px 0 16px; }
-  h2 {
-    font-size: 22px; font-weight: 700; color: var(--primary);
-    margin: 48px 0 16px; padding-bottom: 8px;
-    border-bottom: 3px solid var(--primary);
-    page-break-after: avoid;
-  }
-  h3 { font-size: 17px; font-weight: 700; color: var(--accent); margin: 28px 0 10px; page-break-after: avoid; }
-  h4 { font-size: 14px; font-weight: 700; color: var(--text); margin: 20px 0 8px; }
-
-  /* ── Paragraphs & Text ──────────────────────────────── */
-  p { margin: 8px 0 12px; color: var(--text-light); }
-  strong { color: var(--text); font-weight: 600; }
-  blockquote {
-    border-left: 4px solid var(--primary);
-    padding: 12px 20px; margin: 16px 0;
-    background: var(--bg-light); border-radius: 0 8px 8px 0;
-    font-style: italic; color: var(--text-light);
-  }
-  hr { border: none; border-top: 2px solid var(--border); margin: 32px 0; }
-
-  /* ── Lists ──────────────────────────────────────────── */
-  ul { margin: 8px 0 16px 24px; }
-  ul.ordered { list-style: decimal; }
-  li { margin: 4px 0; color: var(--text-light); }
-  li strong { color: var(--text); }
-
-  /* ── Tables ─────────────────────────────────────────── */
-  table {
-    width: 100%; border-collapse: collapse; margin: 16px 0 24px;
-    font-size: 13px; page-break-inside: avoid;
-  }
-  thead { background: var(--primary); color: white; }
-  th {
-    padding: 10px 14px; text-align: left; font-weight: 600;
-    font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
-  }
-  td { padding: 9px 14px; border-bottom: 1px solid var(--border); color: var(--text-light); }
-  tbody tr:nth-child(even) { background: var(--bg-light); }
-  tbody tr:hover { background: #edf2f7; }
-
-  /* ── Code ───────────────────────────────────────────── */
-  code {
-    background: var(--bg-code); padding: 2px 6px; border-radius: 4px;
-    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-    font-size: 12px; color: var(--accent);
-  }
-  pre {
-    background: #1a202c; color: #e2e8f0; padding: 20px; border-radius: 10px;
-    overflow-x: auto; margin: 16px 0; font-size: 12px; line-height: 1.6;
-    page-break-inside: avoid;
-  }
-  pre code { background: none; color: inherit; padding: 0; font-size: 12px; }
-
-  /* ── Links ──────────────────────────────────────────── */
-  a { color: var(--primary); text-decoration: none; font-weight: 500; }
-  a:hover { text-decoration: underline; }
-
-  /* ── Print Styles ───────────────────────────────────── */
-  @media print {
-    body { padding: 0; font-size: 12px; max-width: 100%; }
-    .cover { page-break-after: always; margin: 0; border-radius: 0; }
-    .toc { page-break-after: always; }
-    h2 { page-break-after: avoid; margin-top: 28px; }
-    h3, h4 { page-break-after: avoid; }
-    table { page-break-inside: avoid; }
-    pre { page-break-inside: avoid; background: #f7fafc; color: #1a202c; border: 1px solid #e2e8f0; }
-    a { color: var(--primary); }
-    @page { margin: 20mm 18mm; size: A4; }
-  }
-</style>
-</head>
-<body>
-
-<!-- Cover Page -->
-<div class="cover">
-  <h1>STORECOPS</h1>
-  <div class="subtitle">GROWTH PLATFORM</div>
-  <div class="divider"></div>
-  <div class="desc">
-    Complete Technical Reference<br>
-    AI-Driven E-Commerce Growth Platform
-  </div>
-  <div class="desc" style="font-size:13px; opacity:0.75;">
-    Architecture &middot; Features &middot; API &middot; Database &middot; Deployment
-  </div>
-  <div class="stats">
-    <div class="stat"><div class="stat-num">188</div><div class="stat-label">Tests</div></div>
-    <div class="stat"><div class="stat-num">58</div><div class="stat-label">Source Files</div></div>
-    <div class="stat"><div class="stat-num">42</div><div class="stat-label">Collections</div></div>
-    <div class="stat"><div class="stat-num">6</div><div class="stat-label">Layers</div></div>
-    <div class="stat"><div class="stat-num">19</div><div class="stat-label">Test Files</div></div>
-  </div>
-  <div class="version">Version 1.0.0 &nbsp;|&nbsp; August 2026 &nbsp;|&nbsp; Node.js 18+</div>
-</div>
-
-<!-- Table of Contents -->
-<div class="toc">
-  <h2>Table of Contents</h2>
-  <ul class="toc-list">
-    <li><span class="toc-num">1</span> Vision &amp; Product Summary</li>
-    <li><span class="toc-num">2</span> Tech Stack</li>
-    <li><span class="toc-num">3</span> Architecture — 6-Layer Growth Loop</li>
-    <li><span class="toc-num">4</span> Directory Structure</li>
-    <li><span class="toc-num">5</span> Database Collections</li>
-    <li><span class="toc-num">6</span> API Endpoints</li>
-    <li><span class="toc-num">7</span> Key Features</li>
-    <li><span class="toc-num">8</span> Growth Loop (Layer 6)</li>
-    <li><span class="toc-num">9</span> Frontend Architecture</li>
-    <li><span class="toc-num">10</span> Testing</li>
-    <li><span class="toc-num">11</span> Configuration</li>
-    <li><span class="toc-num">12</span> Deployment</li>
-    <li><span class="toc-num">13</span> Code Conventions</li>
-    <li><span class="toc-num">14</span> Extension Points</li>
-    <li><span class="toc-num">15</span> Current Status</li>
-  </ul>
-</div>
-
-<!-- Content -->
-<h1>Storecops Growth Platform — Complete Technical Reference</h1>
-<blockquote><strong>Purpose</strong>: This document is the single source of truth for the Storecops codebase. It is structured for AI-assisted development — paste this into any AI coding assistant to get immediate, accurate help with future development.</blockquote>
-<hr>
-<h2 id="sec-1">1. Vision & Product Summary</h2>
-<p><strong>Storecops</strong> is an AI-driven SaaS growth platform for e-commerce stores (Shopify, WooCommerce, custom). It unifies customer intelligence, competitive monitoring, market trend analysis, automated messaging, SEO optimization, and revenue generation into a single 6-layer system.</p>
-<p><strong>Core value proposition</strong>: A store owner connects their store once → Storecops automatically monitors competitors, recovers abandoned carts, optimizes pricing, generates SEO fixes, forecasts demand, and sends recovery messages — all without manual intervention.</p>
-<p><strong>Target users</strong>: Shopify/WooCommerce store owners who want automated growth tools without juggling 10 separate apps.</p>
-<p><strong>Business model</strong>: Tiered SaaS subscription — Starter ($29/mo), Growth ($79/mo), Enterprise ($199/mo). Lead generation via free public audit tool that emails branded PDF reports.</p>
-<hr>
-<h2 id="sec-2">2. Tech Stack</h2>
-<table><thead><tr><th>Component</th><th>Technology</th></tr></thead><tbody><tr><td>Runtime</td><td>Node.js ≥ 18 (zero TypeScript, pure JavaScript)</td></tr><tr><td>Framework</td><td>Express.js 4.x</td></tr><tr><td>Database</td><td>SQLite (via Node.js experimental <code>node:sqlite</code>) for persistence; in-memory Map for tests</td></tr><tr><td>PDF Generation</td><td>PDFKit</td></tr><tr><td>Testing</td><td>Node.js built-in test runner (<code>node --test</code>) — NOT vitest, NOT jest</td></tr><tr><td>Shell</td><td>PowerShell (Windows) — use <code>;</code> not <code>&&</code></td></tr><tr><td>Deployment</td><td>Docker (Alpine), Railway-ready with persistent volumes</td></tr><tr><td>Frontend</td><td>Vanilla JS (no React/Vue), Chart.js for visualizations</td></tr><tr><td>External APIs</td><td>Meta Ad Library, Resend (email), Meta WhatsApp Cloud API, Shopify Admin API</td></tr></tbody></table>
-<p><strong>Dependencies</strong>: Only 2 production dependencies — <code>express</code> and <code>pdfkit</code>. Everything else uses Node.js built-ins.</p>
-<hr>
-<h2 id="sec-3">3. Architecture — 6-Layer Growth Loop</h2>
-<p>The platform follows a strict 6-layer architecture. Each layer only depends on layers below it. Layer 6 (the growth loop) is not a separate module — it's the wiring in <code>src/platform.js</code> that closes the loop.</p>
-<pre><code>Layer 6: Growth Loop (platform.js — orchestrates all layers)
-    ↑
-Layer 5: Reporting (attribution, reports, live orders)
-    ↑
-Layer 4: Execution (messaging, billing, consent, monitoring)
-    ↑
-Layer 3: Decision (rules, pricing, campaigns, segmentation)
-    ↑
-Layer 2: Intelligence (SEO, competitor intel, forecasting, churn, recommendations)
-    ↑
-Layer 1: Data Foundation (events, customers, inventory, competitors, signals)</code></pre>
-<p><strong>Data flow</strong>: Layer 1 ingests raw data → Layer 2 analyzes it → Layer 3 decides what to do → Layer 4 executes actions → Layer 5 measures results → Layer 6 loops back.</p>
-<hr>
-<h2 id="sec-4">4. Directory Structure</h2>
-<pre><code>storecops-platform/
-├── server.js                    # Entry point — boots platform, starts HTTP server
-├── package.json                 # Dependencies: express, pdfkit
-├── Dockerfile                   # Node 20 Alpine, production deploy
-├── Procfile                     # web: node server.js
-├── railway.json                 # Railway deployment config
-├── .env.production              # Production env template
-│
-├── src/
-│   ├── platform.js              # COMPOSITION ROOT — wires all layers together
-│   ├── config/config.js         # All configuration from env vars
-│   │
-│   ├── layers/
-│   │   ├── data/                # Layer 1: Data Foundation
-│   │   │   ├── customerProfile.js       # Unified customer profiles
-│   │   │   ├── eventTracker.js          # Append-only event ingestion
-│   │   │   ├── competitorIngestor.js    # Competitor data storage
-│   │   │   ├── externalSignals.js       # Market signals (trends, news)
-│   │   │   ├── sentimentCollector.js    # Brand sentiment sampling
-│   │   │   ├── inventoryLedger.js       # Stock movements (purchase, sell, adjust)
-│   │   │   └── searchConsole.js         # Google Search Console data
-│   │   │
-│   │   ├── intelligence/        # Layer 2: Intelligence
-│   │   │   ├── recommendationEngine.js  # Product recommendations (co-view + popularity)
-│   │   │   ├── churnScoring.js          # Customer churn risk scoring
-│   │   │   ├── channelOptimizer.js      # Best messaging channel per customer
-│   │   │   ├── inventoryIntelligence.js # Stockout predictions, dead stock alerts
-│   │   │   ├── seoAuditEngine.js        # Single-page SEO audit (public /audit)
-│   │   │   ├── seoGrowth.js             # Search Console intent gap, content ideas
-│   │   │   ├── seoAutoFix.js            # One-click SEO fix generator (HTML + Liquid)
-│   │   │   ├── deepAudit.js             # Multi-page deep audit (30+ params, 5 categories)
-│   │   │   ├── trendIntelligence.js     # Market trend detection + campaign drafting
-│   │   │   ├── competitorIntelligence.js# Price drop/promo detection across competitors
-│   │   │   ├── competitorScraper.js     # Shopify product scraper (products.json)
-│   │   │   ├── demandForecast.js        # 7-day demand forecasting
-│   │   │   ├── brandSentiment.js        # Brand health scoring
-│   │   │   ├── productInsights.js       # Fast/slow/dead stock analysis
-│   │   │   ├── defectionDetector.js     # Competitor-browsing customer detection
-│   │   │   ├── seasonalAlerts.js        # Upcoming retail moment alerts
-│   │   │   ├── adIntelligence.js        # Ad spend/strategy analysis
-│   │   │   └── metaAdLibrary.js         # Meta Ad Library scraper
-│   │   │
-│   │   ├── decision/            # Layer 3: Decision
-│   │   │   ├── rulesEngine.js           # Custom trigger→action rules
-│   │   │   ├── personalization.js       # Per-customer content personalization
-│   │   │   ├── dynamicPricing.js        # Competitor-aware price recommendations
-│   │   │   ├── orchestrator.js          # Event→decision routing, cooldown dedup
-│   │   │   ├── segmentation.js          # Customer segmentation (VIP, new, at-risk)
-│   │   │   ├── campaignGenerator.js     # Auto-draft campaigns from trends
-│   │   │   └── sendTimeOptimizer.js     # Best time to send per customer
-│   │   │
-│   │   ├── execution/           # Layer 4: Execution
-│   │   │   ├── providers.js             # Multi-provider registry (email, WhatsApp, push)
-│   │   │   ├── emailService.js          # Pluggable email (console/resend/smtp) + attachments
-│   │   │   ├── whatsappService.js       # Meta WhatsApp Cloud API + webhook parsing
-│   │   │   ├── executionService.js      # Action queue processor
-│   │   │   ├── websiteBot.js            # FAQ/intent-answering chatbot
-│   │   │   ├── retargeting.js           # Cart/browse abandoner audience builder
-│   │   │   ├── purchaseOrders.js        # Auto-generated supplier POs
-│   │   │   ├── consentService.js        # GDPR/CCPA consent tracking
-│   │   │   ├── billingService.js        # Shopify Billing integration
-│   │   │   ├── monitoringService.js     # Failure detection + alerting
-│   │   │   └── pdfService.js            # Branded PDF report generator (PDFKit)
-│   │   │
-│   │   └── reporting/           # Layer 5: Reporting
-│   │       ├── attribution.js           # Revenue attribution per action/campaign
-│   │       ├── reportingService.js      # ROI, maturity score, weekly digest
-│   │       └── liveOrders.js            # Real-time order feed (SSE)
-│   │
-│   ├── server/                  # HTTP layer
-│   │   ├── createApp.js         # Express app factory — middleware, routing, public routes
-│   │   ├── apiRoutes.js         # All /api/v1/* endpoints (behind API key)
-│   │   ├── auth.js              # Signup, login, session management, API keys
-│   │   ├── security.js          # Rate limiter, RBAC, webhook HMAC, GDPR export/delete
-│   │   ├── storeAudit.js        # Public site audit (13 checks, no signup)
-│   │   ├── integrations.js      # Store connection (Shopify snippet, webhook, CSV)
-│   │   ├── oauthConnectors.js   # One-click OAuth connect (Shopify, WooCommerce)
-│   │   ├── demoSeed.js          # Demo data seeder for dashboard testing
-│   │   └── secretRotation.js    # Secret fingerprint lifecycle tracking
-│   │
-│   └── storage/
-│       ├── store.js             # In-memory collection factory (Map-based CRUD)
-│       └── sqliteStore.js       # SQLite adapter (same interface as in-memory)
-│
-├── public/                      # Frontend (vanilla JS, no framework)
-│   ├── index.html               # Landing page (marketing, pricing, features)
-│   ├── app.html                 # Main dashboard (SPA-like, tab-based)
-│   ├── audit.html               # Public audit page (free, no signup)
-│   ├── admin.html               # Admin console
-│   ├── privacy.html             # Privacy policy
-│   ├── terms.html               # Terms of service
-│   ├── support.html             # Support center
-│   ├── tracker-disclosure.html  # Tracker data disclosure (Shopify compliance)
-│   ├── tracker.js               # Client-side tracking snippet (served to stores)
-│   ├── favicon.svg              # Shield icon
-│   ├── js/
-│   │   ├── api.js               # Tiny API client (session in localStorage)
-│   │   ├── app.js               # Main dashboard logic (tabs, charts, SEO optimizer)
-│   │   ├── audit.js             # Audit page (deep audit, gated report, PDF download)
-│   │   └── landing.js           # Landing page interactions
-│   ├── styles/
-│   │   ├── app.css              # Dashboard styles
-│   │   └── landing.css          # Landing page styles
-│   └── vendor/
-│       └── chart.umd.min.js     # Chart.js (CDN-free)
-│
-└── test/                        # 19 test files, 188 tests
-    ├── api.test.js              # HTTP API integration tests
-    ├── audit.test.js            # Public site audit tests
-    ├── auth.test.js             # Auth service + HTTP auth tests
-    ├── competitorScraper.test.js# Shopify scraper + Meta Ad Library tests
-    ├── connect.test.js          # Store connection flow tests
-    ├── deepAudit.test.js        # Deep audit engine + PDF service tests
-    ├── integrations.test.js     # Integration snippet + CSV + webhook tests
-    ├── layers.test.js           # All 6 layers unit tests
-    ├── liveMonitoring.test.js   # Live orders SSE + insights tests
-    ├── messagingRegression.test.js # Consent, suppression, dedup tests
-    ├── persistence.test.js      # SQLite roundtrip + restart survival
-    ├── pipeline.test.js         # End-to-end pipeline tests
-    ├── privacyRegression.test.js# GDPR export/delete/redact tests
-    ├── queueShutdown.test.js    # Consent revocation + uninstall tests
-    ├── securityRegression.test.js # Tenant isolation, rate limit, HMAC tests
-    ├── seoOptimizer.test.js     # SEO auto-fix + AI optimization tests
-    ├── toolkit.test.js          # Cross-layer feature tests
-    ├── webhook.test.js          # Webhook idempotency tests
-    └── whatsapp.test.js         # WhatsApp provider + webhook tests</code></pre>
-<hr>
-<h2 id="sec-5">5. Database Collections (42 total)</h2>
-<p>All collections use the same CRUD interface: <code>insert(doc)</code>, <code>findById(id)</code>, <code>find(query)</code>, <code>update(id, patch)</code>, <code>remove(id)</code>.</p>
-<h3>Layer 1: Data Foundation</h3>
-<table><thead><tr><th>Collection</th><th>Purpose</th></tr></thead><tbody><tr><td><code>events</code></td><td>Append-only event log (page_view, add_to_cart, purchase, etc.)</td></tr><tr><td><code>customers</code></td><td>Unified customer profiles (merged by email/phone)</td></tr><tr><td><code>competitorSnapshots</code></td><td>Competitor product/price snapshots</td></tr><tr><td><code>externalSignals</code></td><td>Market trend signals</td></tr><tr><td><code>sentimentSamples</code></td><td>Brand sentiment samples</td></tr><tr><td><code>inventory</code></td><td>Stock ledger (movements, not just current state)</td></tr><tr><td><code>searchConsole</code></td><td>Google Search Console performance data</td></tr><tr><td><code>competitorAds</code></td><td>Meta Ad Library snapshots</td></tr><tr><td><code>trackedCompetitors</code></td><td>Competitor configs (URLs, page IDs, scrape status)</td></tr></tbody></table>
-<h3>Layer 2: Intelligence</h3>
-<table><thead><tr><th>Collection</th><th>Purpose</th></tr></thead><tbody><tr><td><code>seoAudits</code></td><td>Single-page SEO audit results</td></tr><tr><td><code>seoOptimizations</code></td><td>Generated SEO + AI fix packages</td></tr><tr><td><code>trendReports</code></td><td>Market trend reports</td></tr><tr><td><code>forecasts</code></td><td>Demand forecast data</td></tr></tbody></table>
-<h3>Layer 3: Decision</h3>
-<table><thead><tr><th>Collection</th><th>Purpose</th></tr></thead><tbody><tr><td><code>rules</code></td><td>Custom trigger→action rules</td></tr><tr><td><code>actions</code></td><td>Generated actions (messages, price changes)</td></tr><tr><td><code>campaigns</code></td><td>Campaign drafts</td></tr></tbody></table>
-<h3>Layer 4: Execution</h3>
-<table><thead><tr><th>Collection</th><th>Purpose</th></tr></thead><tbody><tr><td><code>deliveries</code></td><td>Message delivery records</td></tr><tr><td><code>purchaseOrders</code></td><td>Supplier purchase orders</td></tr><tr><td><code>retargetingAudiences</code></td><td>Cart/browse abandoner audiences</td></tr></tbody></table>
-<h3>Layer 5: Reporting</h3>
-<table><thead><tr><th>Collection</th><th>Purpose</th></tr></thead><tbody><tr><td><code>attributions</code></td><td>Revenue attribution records</td></tr><tr><td><code>reports</code></td><td>Generated reports</td></tr></tbody></table>
-<h3>Security & Admin</h3>
-<table><thead><tr><th>Collection</th><th>Purpose</th></tr></thead><tbody><tr><td><code>users</code></td><td>RBAC accounts (signup users)</td></tr><tr><td><code>auditLog</code></td><td>Immutable admin action log</td></tr><tr><td><code>sessions</code></td><td>Bearer-token login sessions</td></tr></tbody></table>
-<h3>Store Connections</h3>
-<table><thead><tr><th>Collection</th><th>Purpose</th></tr></thead><tbody><tr><td><code>integrations</code></td><td>Connected stores (Shopify/Woo/webhook/CSV)</td></tr><tr><td><code>siteAudits</code></td><td>Free public store audit reports</td></tr><tr><td><code>connectors</code></td><td>OAuth app credentials</td></tr><tr><td><code>oauthStates</code></td><td>In-flight OAuth CSRF states</td></tr><tr><td><code>pendingConnections</code></td><td>Pre-signup store connections</td></tr></tbody></table>
-<h3>Compliance</h3>
-<table><thead><tr><th>Collection</th><th>Purpose</th></tr></thead><tbody><tr><td><code>consentRecords</code></td><td>Customer consent categories per installation</td></tr><tr><td><code>channelSuppressions</code></td><td>Per-channel opt-out</td></tr><tr><td><code>emailSuppressions</code></td><td>Global do-not-send list</td></tr></tbody></table>
-<h3>Billing & Monitoring</h3>
-<table><thead><tr><th>Collection</th><th>Purpose</th></tr></thead><tbody><tr><td><code>subscriptions</code></td><td>Shopify Billing records</td></tr><tr><td><code>monitoringEvents</code></td><td>Failure events (webhook, worker, token, message)</td></tr><tr><td><code>secretLedger</code></td><td>Secret fingerprint lifecycle</td></tr></tbody></table>
-<h3>Deep Audit & Reports</h3>
-<table><thead><tr><th>Collection</th><th>Purpose</th></tr></thead><tbody><tr><td><code>deepAudits</code></td><td>Comprehensive multi-page store audits</td></tr><tr><td><code>reportRequests</code></td><td>PDF report generation & delivery tracking</td></tr></tbody></table>
-<hr>
-<h2 id="sec-6">6. API Endpoints</h2>
-<h3>Public Routes (no auth required)</h3>
-<table><thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead><tbody><tr><td>GET</td><td><code>/health</code></td><td>Health check</td></tr><tr><td>POST</td><td><code>/api/v1/auth/signup</code></td><td>Create account</td></tr><tr><td>POST</td><td><code>/api/v1/auth/login</code></td><td>Login (returns bearer token)</td></tr><tr><td>POST</td><td><code>/api/v1/audit/site</code></td><td>Free 13-check site audit</td></tr><tr><td>GET</td><td><code>/api/v1/audit/recent</code></td><td>Recent audit reports</td></tr><tr><td>GET</td><td><code>/api/v1/audit/site/:id</code></td><td>Get specific audit</td></tr><tr><td>POST</td><td><code>/api/v1/audit/deep</code></td><td><strong>Deep audit (30+ params, summary only)</strong></td></tr><tr><td>GET</td><td><code>/api/v1/audit/report/:id</code></td><td>Full deep audit report (auth header checked inline)</td></tr><tr><td>GET</td><td><code>/api/v1/audit/report/:id/pdf</code></td><td>Download branded PDF (auth header checked inline)</td></tr><tr><td>POST</td><td><code>/api/v1/audit/report/:id/email</code></td><td>Email PDF report (auth header checked inline)</td></tr><tr><td>POST</td><td><code>/api/v1/track</code></td><td>Event ingestion (write-only ingest key)</td></tr><tr><td>GET</td><td><code>/api/v1/connect/status</code></td><td>Connection status per platform</td></tr><tr><td>POST</td><td><code>/api/v1/connect/:platform/start</code></td><td>Start OAuth connect</td></tr><tr><td>GET</td><td><code>/api/v1/connect/pending/:token</code></td><td>Check pending connection</td></tr></tbody></table>
-<h3>Authenticated Routes (API key or bearer token)</h3>
-<p>All routes under <code>/api/v1</code> require <code>X-API-Key</code> or <code>Authorization: Bearer <token></code>.</p>
-<p>Key endpoints:</p>
-<table><thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead><tbody><tr><td>GET</td><td><code>/dashboard/:store_id</code></td><td>Full dashboard data</td></tr><tr><td>POST</td><td><code>/events/track</code></td><td>Track customer event</td></tr><tr><td>GET</td><td><code>/customers/:store_id</code></td><td>List customers</td></tr><tr><td>GET</td><td><code>/recommendations/:store_id</code></td><td>Product recommendations</td></tr><tr><td>GET</td><td><code>/churn/:store_id</code></td><td>Churn scores</td></tr><tr><td>POST</td><td><code>/seo/audit</code></td><td>SEO audit (single page)</td></tr><tr><td>POST</td><td><code>/seo/optimize</code></td><td>Full SEO optimization</td></tr><tr><td>POST</td><td><code>/seo/one-click-fix</code></td><td>One-click audit + fix</td></tr><tr><td>GET</td><td><code>/seo/store-info/:store_id</code></td><td>Auto-detect connected store</td></tr><tr><td>POST</td><td><code>/seo/ai-optimize</code></td><td>AI search optimization only</td></tr><tr><td>GET</td><td><code>/competitors/:store_id</code></td><td>List competitors</td></tr><tr><td>POST</td><td><code>/competitors/:store_id</code></td><td>Add competitor</td></tr><tr><td>GET</td><td><code>/inventory/:store_id/analyze</code></td><td>Inventory intelligence</td></tr><tr><td>POST</td><td><code>/inventory/:store_id/purchase</code></td><td>Record purchase</td></tr><tr><td>GET</td><td><code>/orders/:store_id/live</code></td><td>Live order feed</td></tr><tr><td>POST</td><td><code>/rules/:store_id</code></td><td>Create automation rule</td></tr><tr><td>POST</td><td><code>/campaigns/:store_id/generate</code></td><td>Generate campaign</td></tr><tr><td>GET</td><td><code>/attribution/:store_id</code></td><td>Revenue attribution</td></tr><tr><td>GET</td><td><code>/reporting/:store_id</code></td><td>Full report (ROI, maturity)</td></tr></tbody></table>
-<hr>
-<h2 id="sec-7">7. Key Features (Built & Working)</h2>
-<h3>7.1 Deep Audit & Branded PDF Reports</h3>
-<ul>
-<li><strong>Public audit page</strong> (<code>/audit</code>): Anyone enters a store URL → gets a summary score (grade A-F), category breakdowns (SEO, Performance, Security, Crawlability, AI Readiness), and top 3 issues</li>
-<li><strong>Deep crawl</strong>: Fetches homepage, analyzes SEO (title, meta, H1, OG, JSON-LD, alt text, links), performance (TTFB, page weight, compression), security (HTTPS, 6 security headers), crawlability (robots.txt, sitemap, favicon, llms.txt), AI readiness (6 signals)</li>
-<li><strong>Gated full report</strong>: Authenticated users see all checks, detailed findings</li>
-<li><strong>PDF download</strong>: Multi-page branded PDF with Storecops branding, score rings, category bars, issue list, and <strong>pricing plans page</strong> (Starter $29, Growth $79, Enterprise $199)</li>
-<li><strong>Email delivery</strong>: PDF attached to branded HTML email with score summary and CTA</li>
-</ul>
-<h3>7.2 One-Click SEO Optimization</h3>
-<ul>
-<li>Connected store auto-detected (no manual URL entry)</li>
-<li>Single button: "Analyze & Fix Everything"</li>
-<li>Generates ready-to-apply code snippets (HTML meta tags, Shopify Liquid templates, Nginx configs)</li>
-<li>Covers: title, meta description, OpenGraph, JSON-LD schemas, robots.txt, security headers, viewport, heading structure, image alt text</li>
-<li>AI search optimization: llms.txt, FAQPage schema, entity markup (Organization/Store with sameAs), HowTo schema, BreadcrumbList schema</li>
-</ul>
-<h3>7.3 Competitor Intelligence</h3>
-<ul>
-<li>Auto-scrape competitor Shopify stores via <code>/products.json</code></li>
-<li>Meta Ad Library integration for ad monitoring</li>
-<li>Price drop and promotion detection</li>
-<li>Competitive positioning analysis</li>
-</ul>
-<h3>7.4 Customer Intelligence</h3>
-<ul>
-<li>Unified profiles (merged by email/phone)</li>
-<li>Churn scoring (inactive customer detection)</li>
-<li>Defection detection (competitor-browsing customers)</li>
-<li>Segmentation (VIP, new, at-risk, browse abandoners)</li>
-<li>Product recommendations (co-view + popularity fallback)</li>
-</ul>
-<h3>7.5 Automated Execution</h3>
-<ul>
-<li>Cart recovery (email + WhatsApp)</li>
-<li>Win-back campaigns (gone customers)</li>
-<li>Browse abandonment messages</li>
-<li>Dynamic pricing recommendations</li>
-<li>Purchase order generation</li>
-<li>Consent-aware messaging (GDPR/CCPA)</li>
-</ul>
-<h3>7.6 Store Connection</h3>
-<ul>
-<li>Shopify: OAuth + Script Tag + Webhooks + Billing</li>
-<li>WooCommerce: REST API key exchange</li>
-<li>Custom: Webhook + tracking snippet</li>
-<li>CSV: Manual inventory import</li>
-</ul>
-<h3>7.7 Security & Compliance</h3>
-<ul>
-<li>Multi-tenant isolation (store A can't read store B data)</li>
-<li>HMAC webhook verification</li>
-<li>Rate limiting (sliding window)</li>
-<li>Secret rotation with fingerprint tracking</li>
-<li>GDPR export/delete/customer redact</li>
-<li>PII masking in logs</li>
-</ul>
-<hr>
-<h2 id="sec-8">8. Growth Loop (Layer 6)</h2>
-<p>The growth loop is the heartbeat of the platform, implemented in <code>platform.runGrowthCycle(store_id)</code>:</p>
-<ul class="ordered">
-<li>1. <strong>Scan</strong> (Layer 2→3): Orchestrator scans store for high-priority events</li>
-<li>2. <strong>Decide</strong> (Layer 3): Rules engine, churn scoring, recommendations fire</li>
-<li>3. <strong>Execute</strong> (Layer 4): Messages sent, prices adjusted, POs created</li>
-<li>4. <strong>Attribute</strong> (Layer 5): Revenue attributed to actions</li>
-<li>5. <strong>Report</strong> (Layer 5): ROI calculated, maturity scored</li>
-<li>6. <strong>Loop</strong>: Results feed back into Layer 1 as new events</li>
-</ul>
-<p><strong>Schedulers</strong> (in <code>server/schedulers.js</code>):</p>
-<ul>
-<li>Growth cycle: periodic per-store</li>
-<li>Competitor scrape: every 6 hours</li>
-<li>Resync: periodic data refresh</li>
-</ul>
-<hr>
-<h2 id="sec-9">9. Frontend Architecture</h2>
-<p><strong>No framework</strong> — vanilla JavaScript with a simple tab-based SPA in <code>app.html</code>.</p>
-<ul>
-<li><code>api.js</code>: Tiny API client. Session stored in <code>localStorage</code> as <code>storecops_session</code> (JSON: <code>{ storeId, apiKey, token, email }</code>). All requests include auth headers.</li>
-<li><code>app.js</code>: Main dashboard. Tabs: Overview, Customers, Competitors, Inventory, SEO, Reports, Settings. SEO tab has the one-click optimizer.</li>
-<li><code>audit.js</code>: Public audit page. Calls <code>POST /api/v1/audit/deep</code> (public), shows summary. If authenticated, fetches full report + enables PDF download + email.</li>
-<li><code>landing.js</code>: Landing page interactions.</li>
-</ul>
-<hr>
-<h2 id="sec-10">10. Testing</h2>
-<p><strong>Command</strong>: <code>node --test "test/**/*.test.js"</code> (Node.js built-in test runner — NOT vitest/jest)</p>
-<p><strong>188 tests across 19 files</strong>, all passing.</p>
-<p><strong>Key conventions</strong>:</p>
-<ul>
-<li>Tests use in-memory store (<code>STORAGE=memory</code> or <code>config.env = "test"</code>)</li>
-<li>Test mode bypasses API key middleware</li>
-<li>Each test creates its own platform instance for isolation</li>
-<li>Use unique store IDs per test to prevent cross-test contamination in SQLite</li>
-<li>Mock fetch with closure variable pattern for external API tests</li>
-<li>Integration tests boot a real HTTP server via <code>createApp()</code></li>
-</ul>
-<hr>
-<h2 id="sec-11">11. Configuration (Environment Variables)</h2>
-<table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><code>NODE_ENV</code></td><td><code>development</code></td><td>Environment (test/development/production)</td></tr><tr><td><code>PORT</code></td><td><code>4000</code></td><td>HTTP port</td></tr><tr><td><code>API_KEY</code></td><td><code>dev-key</code></td><td>Master API key</td></tr><tr><td><code>PUBLIC_URL</code></td><td>(empty)</td><td>Public-facing URL for OAuth callbacks</td></tr><tr><td><code>STORAGE</code></td><td><code>sqlite</code> (prod) / <code>memory</code> (test)</td><td>Storage backend</td></tr><tr><td><code>SQLITE_PATH</code></td><td><code>data/storecops.db</code></td><td>SQLite file path</td></tr><tr><td><code>EMAIL_PROVIDER</code></td><td><code>console</code></td><td>Email provider (console/resend/smtp)</td></tr><tr><td><code>WHATSAPP_PROVIDER</code></td><td><code>console</code></td><td>WhatsApp provider (console/meta)</td></tr><tr><td><code>RESEND_API_KEY</code></td><td>—</td><td>Resend API key (for email)</td></tr><tr><td><code>WHATSAPP_ACCESS_TOKEN</code></td><td>—</td><td>Meta WhatsApp token</td></tr><tr><td><code>WHATSAPP_PHONE_NUMBER_ID</code></td><td>—</td><td>Meta WhatsApp phone number</td></tr><tr><td><code>WEBHOOK_SECRET</code></td><td>—</td><td>HMAC secret for webhooks</td></tr><tr><td><code>DEFAULT_STORE_ID</code></td><td><code>store_demo</code></td><td>Default tenant</td></tr><tr><td><code>SESSION_TTL_DAYS</code></td><td><code>7</code></td><td>Login session TTL</td></tr><tr><td><code>CHURN_INACTIVE_DAYS</code></td><td><code>30</code></td><td>Days before customer considered inactive</td></tr><tr><td><code>FORECAST_WINDOW</code></td><td><code>7</code></td><td>Demand forecast days</td></tr><tr><td><code>COMPETITOR_SCRAPE_INTERVAL_HOURS</code></td><td><code>6</code></td><td>Competitor scrape frequency</td></tr><tr><td><code>RATE_LIMIT_WINDOW_MS</code></td><td><code>60000</code></td><td>Rate limit window</td></tr><tr><td><code>RATE_LIMIT_MAX</code></td><td><code>300</code></td><td>Max requests per window</td></tr><tr><td><code>SUBSCRIPTION_COST</code></td><td><code>49</code></td><td>Monthly cost for ROI calculator</td></tr></tbody></table>
-<hr>
-<h2 id="sec-12">12. Deployment</h2>
-<p><strong>Docker</strong>: <code>Dockerfile</code> (Node 20 Alpine, production deps, health check)</p>
-<p><strong>Railway</strong>: <code>railway.json</code> (Docker build, healthcheck at <code>/health</code>, restart on failure)</p>
-<p><strong>Persistent volume</strong>: Mount at <code>/app/data</code> for SQLite survival across restarts</p>
-<p><strong>Deploy steps</strong>:</p>
-<ul class="ordered">
-<li>1. Push to GitHub</li>
-<li>2. Connect Railway to repo</li>
-<li>3. Add volume at <code>/app/data</code></li>
-<li>4. Set env vars: <code>NODE_ENV=production</code>, <code>API_KEY=<random></code>, <code>PUBLIC_URL=<railway-url></code></li>
-<li>5. Deploy — auto-builds from Dockerfile</li>
-</ul>
-<hr>
-<h2 id="sec-13">13. Code Conventions</h2>
-<ul>
-<li><strong>Pure JavaScript</strong> — no TypeScript, no transpilation</li>
-<li><strong><code>"use strict"</code> at top of every file</strong></li>
-<li><strong>Factory functions</strong> — <code>createXxx({ store, config })</code> pattern (no classes)</li>
-<li><strong>Async/await</strong> throughout — no callbacks, no .then()</li>
-<li><strong>Error handling</strong> — throw Error with descriptive message, caught by <code>wrap()</code> in routes</li>
-<li><strong>Logging</strong> — <code>console.log</code> with <code>[TAG]</code> prefix. PII masked (email: <code>j<strong>*@g</strong>*</code>).</li>
-<li><strong>No external dependencies</strong> beyond express + pdfkit — use Node.js built-ins</li>
-<li><strong>Test command</strong>: <code>node --test "test/**/*.test.js"</code> (PowerShell: use <code>;</code> not <code>&&</code>)</li>
-</ul>
-<hr>
-<h2 id="sec-14">14. Extension Points</h2>
-<p>When adding new features, follow these patterns:</p>
-<ul class="ordered">
-<li>1. <strong>New intelligence module</strong>: Create <code>src/layers/intelligence/myModule.js</code> → export <code>createMyModule({ store, ...deps })</code> → wire in <code>platform.js</code></li>
-<li>2. <strong>New API endpoint</strong>: Add to <code>src/server/apiRoutes.js</code> inside <code>createApiRouter(platform)</code> using <code>wrap(async (req) => { ... })</code></li>
-<li>3. <strong>New public endpoint</strong>: Add to <code>createAuditRouter()</code> or create new public router in <code>createApp.js</code> (mounted BEFORE the keyed API)</li>
-<li>4. <strong>New collection</strong>: Add name to <code>COLLECTIONS</code> array in <code>src/storage/store.js</code></li>
-<li>5. <strong>New email template</strong>: Add method to <code>emailService</code> (supports HTML + attachments)</li>
-<li>6. <strong>New test file</strong>: Create <code>test/myFeature.test.js</code> — use <code>node --test</code> compatible assertions</li>
-</ul>
-<hr>
-<h2 id="sec-15">15. Current Status</h2>
-<ul>
-<li><strong>188/188 tests passing</strong></li>
-<li><strong>58 source files</strong> (src/)</li>
-<li><strong>19 test files</strong> (test/)</li>
-<li><strong>17 frontend files</strong> (public/)</li>
-<li><strong>42 database collections</strong></li>
-<li><strong>Fully deployable</strong> to Railway/Docker</li>
-<li><strong>Production-ready</strong> architecture with multi-tenant isolation, consent management, GDPR compliance, secret rotation, and monitoring</li>
-</ul>
-
-
-</body>
-</html>

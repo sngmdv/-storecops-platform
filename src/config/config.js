@@ -5,7 +5,40 @@
  *
  * Every tunable in the platform reads from here so behaviour can be
  * adjusted via environment variables without touching engine code.
+ *
+ * In production, sensitive values MUST be set via environment variables.
+ * The app will throw on startup if required secrets are missing.
  */
+
+// ─── Environment Validation ─────────────────────────────────────────────────
+
+const isProduction = (process.env.NODE_ENV || "development") === "production";
+
+const requiredInProduction = [
+  "API_KEY",
+  "WEBHOOK_SECRET",
+  "TOKEN_ENCRYPTION_KEY",
+];
+
+if (isProduction) {
+  const missing = requiredInProduction.filter(key => !process.env[key]);
+  if (missing.length > 0) {
+    console.error(`[FATAL] Missing required environment variables for production: ${missing.join(", ")}`);
+    console.error("[FATAL] Set these in your deployment environment before starting the server.");
+    process.exit(1);
+  }
+  
+  // Warn about default fallback values
+  if (process.env.API_KEY === "dev-key") {
+    console.error("[FATAL] API_KEY cannot be 'dev-key' in production");
+    process.exit(1);
+  }
+  if (process.env.TOKEN_ENCRYPTION_KEY === "storecops-default-key-do-not-use-in-prod") {
+    console.error("[FATAL] TOKEN_ENCRYPTION_KEY cannot be the default value in production");
+    process.exit(1);
+  }
+}
+
 const config = {
   port: Number(process.env.PORT || 4000),
   env: process.env.NODE_ENV || "development",

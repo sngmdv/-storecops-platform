@@ -30,6 +30,14 @@ const DEFAULT_RULES = [
     when: [{ field: "abandoned_carts", op: "gte", value: 1 }],
     action: { type: "recovery_message", channel: "auto", urgency: "high" },
     priority: 10,
+    drip_sequence: {
+      enabled: true,
+      steps: [
+        { step: 1, delay_ms: 60 * 60 * 1000, type: "recovery_reminder_1h", urgency: "medium" },
+        { step: 2, delay_ms: 3 * 60 * 60 * 1000, type: "recovery_escalation_3h", urgency: "high" },
+        { step: 3, delay_ms: 24 * 60 * 60 * 1000, type: "recovery_final_24h", urgency: "critical" },
+      ],
+    },
   },
   {
     rule_id: "churn_winback",

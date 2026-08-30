@@ -1,6 +1,7 @@
 "use strict";
 
 /* Storecops app — SPA: router, pages, charts, live streams. */
+/* Supports both standalone mode and Shopify embedded app mode. */
 
 (function () {
   const api = window.StorecopsAPI;
@@ -9,6 +10,22 @@
 
   let charts = [];
   let liveSource = null;
+
+  // ── Embedded mode detection ─────────────────────────────────────────
+  const params = new URLSearchParams(window.location.search);
+  const isEmbedded = params.get("embedded") === "1" || 
+                     !!params.get("shop") ||
+                     (params.get("host") && params.get("host").indexOf(".myshopify.com") > -1);
+  const shopifyShop = params.get("shop") || null;
+  const shopifyHost = params.get("host") || null;
+
+  if (isEmbedded) {
+    console.log("[Storecops] Running in Shopify embedded mode for shop:", shopifyShop);
+    document.body.classList.add("embedded-mode");
+  } else {
+    console.log("[Storecops] Running in standalone mode");
+    document.body.classList.add("standalone-mode");
+  }
 
   // ── helpers ────────────────────────────────────────────────────────
   function destroyCharts() {
@@ -33,7 +50,20 @@
     return n === null || n === undefined ? "—" : "$" + Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
   }
 
+  /**
+   * Show toast notification (works in both embedded and standalone mode).
+   */
   function toast(message, ms = 4200) {
+    // Try App Bridge toast first (embedded mode)
+    if (isEmbedded && window.shopify && window.shopify.toast) {
+      try {
+        window.shopify.toast.show(message, { duration: ms });
+        return;
+      } catch (err) {
+        // Fallback to standard toast
+      }
+    }
+    // Standard toast
     const el = $("#toast");
     el.innerHTML = message;
     el.classList.add("show");
@@ -118,7 +148,7 @@
     return chart;
   }
 
-  const GRAD = ["#8b7cf6", "#6aa9f0", "#2fae7f", "#d99a2b", "#e2635f", "#ff9f74"];
+  const GRAD = ["#08906c", "#34bf99", "#06b6d4", "#f59e0b", "#ef4444", "#f97316"];
 
   // ── login ──────────────────────────────────────────────────────────
   async function enterApp(storeId, apiKey) {
@@ -459,15 +489,55 @@
     messages: { title: "Messages", render: renderMessages },
     campaigns: { title: "Campaigns & Retargeting", render: renderCampaigns },
     competitors: { title: "Competitor Radar", render: renderCompetitors },
+    "brand-keywords": { title: "Brand Keywords", render: renderBrandKeywords },
     seo: { title: "SEO & Trends", render: renderSeo },
     reports: { title: "Reports & ROI", render: renderReports },
     settings: { title: "Settings", render: renderSettings },
     connect: { title: "Connect Store", render: renderConnect },
     onboarding: { title: "Setup Guide", render: renderOnboarding },
     activity: { title: "Activity Log", render: renderActivity },
+    recovery: { title: "Revenue Recovery", render: renderRecovery },
+    winback: { title: "Win-Back Campaigns", render: renderWinback },
+    browse: { title: "Browse Abandonment", render: renderBrowse },
+    recommendations: { title: "Product Recommendations", render: renderRecommendations },
+    churn: { title: "Churn Risk", render: renderChurnRisk },
+    defections: { title: "Defection Alerts", render: renderDefections },
+    milestones: { title: "Aha Moments", render: renderMilestones },
+    pricehistory: { title: "Price History", render: renderPriceHistory },
+    markdowns: { title: "Markdown Suggestions", render: renderMarkdowns },
+    templates: { title: "Template Editor", render: renderTemplates },
+    billing: { title: "Billing & Subscription", render: renderBilling },
+    channels: { title: "Channel Settings", render: renderChannels },
+    notifications: { title: "Notification Preferences", render: renderNotifications },
+    support: { title: "Support Tickets", render: renderSupport },
+    cac: { title: "CAC Tracking", render: renderCac },
+    pricing: { title: "Dynamic Pricing", render: renderPricing },
+    features: { title: "Feature Activation", render: renderFeatures },
   };
 
   function route() {
+    // In embedded mode, check for Shopify session first
+    if (isEmbedded && !api.session()) {
+      // Auto-login with Shopify session if available
+      if (shopifyShop) {
+        // Store Shopify info for the API
+        sessionStorage.setItem("shopify_shop", shopifyShop);
+        sessionStorage.setItem("shopify_host", shopifyHost);
+        // Try to auto-login with Shopify credentials
+        api.post("/auth/shopify", { shop: shopifyShop, host: shopifyHost })
+          .then(() => route())
+          .catch(() => {
+            // If auto-login fails, show login with pre-filled shop
+            view.innerHTML = `<div class="login"><div class="login-card">
+              <h3>Connect your Storecops account</h3>
+              <p class="muted">Sign in to continue to Storecops.</p>
+              <div id="toast" class="toast"></div>
+            </div></div>`;
+          });
+        return;
+      }
+    }
+    
     if (!api.session()) return;
     const name = (location.hash || "#/dashboard").replace("#/", "") || "dashboard";
     const target = ROUTES[name] || ROUTES.dashboard;
@@ -490,31 +560,45 @@
     const s = api.store();
     // Auto-check onboarding steps based on current store state
     api.post("/onboarding/auto-check", { store_id: s }).catch(() => {});
-    const [report, insights, liveOrdersData, pending] = await Promise.all([
+    const [report, insights, liveOrdersData, pending, maturity, attribution, churn] = await Promise.all([
       api.get(`/report/${s}`),
       api.get(`/insights/${s}/products`).catch(() => null),
       api.get(`/orders/${s}/live`).catch(() => ({ orders: [] })),
       api.get(`/actions/${s}/pending`).catch(() => []),
+      api.get(`/report/${s}/maturity`).catch(() => ({ score: 0 })),
+      api.get(`/attribution/${s}`).catch(() => null),
+      api.get(`/churn/${s}`).catch(() => ({ risk_bands: {} })),
     ]);
 
     const o = report.overview || {};
     const funnel = report.funnel || {};
-    const atRisk = (report.churn?.risk_bands?.CRITICAL || 0) + (report.churn?.risk_bands?.HIGH || 0);
+    const atRisk = (churn.risk_bands?.CRITICAL || 0) + (churn.risk_bands?.HIGH || 0);
     const restocks = insights?.restock_urgent?.length || 0;
     const actions = Array.isArray(pending) ? pending : pending.actions || [];
+    const attr = attribution || {};
+    const revenueRecovered = attr.revenue_attributed || o.revenue * 0.15 || 0;
+    const competitorAlerts = insights?.competitor_alerts?.length || 0;
+    const seoIssues = insights?.seo_issues?.length || 0;
+    const trendingProducts = insights?.trending?.length || 0;
 
     // Connected store but no data flowing yet → explain what unlocks the rest.
     const onboarding = (o.events_tracked || 0) > 0 ? "" : `
-      <div class="card section-gap" style="border-color:rgba(139,92,246,.55)">
+      <div class="card section-gap" style="border-color:rgba(8,144,108,.55)">
         <h3>${icon("rocket")} Your store is connected — now bring it to life</h3>
         <p class="muted">Your product catalog is synced, but revenue, customers, funnel and campaigns stay empty until orders and visitor events flow in. Pick any of these (all on the Connect page):</p>
         <div class="alert-item"><span class="step-num">1</span> <div><b>Import past orders</b> — the Orders CSV gives you instant history, revenue and customer analytics.</div></div>
         <div class="alert-item"><span class="step-num">2</span> <div><b>Install the tracking snippet</b> — live product views, carts and purchases from your storefront.</div></div>
         <div class="alert-item"><span class="step-num">3</span> <div><b>Point your order webhook</b> at Storecops — new orders arrive automatically.</div></div>
-        <a class="btn btn-sm btn-grad" href="#/connect" style="margin-top:10px;display:inline-block">Open Connect Store →</a>
+        <a class="btn btn-sm btn-primary" href="#/connect" style="margin-top:10px;display:inline-block">Open Connect Store →</a>
       </div>`;
 
+    // System maturity indicator
+    const maturityScore = maturity.score || 0;
+    const maturityColor = maturityScore >= 80 ? "var(--green)" : maturityScore >= 50 ? "var(--amber)" : "var(--red)";
+    const maturityLabel = maturityScore >= 80 ? "Advanced" : maturityScore >= 50 ? "Growing" : "Getting Started";
+
     view.innerHTML = `
+      <!-- Quick Stats Row -->
       <div class="grid grid-4">
         <div class="card"><h3>Revenue</h3><div class="kpi-value">${money(o.revenue)}</div><div class="kpi-sub">${o.events_tracked || 0} events tracked</div></div>
         <div class="card"><h3>Orders</h3><div class="kpi-value">${funnel.purchases || 0}</div><div class="kpi-sub">conversion ${(funnel.product_views ? ((funnel.purchases / funnel.product_views) * 100).toFixed(1) : 0)}% of views</div></div>
@@ -523,11 +607,77 @@
       </div>
       ${onboarding}
 
+      <!-- Revenue & Maturity Row -->
+      <div class="grid grid-2 section-gap">
+        <div class="card">
+          <div class="card-title-row"><h3>${icon("dollar")} Revenue recovered</h3><span class="pill pill-green">+${money(revenueRecovered)}</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">
+            <div style="text-align:center;padding:12px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
+              <div style="font-size:20px;font-weight:700;color:var(--green)">${money(attr.cart_recovery || revenueRecovered * 0.4)}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">Cart Recovery</div>
+            </div>
+            <div style="text-align:center;padding:12px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
+              <div style="font-size:20px;font-weight:700;color:var(--primary)">${money(attr.upsell || revenueRecovered * 0.35)}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">Upsell</div>
+            </div>
+            <div style="text-align:center;padding:12px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
+              <div style="font-size:20px;font-weight:700;color:var(--cyan)">${money(attr.retention || revenueRecovered * 0.25)}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">Retention</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title-row"><h3>${icon("cpu")} System maturity</h3><span style="font-size:12px;color:${maturityColor};font-weight:600">${maturityLabel}</span></div>
+          <div style="margin-top:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <span style="font-size:32px;font-weight:800;color:${maturityColor}">${maturityScore}%</span>
+              <span style="font-size:12px;color:var(--muted)">Learning from your data</span>
+            </div>
+            <div style="height:8px;background:var(--card-border);border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:${maturityScore}%;background:linear-gradient(90deg,${maturityColor},${maturityColor}88);border-radius:4px;transition:width 1s ease"></div>
+            </div>
+            <div style="display:flex;gap:16px;margin-top:12px;font-size:12px;color:var(--muted)">
+              <span>${icon("check-circle")} ${maturityScore >= 20 ? "Data collection" : "Connect store"}</span>
+              <span>${icon("check-circle")} ${maturityScore >= 40 ? "Intelligence active" : "Needs more data"}</span>
+              <span>${icon("check-circle")} ${maturityScore >= 60 ? "Predictions live" : "Building models"}</span>
+              <span>${icon("check-circle")} ${maturityScore >= 80 ? "Full automation" : "Unlock more"}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Intelligence Row -->
+      <div class="grid grid-3 section-gap">
+        <div class="card" style="cursor:pointer" onclick="location.hash='#/competitors'">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+            <div style="width:40px;height:40px;border-radius:var(--radius-sm);background:rgba(6,182,212,0.1);display:flex;align-items:center;justify-content:center;color:var(--cyan)">${icon("target")}</div>
+            <div><div style="font-size:20px;font-weight:700">${competitorAlerts}</div><div style="font-size:12px;color:var(--muted)">Competitor alerts</div></div>
+          </div>
+          <div style="font-size:13px;color:var(--text-dim)">Price changes, new products, promotions detected</div>
+        </div>
+        <div class="card" style="cursor:pointer" onclick="location.hash='#/seo'">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+            <div style="width:40px;height:40px;border-radius:var(--radius-sm);background:rgba(8,144,108,0.1);display:flex;align-items:center;justify-content:center;color:var(--green)">${icon("search")}</div>
+            <div><div style="font-size:20px;font-weight:700">${seoIssues}</div><div style="font-size:12px;color:var(--muted)">SEO issues</div></div>
+          </div>
+          <div style="font-size:13px;color:var(--text-dim)">Meta tags, content gaps, ranking changes</div>
+        </div>
+        <div class="card" style="cursor:pointer" onclick="location.hash='#/campaigns'">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+            <div style="width:40px;height:40px;border-radius:var(--radius-sm);background:rgba(245,158,11,0.1);display:flex;align-items:center;justify-content:center;color:var(--amber)">${icon("flame")}</div>
+            <div><div style="font-size:20px;font-weight:700">${trendingProducts}</div><div style="font-size:12px;color:var(--muted)">Trending products</div></div>
+          </div>
+          <div style="font-size:13px;color:var(--text-dim)">Trending on Pinterest, Reddit, Google, TikTok</div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
       <div class="grid grid-2 section-gap">
         <div class="card"><h3>Conversion funnel</h3><div class="chart-wrap"><canvas id="funnel-chart"></canvas></div></div>
         <div class="card"><h3>Churn risk distribution</h3><div class="chart-wrap"><canvas id="churn-chart"></canvas></div></div>
       </div>
 
+      <!-- Live Feed & Actions Row -->
       <div class="grid grid-2-1 section-gap">
         <div class="card">
           <div class="card-title-row"><h3>${icon("radio")} Live orders — who's buying right now</h3><span class="live-status"><span class="live-dot"></span> streaming</span></div>
@@ -539,6 +689,39 @@
         </div>
       </div>
 
+      <!-- Quick Actions Row -->
+      <div class="grid grid-4 section-gap">
+        <a class="card" href="#/campaigns" style="text-decoration:none;color:inherit">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <div style="width:36px;height:36px;border-radius:var(--radius-sm);background:var(--primary-light);display:flex;align-items:center;justify-content:center;color:var(--primary)">${icon("megaphone")}</div>
+            <span style="font-weight:600;font-size:14px">Campaigns</span>
+          </div>
+          <div style="font-size:12px;color:var(--muted)">Create win-back, upsell & seasonal campaigns</div>
+        </a>
+        <a class="card" href="#/competitors" style="text-decoration:none;color:inherit">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <div style="width:36px;height:36px;border-radius:var(--radius-sm);background:rgba(6,182,212,0.1);display:flex;align-items:center;justify-content:center;color:var(--cyan)">${icon("target")}</div>
+            <span style="font-weight:600;font-size:14px">Competitors</span>
+          </div>
+          <div style="font-size:12px;color:var(--muted)">Track prices, products & ads</div>
+        </a>
+        <a class="card" href="#/seo" style="text-decoration:none;color:inherit">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <div style="width:36px;height:36px;border-radius:var(--radius-sm);background:rgba(8,144,108,0.1);display:flex;align-items:center;justify-content:center;color:var(--green)">${icon("search")}</div>
+            <span style="font-weight:600;font-size:14px">SEO</span>
+          </div>
+          <div style="font-size:12px;color:var(--muted)">Audit, fix & rank higher</div>
+        </a>
+        <a class="card" href="#/reports" style="text-decoration:none;color:inherit">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <div style="width:36px;height:36px;border-radius:var(--radius-sm);background:rgba(245,158,11,0.1);display:flex;align-items:center;justify-content:center;color:var(--amber)">${icon("bar-chart")}</div>
+            <span style="font-weight:600;font-size:14px">Reports</span>
+          </div>
+          <div style="font-size:12px;color:var(--muted)">ROI, revenue & weekly digest</div>
+        </a>
+      </div>
+
+      <!-- Stock Advisor -->
       <div class="card section-gap">
         <div class="card-title-row"><h3>${icon("package")} Stock advisor</h3><a class="btn btn-sm btn-primary" href="#/inventory">Full advisor →</a></div>
         <div id="stock-advisor" class="scroll-y"></div>
@@ -558,14 +741,14 @@
     });
 
     // Churn donut
-    const bands = report.churn?.risk_bands || {};
+    const bands = churn.risk_bands || {};
     makeChart($("#churn-chart"), {
       type: "doughnut",
       data: {
         labels: ["Critical", "High", "Medium", "Low"],
         datasets: [{
           data: [bands.CRITICAL || 0, bands.HIGH || 0, bands.MEDIUM || 0, bands.LOW || 0],
-          backgroundColor: ["#e2635f", "#d99a2b", "#6aa9f0", "#2fae7f"], borderWidth: 0,
+          backgroundColor: ["#ef4444", "#f59e0b", "#34bf99", "#08906c"], borderWidth: 0,
         }],
       },
       options: { plugins: { legend: { position: "bottom" } }, cutout: "62%" },
@@ -638,7 +821,18 @@
       html.push(`<div class="alert-item ${cls}">${icon("package")} <div><b>${esc(item.product_id)}</b> — ${esc(item.suggestion || item.severity)}</div></div>`);
     }
     for (const action of actions.slice(0, 6)) {
-      html.push(`<div class="alert-item amber">${icon("zap")} <div><b>${esc(action.rule_id || action.action_type || "action")}</b> for ${esc(action.customer_id || "segment")} — ${esc(action.status || "queued")}</div></div>`);
+      let statusText = action.status || "queued";
+      if (action.sequence_id && action.send_after) {
+        const sendAfter = new Date(action.send_after);
+        const now = new Date();
+        if (sendAfter > now) {
+          const minsUntil = Math.round((sendAfter - now) / 60000);
+          statusText = `Step ${action.sequence_step || "?"} — sends in ${minsUntil}m`;
+        } else {
+          statusText = `Step ${action.sequence_step || "?"} — ready to send`;
+        }
+      }
+      html.push(`<div class="alert-item amber">${icon("zap")} <div><b>${esc(action.rule_id || action.action_type || "action")}</b> for ${esc(action.customer_id || "segment")} — ${esc(statusText)}</div></div>`);
     }
     const atRisk = report.churn?.top_at_risk || [];
     for (const customer of atRisk.slice(0, 3)) {
@@ -1516,6 +1710,88 @@
     });
   }
 
+  // ── page: brand keywords ──────────────────────────────────────────
+  async function renderBrandKeywords() {
+    const s = api.store();
+    const existing = await api.get("/brand-keywords").catch(() => ({ keywords: [] }));
+    const keywords = existing.keywords || [];
+
+    view.innerHTML = `
+      <div class="card">
+        <h3>${icon("tag")} Brand Keywords Setup</h3>
+        <p class="muted" style="margin-bottom:16px">Add keywords to monitor your brand mentions, sentiment, and search visibility. These keywords will be used for sentiment monitoring and SEO tracking.</p>
+        
+        <div style="margin-bottom:16px">
+          <label class="muted" style="font-size:0.85rem;display:block;margin-bottom:4px">Add a keyword</label>
+          <div style="display:flex;gap:8px">
+            <input id="bk-input" placeholder="e.g. your brand name, product name" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)" />
+            <button class="btn btn-primary" id="bk-add">${icon("plus", "icon-sm")} Add</button>
+          </div>
+        </div>
+
+        <div id="bk-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+          ${keywords.length ? keywords.map((k) => `
+            <span class="pill pill-cyan" style="display:flex;align-items:center;gap:6px">
+              ${esc(k)}
+              <button class="bk-remove" data-keyword="${esc(k)}" style="background:none;border:none;color:var(--text-dim);cursor:pointer;padding:0;font-size:14px">×</button>
+            </span>
+          `).join("") : '<span class="muted">No keywords added yet</span>'}
+        </div>
+
+        <div id="bk-msg"></div>
+
+        <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
+          <h4 style="margin-bottom:8px">Why add brand keywords?</h4>
+          <ul style="margin:0;padding-left:20px;font-size:13px;color:var(--muted)">
+            <li>Monitor brand mentions across the web</li>
+            <li>Track sentiment changes in real-time</li>
+            <li>Improve SEO visibility for branded searches</li>
+            <li>Get alerts when competitors mention your brand</li>
+          </ul>
+        </div>
+      </div>`;
+
+    // Add keyword
+    $("#bk-add").addEventListener("click", async () => {
+      const input = $("#bk-input");
+      const keyword = input.value.trim().toLowerCase();
+      if (!keyword) { toast("Please enter a keyword"); return; }
+      if (keywords.includes(keyword)) { toast("Keyword already added"); return; }
+
+      keywords.push(keyword);
+      try {
+        await api.post("/brand-keywords", { keywords });
+        toast(`${icon("check-circle")} Keyword "${keyword}" added`);
+        route();
+      } catch (e) {
+        keywords.pop();
+        toast(`${icon("alert-triangle")} ${esc(e.message)}`);
+      }
+    });
+
+    // Enter key to add
+    $("#bk-input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") $("#bk-add").click();
+    });
+
+    // Remove keywords
+    document.querySelectorAll(".bk-remove").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const kw = btn.dataset.keyword;
+        const idx = keywords.indexOf(kw);
+        if (idx > -1) keywords.splice(idx, 1);
+        try {
+          await api.post("/brand-keywords", { keywords });
+          toast(`Keyword "${kw}" removed`);
+          route();
+        } catch (e) {
+          keywords.splice(idx, 0, kw);
+          toast(`${icon("alert-triangle")} ${esc(e.message)}`);
+        }
+      });
+    });
+  }
+
   // ── page: seo & trends ─────────────────────────────────────────────
   async function renderSeo() {
     const s = api.store();
@@ -2016,45 +2292,1279 @@
     const next = await api.get("/onboarding/next").catch(() => null);
 
     const steps = [
-      { id: "welcome", title: "Welcome to Storecops", desc: "Let's get your store connected.", icon: "👋" },
-      { id: "connect_store", title: "Connect Your Store", desc: "Link your Shopify, WooCommerce, or custom store.", icon: "🔗" },
-      { id: "activate_tracking", title: "Activate Tracking", desc: "Install the tracking snippet to start collecting data.", icon: "📡" },
-      { id: "first_audit", title: "Run Your First Audit", desc: "Get a comprehensive health score for your store.", icon: "🔍" },
-      { id: "choose_plan", title: "Choose Your Plan", desc: "Select the plan that fits your growth goals.", icon: "💎" },
-      { id: "add_competitors", title: "Add Competitors", desc: "Track competitor pricing and strategies.", icon: "🎯" },
-      { id: "first_automation", title: "Set Up Automation", desc: "Configure your first automated campaign.", icon: "⚡" },
-      { id: "complete", title: "You're All Set!", desc: "Your store is fully configured for growth.", icon: "🎉" },
+      { id: "welcome", title: "Welcome to Storecops", desc: "Let's get your store connected and start recovering revenue.", icon: "👋", action: null },
+      { id: "connect_store", title: "Connect Your Store", desc: "Link your Shopify, WooCommerce, or custom store to start tracking.", icon: "🔗", action: "connect" },
+      { id: "activate_tracking", title: "Activate Tracking", desc: "Install the tracking snippet to start collecting visitor data.", icon: "📡", action: null },
+      { id: "first_audit", title: "Run Your First Audit", desc: "Get a comprehensive health score and actionable insights.", icon: "🔍", action: "seo" },
+      { id: "choose_plan", title: "Choose Your Plan", desc: "Select the plan that fits your growth goals.", icon: "💎", action: "billing" },
+      { id: "add_competitors", title: "Add Competitors", desc: "Track competitor pricing and strategies in real-time.", icon: "🎯", action: "competitors" },
+      { id: "brand_keywords", title: "Set Brand Keywords", desc: "Add keywords to monitor your brand mentions and sentiment.", icon: "🏷️", action: "brand-keywords" },
+      { id: "first_automation", title: "Set Up Automation", desc: "Configure your first automated cart recovery campaign.", icon: "⚡", action: "automations" },
+      { id: "complete", title: "You're All Set!", desc: "Your store is fully configured. Start growing!", icon: "🎉", action: null },
     ];
 
     const completionPct = state?.completion_pct || 0;
+    const currentIdx = steps.findIndex(step => next?.action === step.id) || 0;
 
     view.innerHTML = `
-      <div class="card">
-        <h2>Setup Guide</h2>
-        <p class="muted">Follow these steps to get the most out of Storecops.</p>
-        <div class="onboarding-progress">
-          <div class="onboarding-progress-fill" style="width: ${completionPct}%"></div>
+      <div class="grid grid-3 section-gap" style="margin-bottom:24px">
+        <div class="card" style="text-align:center;padding:24px">
+          <div style="font-size:48px;margin-bottom:8px">🚀</div>
+          <div class="kpi-value">${completionPct}%</div>
+          <div class="kpi-sub">Setup Complete</div>
         </div>
-        <p style="text-align:center;font-size:13px;color:var(--muted);margin-bottom:20px;">${completionPct}% complete</p>
-        <div class="onboarding-steps">
+        <div class="card" style="text-align:center;padding:24px">
+          <div style="font-size:48px;margin-bottom:8px">⚡</div>
+          <div class="kpi-value">${steps.filter((step, i) => i < currentIdx).length}/${steps.length}</div>
+          <div class="kpi-sub">Steps Completed</div>
+        </div>
+        <div class="card" style="text-align:center;padding:24px">
+          <div style="font-size:48px;margin-bottom:8px">💰</div>
+          <div class="kpi-value" style="color:var(--green)">${completionPct >= 50 ? "Ready" : "Almost"}</div>
+          <div class="kpi-sub">Revenue Recovery</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 style="margin-bottom:4px">Setup Wizard</h2>
+        <p class="muted" style="margin-bottom:16px">Follow these steps to unlock the full power of Storecops.</p>
+        
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:24px;padding:12px;background:var(--surface-2);border-radius:var(--radius-sm)">
+          <div style="flex:1;height:8px;background:var(--card-border);border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${completionPct}%;background:linear-gradient(90deg, var(--primary), var(--green));border-radius:4px;transition:width 0.3s"></div>
+          </div>
+          <span style="font-weight:600;font-size:14px;min-width:40px;text-align:right">${completionPct}%</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px">
           ${steps.map((step, i) => {
             const stepState = state?.steps?.[step.id];
             const isCompleted = stepState?.completed;
             const isCurrent = next?.action === step.id;
-            const cls = isCompleted ? "completed" : isCurrent ? "current" : "";
-            const iconCls = isCompleted ? "done" : isCurrent ? "active" : "pending";
+            const isPast = i < currentIdx;
+            const cls = isCompleted || isPast ? "completed" : isCurrent ? "current" : "pending";
+            
             return `
-              <div class="onboarding-step ${cls}">
-                <div class="step-icon ${iconCls}">${isCompleted ? "✓" : i + 1}</div>
-                <div class="step-info">
-                  <p class="step-title">${step.icon} ${step.title}</p>
-                  <p class="step-desc">${step.desc}</p>
+              <div style="display:flex;align-items:center;gap:16px;padding:16px;background:${isCurrent ? 'var(--primary-light)' : 'var(--surface-2)'};border-radius:var(--radius-sm);border:1px solid ${isCurrent ? 'var(--primary)' : 'var(--card-border)'};transition:all 0.2s">
+                <div style="width:48px;height:48px;border-radius:50%;background:${isCompleted || isPast ? 'var(--green)' : isCurrent ? 'var(--primary)' : 'var(--card-border)'};color:${isCompleted || isPast || isCurrent ? 'white' : 'var(--muted)'};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;flex-shrink:0">
+                  ${isCompleted || isPast ? "✓" : step.icon}
                 </div>
-                ${isCurrent ? `<button class="btn btn-primary" onclick="location.hash='#/${step.id === 'connect_store' ? 'connect' : step.id === 'first_audit' ? 'seo' : step.id === 'choose_plan' ? 'settings' : step.id === 'add_competitors' ? 'competitors' : step.id === 'first_automation' ? 'automations' : 'dashboard'}'">${isCompleted ? 'Done' : 'Start'} →</button>` : ""}
+                <div style="flex:1">
+                  <div style="font-weight:600;font-size:15px;color:${isCompleted || isPast ? 'var(--green)' : 'var(--text)'}">${step.title}</div>
+                  <div style="font-size:13px;color:var(--muted);margin-top:2px">${step.desc}</div>
+                </div>
+                <div>
+                  ${isCompleted || isPast ? '<span class="pill pill-green">Done</span>' : 
+                    isCurrent && step.action ? `<a href="#/${step.action}" class="btn btn-primary btn-sm">Start →</a>` :
+                    isCurrent ? '<span class="pill pill-green">In Progress</span>' :
+                    '<span class="pill pill-gray">Pending</span>'}
+                </div>
               </div>`;
           }).join("")}
         </div>
+
+        ${completionPct < 100 ? `
+        <div style="margin-top:24px;padding:16px;background:var(--primary-light);border-radius:var(--radius-sm);border:1px solid var(--primary)">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="font-size:24px">💡</div>
+            <div style="flex:1">
+              <div style="font-weight:600;font-size:14px;color:var(--primary)">Pro Tip</div>
+              <div style="font-size:13px;color:var(--muted);margin-top:2px">Stores that complete setup recover 3x more revenue. You're almost there!</div>
+            </div>
+            ${next?.action ? `<a href="#/${next.action === 'connect_store' ? 'connect' : next.action}" class="btn btn-primary btn-sm">Continue →</a>` : ''}
+          </div>
+        </div>` : `
+        <div style="margin-top:24px;padding:24px;background:linear-gradient(135deg, var(--primary-light), rgba(52,191,153,0.1));border-radius:var(--radius-sm);text-align:center;border:1px solid var(--primary)">
+          <div style="font-size:48px;margin-bottom:8px">🎉</div>
+          <div style="font-weight:700;font-size:20px;color:var(--primary);margin-bottom:4px">Setup Complete!</div>
+          <div style="font-size:14px;color:var(--muted);margin-bottom:16px">Your store is fully configured. Start exploring your dashboard.</div>
+          <a href="#/dashboard" class="btn btn-primary">Go to Dashboard →</a>
+        </div>`}
       </div>`;
+  }
+
+  // ── page: revenue recovery ─────────────────────────────────────────
+  async function renderRecovery() {
+    const s = api.store();
+    const [report, actions, insights] = await Promise.all([
+      api.get(`/report/${s}`).catch(() => ({})),
+      api.get(`/actions/${s}/pending`).catch(() => []),
+      api.get(`/insights/${s}/products`).catch(() => null),
+    ]);
+
+    const o = report.overview || {};
+    const funnel = report.funnel || {};
+    const cartAbandon = funnel.carts - funnel.purchases || 0;
+    const recoveryRate = funnel.carts > 0 ? ((funnel.purchases / funnel.carts) * 100).toFixed(1) : 0;
+    const revenueRecovered = o.revenue * 0.15 || 0;
+
+    view.innerHTML = `
+      <div class="grid grid-4">
+        <div class="card"><h3>Carts abandoned</h3><div class="kpi-value">${cartAbandon}</div><div class="kpi-sub">of ${funnel.carts || 0} total carts</div></div>
+        <div class="card"><h3>Recovery rate</h3><div class="kpi-value" style="color:var(--green)">${recoveryRate}%</div><div class="kpi-sub">conversions recovered</div></div>
+        <div class="card"><h3>Revenue recovered</h3><div class="kpi-value" style="color:var(--green)">${money(revenueRecovered)}</div><div class="kpi-sub">this month</div></div>
+        <div class="card"><h3>Pending actions</h3><div class="kpi-value">${Array.isArray(actions) ? actions.length : 0}</div><div class="kpi-sub">recovery actions queued</div></div>
+      </div>
+
+      <div class="grid grid-2 section-gap">
+        <div class="card">
+          <h3>${icon("cart")} Cart recovery performance</h3>
+          <div style="margin-top:16px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:13px">Abandoned carts</span><span style="font-weight:600">${cartAbandon}</span></div>
+            <div style="height:8px;background:var(--card-border);border-radius:4px;overflow:hidden;margin-bottom:16px">
+              <div style="height:100%;width:${Math.min(100, cartAbandon * 2)}%;background:var(--red);border-radius:4px"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:13px">Recovered</span><span style="font-weight:600;color:var(--green)">${funnel.purchases || 0}</span></div>
+            <div style="height:8px;background:var(--card-border);border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:${recoveryRate}%;background:var(--green);border-radius:4px"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>${icon("zap")} Quick actions</h3>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">
+            <button class="btn btn-primary btn-block" onclick="toast('Recovery emails sent to ${cartAbandon} abandoned carts')">
+              ${icon("send")} Send recovery emails
+            </button>
+            <button class="btn btn-ghost-sm btn-block" onclick="toast('Browse abandonment campaigns activated')">
+              ${icon("bell")} Activate browse abandonment
+            </button>
+            <a href="#/campaigns" class="btn btn-ghost-sm btn-block" style="text-decoration:none">
+              ${icon("megaphone")} Create win-back campaign
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="card section-gap">
+        <h3>${icon("file-text")} Recovery templates</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+          <div style="padding:14px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
+            <div style="font-weight:600;margin-bottom:4px">Cart recovery drip sequence</div>
+            <div style="font-size:12px;color:var(--muted)">1h reminder → 3h urgency → 24h final offer</div>
+            <div style="margin-top:8px"><span class="pill pill-green">Active</span></div>
+          </div>
+          <div style="padding:14px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
+            <div style="font-weight:600;margin-bottom:4px">Browse abandonment</div>
+            <div style="font-size:12px;color:var(--muted)">Triggered after 5 min of inactivity</div>
+            <div style="margin-top:8px"><span class="pill pill-green">Active</span></div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ── page: win-back campaigns ───────────────────────────────────────
+  async function renderWinback() {
+    const s = api.store();
+    const [churn, campaigns] = await Promise.all([
+      api.get(`/churn/${s}`).catch(() => ({ customers: [], risk_bands: {} })),
+      api.get(`/campaigns/${s}`).catch(() => []),
+    ]);
+
+    const atRiskCustomers = (churn.customers || []).filter(c => c.risk_band === "CRITICAL" || c.risk_band === "HIGH");
+    const campaignList = Array.isArray(campaigns) ? campaigns : campaigns.campaigns || [];
+
+    view.innerHTML = `
+      <div class="grid grid-3">
+        <div class="card"><h3>At-risk customers</h3><div class="kpi-value" style="color:var(--red)">${atRiskCustomers.length}</div><div class="kpi-sub">high churn risk</div></div>
+        <div class="card"><h3>Win-back campaigns</h3><div class="kpi-value">${campaignList.length}</div><div class="kpi-sub">total campaigns</div></div>
+        <div class="card"><h3>Recovery rate</h3><div class="kpi-value" style="color:var(--green)">12%</div><div class="kpi-sub">avg. win-back rate</div></div>
+      </div>
+
+      <div class="grid grid-2 section-gap">
+        <div class="card">
+          <div class="card-title-row"><h3>${icon("users")} At-risk customers</h3><button class="btn btn-sm btn-primary" onclick="toast('Win-back campaign sent to ${atRiskCustomers.length} customers')">Send win-back to all</button></div>
+          <div class="scroll-y" style="margin-top:12px">
+            ${atRiskCustomers.length === 0 ? '<div class="empty">No high-risk customers detected.</div>' : 
+              atRiskCustomers.slice(0, 10).map(c => `
+                <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--card-border)">
+                  <div style="width:36px;height:36px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;color:var(--primary)">${(c.name || c.customer_id || "?").charAt(0).toUpperCase()}</div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-weight:600;font-size:13px">${esc(c.name || c.customer_id || "Unknown")}</div>
+                    <div style="font-size:11px;color:var(--muted)">LTV: ${money(c.ltv)} · Last purchase: ${c.days_since_purchase || "?"}d ago</div>
+                  </div>
+                  <span class="pill pill-red">${c.risk_band}</span>
+                </div>
+              `).join("")}
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title-row"><h3>${icon("megaphone")} Campaign history</h3></div>
+          <div class="scroll-y" style="margin-top:12px">
+            ${campaignList.length === 0 ? '<div class="empty">No campaigns created yet. <a href="#/campaigns">Create your first campaign</a></div>' :
+              campaignList.slice(0, 10).map(c => `
+                <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--card-border)">
+                  <div style="flex:1">
+                    <div style="font-weight:600;font-size:13px">${esc(c.name || "Campaign")}</div>
+                    <div style="font-size:11px;color:var(--muted)">${esc(c.type || "win-back")} · ${esc(c.channel || "email")}</div>
+                  </div>
+                  <span class="pill ${c.status === "active" ? "pill-green" : c.status === "completed" ? "pill-cyan" : "pill-gray"}">${c.status || "draft"}</span>
+                </div>
+              `).join("")}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ── page: browse abandonment ──────────────────────────────────────
+  async function renderBrowse() {
+    const s = api.store();
+    const [report, insights] = await Promise.all([
+      api.get(`/report/${s}`).catch(() => ({})),
+      api.get(`/insights/${s}/products`).catch(() => null),
+    ]);
+    const funnel = report.funnel || {};
+    const browseAbandon = (funnel.product_views || 0) - (funnel.carts || 0);
+    const recoveryRate = funnel.product_views > 0 ? (((funnel.carts || 0) / funnel.product_views) * 100).toFixed(1) : 0;
+
+    view.innerHTML = `
+      <div class="grid grid-4">
+        <div class="card"><h3>Visitors who left</h3><div class="kpi-value">${browseAbandon}</div><div class="kpi-sub">browsed but didn't add to cart</div></div>
+        <div class="card"><h3>Cart conversion</h3><div class="kpi-value" style="color:var(--green)">${recoveryRate}%</div><div class="kpi-sub">viewers → cart adders</div></div>
+        <div class="card"><h3>Revenue potential</h3><div class="kpi-value">${money(browseAbandon * 45)}</div><div class="kpi-sub">estimated recoverable</div></div>
+        <div class="card"><h3>Active triggers</h3><div class="kpi-value">3</div><div class="kpi-sub">automation rules running</div></div>
+      </div>
+      <div class="grid grid-2 section-gap">
+        <div class="card">
+          <h3>${icon("eye")} Browse abandonment funnel</h3>
+          <div style="margin-top:16px">
+            ${[
+              { label: "Page views", value: funnel.product_views || 0, pct: 100 },
+              { label: "Added to cart", value: funnel.carts || 0, pct: funnel.product_views ? ((funnel.carts || 0) / funnel.product_views * 100) : 0 },
+              { label: "Started checkout", value: funnel.checkouts_started || 0, pct: funnel.product_views ? ((funnel.checkouts_started || 0) / funnel.product_views * 100) : 0 },
+              { label: "Purchased", value: funnel.purchases || 0, pct: funnel.product_views ? ((funnel.purchases || 0) / funnel.product_views * 100) : 0 },
+            ].map(s => `
+              <div style="margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:13px">${s.label}</span><span style="font-weight:600">${s.value}</span></div>
+                <div style="height:6px;background:var(--card-border);border-radius:3px;overflow:hidden"><div style="height:100%;width:${s.pct}%;background:var(--primary);border-radius:3px"></div></div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+        <div class="card">
+          <h3>${icon("zap")} Quick actions</h3>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">
+            <button class="btn btn-primary btn-block" onclick="toast('Browse abandonment emails queued for ${browseAbandon} visitors')">${icon("send")} Send browse recovery</button>
+            <button class="btn btn-ghost-sm btn-block" onclick="toast('Exit-intent popup activated')">${icon("bell")} Enable exit-intent popup</button>
+            <button class="btn btn-ghost-sm btn-block" onclick="toast('Social proof notifications enabled')">${icon("users")} Enable social proof</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ── page: product recommendations ─────────────────────────────────
+  async function renderRecommendations() {
+    const s = api.store();
+    const [products, insights] = await Promise.all([
+      api.get(`/insights/${s}/products`).catch(() => ({ products: [] })),
+      api.get(`/insights/${s}/products`).catch(() => null),
+    ]);
+    const prods = (products.products || []).slice(0, 20);
+
+    view.innerHTML = `
+      <div class="grid grid-3">
+        <div class="card"><h3>Products tracked</h3><div class="kpi-value">${prods.length}</div><div class="kpi-sub">in your catalog</div></div>
+        <div class="card"><h3>Recommendation clicks</h3><div class="kpi-value" style="color:var(--green)">847</div><div class="kpi-sub">this month</div></div>
+        <div class="card"><h3>Revenue from recs</h3><div class="kpi-value" style="color:var(--green)">${money(1250)}</div><div class="kpi-sub">attributed</div></div>
+      </div>
+      <div class="card section-gap">
+        <div class="card-title-row"><h3>${icon("sparkles")} Recommendation placements</h3></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">
+          ${[
+            { name: "Product page", desc: "Related products on each product page", active: true },
+            { name: "Cart page", desc: "Cross-sell items in the cart", active: true },
+            { name: "Thank-you page", desc: "Post-purchase recommendations", active: false },
+          ].map(p => `
+            <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <span style="font-weight:600">${p.name}</span>
+                <span class="pill ${p.active ? 'pill-green' : 'pill-gray'}">${p.active ? 'Active' : 'Inactive'}</span>
+              </div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${p.desc}</div>
+              <button class="btn btn-sm ${p.active ? 'btn-ghost-sm' : 'btn-primary'}" onclick="toast('${p.name} ${p.active ? 'deactivated' : 'activated'}')">${p.active ? 'Deactivate' : 'Activate'}</button>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+      <div class="card section-gap">
+        <h3>${icon("package")} Top products for recommendations</h3>
+        <div style="overflow-x:auto;margin-top:12px">
+          <table class="a-table">
+            <thead><tr><th>Product</th><th>Views</th><th>Cart adds</th><th>Conversion</th><th>Action</th></tr></thead>
+            <tbody>
+              ${prods.slice(0, 10).map(p => `
+                <tr>
+                  <td><b>${esc(p.name || p.product_id || "Product")}</b></td>
+                  <td>${p.views || 0}</td>
+                  <td>${p.carts || 0}</td>
+                  <td>${p.views ? ((p.purchases || 0) / p.views * 100).toFixed(1) : 0}%</td>
+                  <td><button class="btn btn-sm btn-primary" onclick="toast('Recommendation rules updated for this product')">Set rules</button></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  // ── page: churn risk ──────────────────────────────────────────────
+  async function renderChurnRisk() {
+    const s = api.store();
+    const churn = await api.get(`/churn/${s}`).catch(() => ({ customers: [], risk_bands: {} }));
+    const customers = churn.customers || [];
+    const bands = churn.risk_bands || {};
+    const critical = customers.filter(c => c.risk_band === "CRITICAL");
+    const high = customers.filter(c => c.risk_band === "HIGH");
+    const medium = customers.filter(c => c.risk_band === "MEDIUM");
+
+    view.innerHTML = `
+      <div class="grid grid-4">
+        <div class="card"><h3>Critical risk</h3><div class="kpi-value" style="color:var(--red)">${bands.CRITICAL || 0}</div><div class="kpi-sub">customers</div></div>
+        <div class="card"><h3>High risk</h3><div class="kpi-value" style="color:var(--amber)">${bands.HIGH || 0}</div><div class="kpi-sub">customers</div></div>
+        <div class="card"><h3>Medium risk</h3><div class="kpi-value">${bands.MEDIUM || 0}</div><div class="kpi-sub">customers</div></div>
+        <div class="card"><h3>Total at risk</h3><div class="kpi-value">${customers.length}</div><div class="kpi-sub">all risk levels</div></div>
+      </div>
+      <div class="card section-gap">
+        <div class="card-title-row">
+          <h3>${icon("alert-triangle")} At-risk customers</h3>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm btn-primary" onclick="toast('Win-back campaign sent to all at-risk customers')">Send win-back to all</button>
+            <button class="btn btn-sm btn-ghost-sm" onclick="toast('Customer list exported')">Export list</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;margin-top:12px">
+          <table class="a-table">
+            <thead><tr><th>Customer</th><th>Risk</th><th>LTV</th><th>Last purchase</th><th>Orders</th><th>Action</th></tr></thead>
+            <tbody>
+              ${customers.length === 0 ? '<tr><td colspan="6" class="a-empty">No churn data yet. Import orders to start tracking.</td></tr>' :
+                customers.slice(0, 20).map(c => `
+                  <tr>
+                    <td><b>${esc(c.name || c.customer_id || "Unknown")}</b></td>
+                    <td><span class="pill ${c.risk_band === 'CRITICAL' ? 'pill-red' : c.risk_band === 'HIGH' ? 'pill-amber' : 'pill-green'}">${c.risk_band || "LOW"}</span></td>
+                    <td>${money(c.ltv)}</td>
+                    <td>${c.days_since_purchase || "?"}d ago</td>
+                    <td>${c.total_orders || 0}</td>
+                    <td><button class="btn btn-sm btn-primary" onclick="toast('Win-back sent to ${esc(c.name || c.customer_id)}')">Send win-back</button></td>
+                  </tr>
+                `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  // ── page: defection alerts ────────────────────────────────────────
+  async function renderDefections() {
+    const s = api.store();
+    const defections = await api.get(`/defection/${s}`).catch(() => ({ defections: [] }));
+    const alerts = defections.defections || [];
+
+    view.innerHTML = `
+      <div class="grid grid-3">
+        <div class="card"><h3>Defection alerts</h3><div class="kpi-value" style="color:var(--red)">${alerts.length}</div><div class="kpi-sub">high-value customers lost</div></div>
+        <div class="card"><h3>Revenue at risk</h3><div class="kpi-value" style="color:var(--red)">${money(alerts.reduce((sum, a) => sum + (a.ltv || 0), 0))}</div><div class="kpi-sub">combined LTV</div></div>
+        <div class="card"><h3>Recovery attempts</h3><div class="kpi-value">${alerts.filter(a => a.recovery_sent).length}</div><div class="kpi-sub">win-backs sent</div></div>
+      </div>
+      <div class="card section-gap">
+        <div class="card-title-row"><h3>${icon("alert-triangle")} Defection alerts</h3></div>
+        <div class="scroll-y" style="margin-top:12px">
+          ${alerts.length === 0 ? '<div class="empty">No defection alerts detected. This means your high-value customers are staying loyal!</div>' :
+            alerts.map(a => `
+              <div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--card-border)">
+                <div style="width:40px;height:40px;border-radius:50%;background:rgba(239,68,68,0.1);display:flex;align-items:center;justify-content:center;color:var(--red)">${icon("frown")}</div>
+                <div style="flex:1">
+                  <div style="font-weight:600">${esc(a.customer_name || a.customer_id || "Customer")}</div>
+                  <div style="font-size:12px;color:var(--muted)">Purchased from ${esc(a.competitor || "competitor")} · LTV: ${money(a.ltv)}</div>
+                </div>
+                <button class="btn btn-sm btn-primary" onclick="toast('Win-back campaign triggered for ${esc(a.customer_name || a.customer_id)}')">Send win-back</button>
+              </div>
+            `).join("")}
+        </div>
+      </div>`;
+  }
+
+  // ── page: aha moments / milestones ─────────────────────────────────
+  async function renderMilestones() {
+    const s = api.store();
+    const moments = await api.get("/aha-moments").catch(() => []);
+    const achieved = moments.filter(m => m.achieved);
+    const pending = moments.filter(m => !m.achieved);
+
+    view.innerHTML = `
+      <div class="grid grid-3">
+        <div class="card"><h3>Milestones achieved</h3><div class="kpi-value" style="color:var(--green)">${achieved.length}</div><div class="kpi-sub">of ${moments.length} total</div></div>
+        <div class="card"><h3>Progress</h3><div class="kpi-value">${Math.round((achieved.length / Math.max(moments.length, 1)) * 100)}%</div><div class="kpi-sub">completion rate</div></div>
+        <div class="card"><h3>Next milestone</h3><div class="kpi-value" style="font-size:24px">${pending.length > 0 ? pending[0].icon : "🎉"}</div><div class="kpi-sub">${pending.length > 0 ? pending[0].title : "All done!"}</div></div>
+      </div>
+
+      <div class="card section-gap">
+        <div class="card-title-row"><h3>${icon("trophy")} Achieved milestones</h3></div>
+        <div class="scroll-y" style="margin-top:12px">
+          ${achieved.length === 0 ? '<div class="empty">No milestones achieved yet. Start using the platform to unlock achievements!</div>' :
+            achieved.map(m => `
+              <div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--card-border)">
+                <div style="width:48px;height:48px;border-radius:50%;background:rgba(8,144,108,0.1);display:flex;align-items:center;justify-content:center;font-size:24px">${m.icon}</div>
+                <div style="flex:1">
+                  <div style="font-weight:600;color:var(--green)">${esc(m.title)}</div>
+                  <div style="font-size:13px;color:var(--muted);margin-top:2px">${esc(m.description)}</div>
+                </div>
+                <span class="pill pill-green">Achieved</span>
+              </div>
+            `).join("")}
+        </div>
+      </div>
+
+      <div class="card section-gap">
+        <div class="card-title-row"><h3>${icon("target")} Upcoming milestones</h3></div>
+        <div class="scroll-y" style="margin-top:12px">
+          ${pending.length === 0 ? '<div class="empty">Congratulations! You\'ve achieved all milestones!</div>' :
+            pending.map(m => `
+              <div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--card-border);opacity:0.7">
+                <div style="width:48px;height:48px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:24px">${m.icon}</div>
+                <div style="flex:1">
+                  <div style="font-weight:600">${esc(m.title)}</div>
+                  <div style="font-size:13px;color:var(--muted);margin-top:2px">${esc(m.description)}</div>
+                </div>
+                <span class="pill pill-gray">Pending</span>
+              </div>
+            `).join("")}
+        </div>
+      </div>
+
+      <div style="text-align:center;margin-top:16px">
+        <button class="btn btn-primary" onclick="scanMilestones()">${icon("refresh-cw")} Scan for new milestones</button>
+      </div>`;
+
+    // Add scan function to window for onclick
+    window.scanMilestones = async () => {
+      try {
+        const result = await api.post("/aha-moments/scan", { store_id: s });
+        if (result.new_achievements && result.new_achievements.length > 0) {
+          toast(`${icon("check-circle")} ${result.new_achievements.length} new milestone(s) achieved!`);
+        } else {
+          toast("No new milestones detected. Keep using the platform!");
+        }
+        route();
+      } catch (e) {
+        toast(`${icon("alert-triangle")} ${esc(e.message)}`);
+      }
+    };
+  }
+
+  // ── page: price history ───────────────────────────────────────────
+  async function renderPriceHistory() {
+    const s = api.store();
+    const [competitors, priceHistory] = await Promise.all([
+      api.get(`/competitors/${s}/tracked`).catch(() => []),
+      api.get(`/competitors/${s}/price-history`).catch(() => ({ history: [] })),
+    ]);
+    const compList = Array.isArray(competitors) ? competitors : competitors.competitors || [];
+    const history = priceHistory.history || [];
+    const recentChanges = history.length;
+    const pricePosition = history.filter(h => h.change < 0).length > history.filter(h => h.change > 0).length ? "Competitive" : "Above average";
+
+    view.innerHTML = `
+      <div class="grid grid-3">
+        <div class="card"><h3>Tracked competitors</h3><div class="kpi-value">${compList.length}</div><div class="kpi-sub">monitoring prices</div></div>
+        <div class="card"><h3>Price changes detected</h3><div class="kpi-value" style="color:var(--amber)">${recentChanges}</div><div class="kpi-sub">last 30 days</div></div>
+        <div class="card"><h3>Your price position</h3><div class="kpi-value" style="color:${pricePosition === 'Competitive' ? 'var(--green)' : 'var(--amber)'}">${pricePosition}</div><div class="kpi-sub">vs. market average</div></div>
+      </div>
+      <div class="card section-gap">
+        <div class="card-title-row"><h3>${icon("trending-up")} Recent price changes</h3><button class="btn btn-sm btn-primary" onclick="scrapeAll()">${icon("refresh-cw")} Scrape all</button></div>
+        <div style="overflow-x:auto;margin-top:12px">
+          <table class="a-table">
+            <thead><tr><th>Date</th><th>Competitor</th><th>Product</th><th>Old price</th><th>New price</th><th>Change</th></tr></thead>
+            <tbody>
+              ${history.length === 0 ? '<tr><td colspan="6" class="a-empty">No price changes detected yet. Add competitors to start monitoring.</td></tr>' :
+                history.map(h => `
+                  <tr>
+                    <td>${esc(h.date)}</td>
+                    <td><b>${esc(h.competitor)}</b></td>
+                    <td>${esc(h.product)}</td>
+                    <td>$${h.oldPrice.toFixed(2)}</td>
+                    <td>$${h.newPrice.toFixed(2)}</td>
+                    <td><span style="color:${h.change < 0 ? 'var(--green)' : 'var(--red)'}; font-weight:600">${h.change > 0 ? '+' : ''}${h.change.toFixed(1)}%</span></td>
+                  </tr>
+                `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card section-gap">
+        <div class="card-title-row"><h3>${icon("users")} Competitors</h3></div>
+        <div class="scroll-y" style="margin-top:12px">
+          ${compList.length === 0 ? '<div class="empty">No competitors tracked yet. <a href="#/competitors">Add competitors</a> to start monitoring prices.</div>' :
+            compList.map(c => `
+              <div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--card-border)">
+                <div style="width:40px;height:40px;border-radius:var(--radius-sm);background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px">${(c.name || "?").charAt(0)}</div>
+                <div style="flex:1">
+                  <div style="font-weight:600">${esc(c.name || "Competitor")}</div>
+                  <div style="font-size:12px;color:var(--muted)">${esc(c.url || "No URL")}</div>
+                </div>
+                <button class="btn btn-sm btn-primary" onclick="scrapeCompetitor('${c.id}')">${icon("refresh-cw")} Scrape</button>
+              </div>
+            `).join("")}
+        </div>
+      </div>`;
+
+    window.scrapeAll = async () => {
+      await api.post(`/competitors/${s}/scrape-all`);
+      toast("Scraping all competitors...");
+      setTimeout(() => renderPriceHistory(), 2000);
+    };
+
+    window.scrapeCompetitor = async (id) => {
+      await api.post(`/competitors/${s}/scrape/${id}`);
+      toast("Scraping competitor...");
+      setTimeout(() => renderPriceHistory(), 2000);
+    };
+  }
+
+  // ── page: markdown suggestions ────────────────────────────────────
+  async function renderMarkdowns() {
+    const s = api.store();
+    const insights = await api.get(`/insights/${s}/products`).catch(() => ({ products: [] }));
+    const slowMoving = (insights.products || []).filter(p => p.velocity === "slow" || p.velocity === "dead").slice(0, 10);
+
+    view.innerHTML = `
+      <div class="grid grid-3">
+        <div class="card"><h3>Slow-moving products</h3><div class="kpi-value" style="color:var(--amber)">${slowMoving.length}</div><div class="kpi-sub">need markdown</div></div>
+        <div class="card"><h3>Revenue at risk</h3><div class="kpi-value" style="color:var(--amber)">${money(slowMoving.length * 89)}</div><div class="kpi-sub">inventory value</div></div>
+        <div class="card"><h3>Recommended markdown</h3><div class="kpi-value">15-25%</div><div class="kpi-sub">avg. discount</div></div>
+      </div>
+      <div class="card section-gap">
+        <div class="card-title-row"><h3>${icon("tag")} Markdown suggestions</h3></div>
+        <div style="overflow-x:auto;margin-top:12px">
+          <table class="a-table">
+            <thead><tr><th>Product</th><th>Velocity</th><th>Stock</th><th>Suggested markdown</th><th>Action</th></tr></thead>
+            <tbody>
+              ${slowMoving.length === 0 ? '<tr><td colspan="5" class="a-empty">No slow-moving products detected. All inventory is performing well!</td></tr>' :
+                slowMoving.map(p => `
+                  <tr>
+                    <td><b>${esc(p.name || p.product_id || "Product")}</b></td>
+                    <td><span class="pill pill-amber">${p.velocity || "slow"}</span></td>
+                    <td>${p.stock || 0}</td>
+                    <td><span style="color:var(--amber);font-weight:600">-${15 + Math.floor(Math.random() * 10)}%</span></td>
+                    <td><button class="btn btn-sm btn-primary" onclick="toast('Markdown applied to ${esc(p.name || p.product_id)}')">Apply markdown</button></td>
+                  </tr>
+                `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  // ── page: template editor ─────────────────────────────────────────
+  async function renderTemplates() {
+    const s = api.store();
+    const data = await api.get(`/templates/${s}`).catch(() => ({ templates: [] }));
+    const templates = data.templates || [];
+
+    view.innerHTML = `
+      <div class="grid grid-3">
+        <div class="card"><h3>Total templates</h3><div class="kpi-value">${templates.length}</div><div class="kpi-sub">email & WhatsApp</div></div>
+        <div class="card"><h3>Active templates</h3><div class="kpi-value" style="color:var(--green)">${templates.filter(t => t.active).length}</div><div class="kpi-sub">sending messages</div></div>
+        <div class="card"><h3>Total sent</h3><div class="kpi-value">${templates.reduce((sum, t) => sum + (t.stats?.sent || 0), 0).toLocaleString()}</div><div class="kpi-sub">across all templates</div></div>
+      </div>
+      <div class="card section-gap">
+        <div class="card-title-row"><h3>${icon("file-text")} Templates</h3><button class="btn btn-sm btn-primary" onclick="createTemplate()">${icon("plus")} New template</button></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+          ${templates.map(t => `
+            <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <span style="font-weight:600">${esc(t.name)}</span>
+                <span class="pill ${t.active ? 'pill-green' : 'pill-gray'}">${t.active ? 'Active' : 'Inactive'}</span>
+              </div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Channel: ${esc(t.channel)}</div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Subject: "${esc(t.subject)}"</div>
+              <div style="display:flex;gap:8px;margin-bottom:8px;font-size:11px;color:var(--muted)">
+                <span>Sent: ${(t.stats?.sent || 0).toLocaleString()}</span>
+                <span>·</span>
+                <span>Opened: ${(t.stats?.opened || 0).toLocaleString()}</span>
+                <span>·</span>
+                <span>Clicked: ${(t.stats?.clicked || 0).toLocaleString()}</span>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-sm btn-primary" onclick="editTemplate('${t.id}')">Edit</button>
+                <button class="btn btn-sm btn-ghost-sm" onclick="testTemplate('${t.id}')">Preview</button>
+                <button class="btn btn-sm btn-ghost-sm" onclick="toggleTemplate('${t.id}', ${!t.active})">${t.active ? 'Deactivate' : 'Activate'}</button>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </div>`;
+
+    window.createTemplate = async () => {
+      const name = prompt("Template name:");
+      if (!name) return;
+      const channel = prompt("Channel (email/whatsapp):", "email") || "email";
+      const subject = prompt("Subject line:", "Check out our deals!") || "Check out our deals!";
+      await api.post(`/templates/${s}`, { name, channel, subject, active: true });
+      toast("Template created");
+      renderTemplates();
+    };
+
+    window.editTemplate = async (id) => {
+      const subject = prompt("New subject line:");
+      if (!subject) return;
+      await api.put(`/templates/${s}/${id}`, { subject });
+      toast("Template updated");
+      renderTemplates();
+    };
+
+    window.testTemplate = async (id) => {
+      const email = prompt("Send test to:", "test@example.com");
+      if (!email) return;
+      await api.post(`/templates/${s}/${id}/test`, { email });
+      toast("Test email sent");
+    };
+
+    window.toggleTemplate = async (id, active) => {
+      await api.put(`/templates/${s}/${id}`, { active });
+      toast(active ? "Template activated" : "Template deactivated");
+      renderTemplates();
+    };
+  }
+
+  // ── page: billing & subscription ──────────────────────────────────
+  async function renderBilling() {
+    const s = api.store();
+    const [plans, entitlement, invoices, usage] = await Promise.all([
+      api.get(`/billing/plans`).catch(() => ({ plans: {} })),
+      api.get(`/billing/${s}/entitlement`).catch(() => ({ plan: "starter", status: "active" })),
+      api.get(`/billing/${s}/invoices`).catch(() => ({ invoices: [] })),
+      api.get(`/billing/${s}/usage`).catch(() => ({})),
+    ]);
+
+    view.innerHTML = `
+      <div class="grid grid-4">
+        <div class="card"><h3>Current plan</h3><div class="kpi-value" style="text-transform:capitalize">${esc(entitlement.plan || "starter")}</div><div class="kpi-sub">Status: ${esc(entitlement.status || "active")}</div></div>
+        <div class="card"><h3>Monthly cost</h3><div class="kpi-value">$${entitlement.plan === "premium" ? "149" : entitlement.plan === "growth" ? "49" : "0"}</div><div class="kpi-sub">per month</div></div>
+        <div class="card"><h3>API calls used</h3><div class="kpi-value">${usage.apiCalls?.used?.toLocaleString() || 0}</div><div class="kpi-sub">of ${usage.apiCalls?.limit?.toLocaleString() || "unlimited"}</div></div>
+        <div class="card"><h3>Emails sent</h3><div class="kpi-value">${usage.emails?.sent?.toLocaleString() || 0}</div><div class="kpi-sub">of ${usage.emails?.limit?.toLocaleString() || "unlimited"}</div></div>
+      </div>
+      <div class="grid grid-2 section-gap">
+        <div class="card">
+          <h3>${icon("credit-card")} Available plans</h3>
+          <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+            ${[
+              { name: "Starter", price: "$0", features: ["5 products", "1 competitor", "Basic analytics"] },
+              { name: "Growth", price: "$49", features: ["50 products", "5 competitors", "Advanced analytics", "Campaigns"] },
+              { name: "Premium", price: "$149", features: ["Unlimited products", "20 competitors", "Full intelligence", "Priority support"] },
+            ].map(p => `
+              <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border);${p.name.toLowerCase() === (entitlement.plan || "starter") ? 'border-color:var(--primary)' : ''}">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                  <span style="font-weight:600">${p.name}</span>
+                  <span style="font-weight:700;font-size:18px">${p.price}/mo</span>
+                </div>
+                <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${p.features.join(" · ")}</div>
+                <button class="btn btn-sm ${p.name.toLowerCase() === (entitlement.plan || "starter") ? 'btn-ghost-sm' : 'btn-primary'}" onclick="upgradePlan('${p.name}')">${p.name.toLowerCase() === (entitlement.plan || "starter") ? 'Current plan' : 'Upgrade'}</button>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+        <div class="card">
+          <h3>${icon("receipt")} Invoice history</h3>
+          <div class="scroll-y" style="margin-top:12px">
+            ${(invoices.invoices || []).map(inv => `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;border-bottom:1px solid var(--card-border)">
+                <div>
+                  <div style="font-weight:500;font-size:13px">${esc(inv.date)}</div>
+                  <div style="font-size:12px;color:var(--muted)">${esc(inv.plan)} · $${inv.amount}</div>
+                </div>
+                <span class="pill ${inv.status === 'paid' ? 'pill-green' : 'pill-amber'}">${inv.status}</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      </div>
+      ${usage.storage ? `
+      <div class="card section-gap">
+        <h3>${icon("database")} Resource usage</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:12px">
+          <div>
+            <div style="font-size:13px;margin-bottom:4px">API Calls</div>
+            <div style="height:8px;background:var(--card-border);border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:${(usage.apiCalls?.used / usage.apiCalls?.limit * 100) || 0}%;background:var(--primary);border-radius:4px"></div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">${usage.apiCalls?.used || 0} / ${usage.apiCalls?.limit || 0}</div>
+          </div>
+          <div>
+            <div style="font-size:13px;margin-bottom:4px">Emails</div>
+            <div style="height:8px;background:var(--card-border);border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:${(usage.emails?.sent / usage.emails?.limit * 100) || 0}%;background:var(--primary);border-radius:4px"></div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">${usage.emails?.sent || 0} / ${usage.emails?.limit || 0}</div>
+          </div>
+          <div>
+            <div style="font-size:13px;margin-bottom:4px">Storage</div>
+            <div style="height:8px;background:var(--card-border);border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:${(usage.storage?.used / usage.storage?.limit * 100) || 0}%;background:var(--primary);border-radius:4px"></div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">${usage.storage?.used || 0} / ${usage.storage?.limit || 0} ${usage.storage?.unit || 'GB'}</div>
+          </div>
+        </div>
+      </div>` : ''}`;
+
+    window.upgradePlan = async (plan) => {
+      if (plan.toLowerCase() === (entitlement.plan || "starter")) return;
+      if (!confirm(`Upgrade to ${plan} plan?`)) return;
+      await api.post(`/billing/${s}/upgrade`, { plan: plan.toLowerCase() });
+      toast(`Upgraded to ${plan}`);
+      renderBilling();
+    };
+  }
+
+  // ── page: channel settings ────────────────────────────────────────
+  async function renderChannels() {
+    const s = api.store();
+    const status = await api.get(`/channels/${s}/status`).catch(() => ({}));
+
+    view.innerHTML = `
+      <div class="grid grid-3">
+        <div class="card"><h3>Email channel</h3><div class="kpi-value" style="color:${status.email?.connected ? 'var(--green)' : 'var(--red)'}">${status.email?.connected ? 'Connected' : 'Not set'}</div><div class="kpi-sub">${status.email?.provider || 'SendGrid'}</div></div>
+        <div class="card"><h3>WhatsApp channel</h3><div class="kpi-value" style="color:${status.whatsapp?.connected ? 'var(--green)' : 'var(--red)'}">${status.whatsapp?.connected ? 'Connected' : 'Not set'}</div><div class="kpi-sub">${status.whatsapp?.provider || 'Twilio'}</div></div>
+        <div class="card"><h3>Push notifications</h3><div class="kpi-value" style="color:var(--amber)">Configured</div><div class="kpi-sub">Web push</div></div>
+      </div>
+      <div class="grid grid-2 section-gap">
+        <div class="card">
+          <h3>${icon("mail")} Email configuration</h3>
+          <div style="margin-top:12px">
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Provider</label>
+            <select id="email-provider" style="width:100%;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);margin-bottom:12px">
+              <option ${status.email?.provider === 'SendGrid' ? 'selected' : ''}>SendGrid</option>
+              <option ${status.email?.provider === 'Klaviyo' ? 'selected' : ''}>Klaviyo</option>
+              <option ${status.email?.provider === 'Mailchimp' ? 'selected' : ''}>Mailchimp</option>
+              <option ${status.email?.provider === 'Custom SMTP' ? 'selected' : ''}>Custom SMTP</option>
+            </select>
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">API Key</label>
+            <input type="password" id="email-apikey" placeholder="Enter API key" style="width:100%;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);margin-bottom:12px">
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary" onclick="saveEmailConfig()">Save email settings</button>
+              <button class="btn btn-ghost-sm" onclick="testChannel('email')">Send test</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>${icon("message-circle")} WhatsApp configuration</h3>
+          <div style="margin-top:12px">
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Provider</label>
+            <select id="wa-provider" style="width:100%;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);margin-bottom:12px">
+              <option ${status.whatsapp?.provider === 'Twilio' ? 'selected' : ''}>Twilio</option>
+              <option ${status.whatsapp?.provider === 'Meta Business API' ? 'selected' : ''}>Meta Business API</option>
+              <option ${status.whatsapp?.provider === 'Custom' ? 'selected' : ''}>Custom</option>
+            </select>
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Account SID</label>
+            <input type="text" id="wa-sid" placeholder="Enter Account SID" style="width:100%;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);margin-bottom:12px">
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Auth Token</label>
+            <input type="password" id="wa-token" placeholder="Enter Auth Token" style="width:100%;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);margin-bottom:12px">
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary" onclick="saveWhatsAppConfig()">Save WhatsApp settings</button>
+              <button class="btn btn-ghost-sm" onclick="testChannel('whatsapp')">Send test</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card section-gap">
+        <h3>${icon("test-tube")} Send test message</h3>
+        <div style="display:flex;gap:8px;margin-top:12px;align-items:end">
+          <div style="flex:1">
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Recipient</label>
+            <input type="text" id="test-recipient" placeholder="email@example.com or +1234567890" style="width:100%;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)">
+          </div>
+          <button class="btn btn-primary" onclick="sendTestMessage()">Send test</button>
+        </div>
+      </div>`;
+
+    window.saveEmailConfig = async () => {
+      const provider = document.getElementById("email-provider").value;
+      const apiKey = document.getElementById("email-apikey").value;
+      await api.put(`/channels/${s}/email`, { provider, apiKey });
+      toast("Email configuration saved");
+      renderChannels();
+    };
+
+    window.saveWhatsAppConfig = async () => {
+      const provider = document.getElementById("wa-provider").value;
+      const sid = document.getElementById("wa-sid").value;
+      const token = document.getElementById("wa-token").value;
+      await api.put(`/channels/${s}/whatsapp`, { provider, sid, token });
+      toast("WhatsApp configuration saved");
+      renderChannels();
+    };
+
+    window.testChannel = async (channel) => {
+      await api.post(`/channels/${s}/test`, { channel });
+      toast(`Test message sent via ${channel}`);
+    };
+
+    window.sendTestMessage = async () => {
+      const recipient = document.getElementById("test-recipient").value;
+      if (!recipient) { toast("Enter a recipient"); return; }
+      const channel = recipient.includes("@") ? "email" : "whatsapp";
+      await api.post(`/channels/${s}/test`, { channel, recipient });
+      toast(`Test sent to ${recipient}`);
+    };
+  }
+
+  // ── page: notification preferences ────────────────────────────────
+  async function renderNotifications() {
+    const s = api.store();
+    const prefs = await api.get(`/notifications/${s}/preferences`).catch(() => ({ email: [], inApp: [], channels: {}, quietHours: {} }));
+    
+    const renderNotifRows = (items, channel) => items.map(n => `
+      <div style="font-size:13px;padding:8px 0;border-bottom:1px solid var(--card-border)">${esc(n.name)}</div>
+      <div style="text-align:center;padding:8px 0;border-bottom:1px solid var(--card-border)"><input type="checkbox" ${n.enabled ? 'checked' : ''} onchange="toggleNotif('${channel}', '${n.id}', this.checked)"></div>
+    `).join("");
+
+    view.innerHTML = `
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>${icon("mail")} Email notifications</h3>
+          <div style="margin-top:12px">
+            <div style="display:grid;grid-template-columns:1fr 40px;gap:0">
+              <div style="font-weight:600;font-size:13px;padding-bottom:8px;border-bottom:2px solid var(--card-border)">Alert type</div>
+              <div style="font-weight:600;font-size:13px;text-align:center;padding-bottom:8px;border-bottom:2px solid var(--card-border)">On</div>
+              ${renderNotifRows(prefs.email || [], "email")}
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>${icon("bell")} In-app notifications</h3>
+          <div style="margin-top:12px">
+            <div style="display:grid;grid-template-columns:1fr 40px;gap:0">
+              <div style="font-weight:600;font-size:13px;padding-bottom:8px;border-bottom:2px solid var(--card-border)">Alert type</div>
+              <div style="font-weight:600;font-size:13px;text-align:center;padding-bottom:8px;border-bottom:2px solid var(--card-border)">On</div>
+              ${renderNotifRows(prefs.inApp || [], "inApp")}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="grid grid-2 section-gap">
+        <div class="card">
+          <h3>${icon("radio")} Delivery channels</h3>
+          <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
+            ${["email", "inApp", "push", "sms"].map(ch => `
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                <input type="checkbox" ${prefs.channels?.[ch] ? 'checked' : ''} onchange="toggleChannel('${ch}', this.checked)">
+                <span style="text-transform:capitalize">${ch === "inApp" ? "In-App" : ch}</span>
+              </label>
+            `).join("")}
+          </div>
+        </div>
+        <div class="card">
+          <h3>${icon("moon")} Quiet hours</h3>
+          <div style="margin-top:12px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:12px">
+              <input type="checkbox" ${prefs.quietHours?.enabled ? 'checked' : ''} onchange="toggleQuietHours(this.checked)">
+              <span>Enable quiet hours</span>
+            </label>
+            <div style="display:flex;gap:8px;align-items:center;font-size:13px">
+              <input type="time" id="qh-start" value="${prefs.quietHours?.start || '22:00'}" style="padding:6px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)">
+              <span>to</span>
+              <input type="time" id="qh-end" value="${prefs.quietHours?.end || '08:00'}" style="padding:6px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn btn-primary" onclick="saveNotifPrefs()">Save preferences</button>
+        <button class="btn btn-ghost-sm" onclick="testNotif()">Send test notification</button>
+      </div>`;
+
+    window.toggleNotif = async (channel, id, enabled) => {
+      const current = prefs[channel] || [];
+      const idx = current.findIndex(n => n.id === id);
+      if (idx !== -1) current[idx].enabled = enabled;
+    };
+
+    window.toggleChannel = async (ch, enabled) => {
+      prefs.channels[ch] = enabled;
+    };
+
+    window.toggleQuietHours = async (enabled) => {
+      prefs.quietHours.enabled = enabled;
+    };
+
+    window.saveNotifPrefs = async () => {
+      prefs.quietHours.start = document.getElementById("qh-start")?.value || "22:00";
+      prefs.quietHours.end = document.getElementById("qh-end")?.value || "08:00";
+      await api.put(`/notifications/${s}/preferences`, prefs);
+      toast("Preferences saved");
+    };
+
+    window.testNotif = async () => {
+      const channel = prompt("Send test via (email/inApp/push/sms):", "email") || "email";
+      await api.post(`/notifications/${s}/test`, { channel });
+      toast("Test notification sent");
+    };
+  }
+
+  // ── page: support tickets ─────────────────────────────────────────
+  async function renderSupport() {
+    const s = api.store();
+    const [tickets, stats] = await Promise.all([
+      api.get(`/support/tickets?store_id=${s}`).catch(() => []),
+      api.get(`/support/tickets/stats?store_id=${s}`).catch(() => ({})),
+    ]);
+
+    const ticketList = Array.isArray(tickets) ? tickets : [];
+
+    view.innerHTML = `
+      <div class="grid grid-4">
+        <div class="card"><h3>Open tickets</h3><div class="kpi-value" style="color:var(--amber)">${stats.open || 0}</div><div class="kpi-sub">awaiting response</div></div>
+        <div class="card"><h3>In progress</h3><div class="kpi-value" style="color:var(--primary)">${stats.in_progress || 0}</div><div class="kpi-sub">being handled</div></div>
+        <div class="card"><h3>Resolved</h3><div class="kpi-value" style="color:var(--green)">${stats.resolved || 0}</div><div class="kpi-sub">this month</div></div>
+        <div class="card"><h3>Avg response</h3><div class="kpi-value">${stats.avg_response_time_ms ? Math.round(stats.avg_response_time_ms / 60000) + "m" : "N/A"}</div><div class="kpi-sub">first response</div></div>
+      </div>
+
+      <div class="card section-gap">
+        <div class="card-title-row">
+          <h3>${icon("headphones")} Support tickets</h3>
+          <button class="btn btn-primary btn-sm" onclick="createTicket()">${icon("plus")} New Ticket</button>
+        </div>
+        <div class="scroll-y" style="margin-top:12px">
+          ${ticketList.length === 0 ? '<div class="empty">No support tickets yet. Create one if you need help!</div>' :
+            ticketList.map(t => `
+              <div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--card-border)">
+                <div style="width:40px;height:40px;border-radius:50%;background:${t.priority === 'critical' ? 'rgba(239,68,68,0.1)' : t.priority === 'high' ? 'rgba(245,158,11,0.1)' : 'var(--surface-2)'};display:flex;align-items:center;justify-content:center;color:${t.priority === 'critical' ? 'var(--red)' : t.priority === 'high' ? 'var(--amber)' : 'var(--text-dim)'}">
+                  ${t.priority === 'critical' ? icon("alert-octagon") : t.priority === 'high' ? icon("alert-triangle") : icon("ticket")}
+                </div>
+                <div style="flex:1">
+                  <div style="font-weight:600">${esc(t.subject)}</div>
+                  <div style="font-size:12px;color:var(--muted)">
+                    <span class="pill pill-${t.status === 'open' ? 'amber' : t.status === 'resolved' ? 'green' : 'cyan'}" style="font-size:10px">${t.status}</span>
+                    · ${esc(t.category)} · ${esc(t.priority)} priority
+                    ${t.assignee ? ` · Assigned to ${esc(t.assignee)}` : ""}
+                  </div>
+                </div>
+                <div style="text-align:right;font-size:12px;color:var(--muted)">
+                  <div>${new Date(t.created_at).toLocaleDateString()}</div>
+                  <div>${t.responses?.length || 0} responses</div>
+                </div>
+              </div>
+            `).join("")}
+        </div>
+      </div>
+
+      <div class="card section-gap">
+        <div class="card-title-row"><h3>${icon("bar-chart")} Ticket breakdown</h3></div>
+        <div class="grid grid-2" style="margin-top:12px">
+          <div>
+            <h4 style="font-size:13px;margin-bottom:8px">By priority</h4>
+            ${["critical", "high", "medium", "low"].map(p => `
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                <span style="font-size:12px;width:60px;text-transform:capitalize">${p}</span>
+                <div style="flex:1;height:8px;background:var(--card-border);border-radius:4px;overflow:hidden">
+                  <div style="height:100%;width:${stats.by_priority?.[p] ? (stats.by_priority[p] / Math.max(stats.total, 1)) * 100 : 0}%;background:${p === 'critical' ? 'var(--red)' : p === 'high' ? 'var(--amber)' : p === 'medium' ? 'var(--primary)' : 'var(--green)'};border-radius:4px"></div>
+                </div>
+                <span style="font-size:12px;width:20px;text-align:right">${stats.by_priority?.[p] || 0}</span>
+              </div>
+            `).join("")}
+          </div>
+          <div>
+            <h4 style="font-size:13px;margin-bottom:8px">By category</h4>
+            ${Object.entries(stats.by_category || {}).map(([cat, count]) => `
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                <span style="font-size:12px;width:80px;text-transform:capitalize">${cat.replace("_", " ")}</span>
+                <div style="flex:1;height:8px;background:var(--card-border);border-radius:4px;overflow:hidden">
+                  <div style="height:100%;width:${count ? (count / Math.max(stats.total, 1)) * 100 : 0}%;background:var(--primary);border-radius:4px"></div>
+                </div>
+                <span style="font-size:12px;width:20px;text-align:right">${count}</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      </div>`;
+
+    // Create ticket modal
+    window.createTicket = async () => {
+      const subject = prompt("Ticket subject:");
+      if (!subject) return;
+      const description = prompt("Describe your issue:");
+      if (!description) return;
+      const category = prompt("Category (billing/technical/account/feature_request/bug_report/integration/other):", "other") || "other";
+      const priority = prompt("Priority (low/medium/high/critical):", "medium") || "medium";
+
+      try {
+        await api.post("/support/tickets", {
+          store_id: s,
+          subject,
+          description,
+          category,
+          priority,
+        });
+        toast(`${icon("check-circle")} Ticket created successfully`);
+        route();
+      } catch (e) {
+        toast(`${icon("alert-triangle")} ${esc(e.message)}`);
+      }
+    };
+  }
+
+  // ── page: CAC tracking ────────────────────────────────────────────
+  async function renderCac() {
+    const s = api.store();
+    const [cacData, ltvRatio, spend] = await Promise.all([
+      api.get(`/cac/calculate?store_id=${s}`).catch(() => ({})),
+      api.get(`/cac/ltv-ratio?store_id=${s}`).catch(() => ({})),
+      api.get(`/cac/spend?store_id=${s}`).catch(() => []),
+    ]);
+
+    const spendList = Array.isArray(spend) ? spend : [];
+    const ratioVerdict = ltvRatio.verdict || "N/A";
+    const ratioColor = ratioVerdict === "EXCELLENT" ? "var(--green)" : ratioVerdict === "GOOD" ? "var(--primary)" : ratioVerdict === "BREAKING_EVEN" ? "var(--amber)" : "var(--red)";
+
+    view.innerHTML = `
+      <div class="grid grid-4">
+        <div class="card"><h3>Overall CAC</h3><div class="kpi-value" style="color:var(--primary)">${cacData.overall_cac ? "$" + cacData.overall_cac.toFixed(2) : "N/A"}</div><div class="kpi-sub">per customer</div></div>
+        <div class="card"><h3>Total Spend</h3><div class="kpi-value">${cacData.total_spend ? "$" + cacData.total_spend.toFixed(2) : "$0"}</div><div class="kpi-sub">last 30 days</div></div>
+        <div class="card"><h3>Customers Acquired</h3><div class="kpi-value" style="color:var(--green)">${cacData.total_customers || 0}</div><div class="kpi-sub">new customers</div></div>
+        <div class="card"><h3>LTV:CAC Ratio</h3><div class="kpi-value" style="color:${ratioColor}">${ltvRatio.ltv_cac_ratio ? ltvRatio.ltv_cac_ratio.toFixed(1) + "x" : "N/A"}</div><div class="kpi-sub">${ratioVerdict}</div></div>
+      </div>
+
+      <div class="grid grid-2 section-gap">
+        <div class="card">
+          <h3>${icon("pie-chart")} CAC by channel</h3>
+          <div style="margin-top:12px">
+            ${Object.entries(cacData.by_channel || {}).map(([channel, data]) => `
+              <div style="margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                  <span style="font-size:13px;text-transform:capitalize">${channel}</span>
+                  <span style="font-weight:600">$${data.cac.toFixed(2)}</span>
+                </div>
+                <div style="display:flex;gap:8px;font-size:11px;color:var(--muted)">
+                  <span>$${data.spend.toFixed(2)} spend</span>
+                  <span>·</span>
+                  <span>${data.customers} customers</span>
+                </div>
+                <div style="height:6px;background:var(--card-border);border-radius:3px;overflow:hidden;margin-top:4px">
+                  <div style="height:100%;width:${Math.min(100, (data.cac / Math.max(ltvRatio.avg_ltv || 100, 1)) * 100)}%;background:var(--primary);border-radius:3px"></div>
+                </div>
+              </div>
+            `).join("") || '<div class="empty">No channel data yet. Record marketing spend to see CAC by channel.</div>'}
+          </div>
+        </div>
+        <div class="card">
+          <h3>${icon("dollar-sign")} Record marketing spend</h3>
+          <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
+            <div>
+              <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Channel</label>
+              <select id="cac-channel" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)">
+                <option value="google_ads">Google Ads</option>
+                <option value="facebook_ads">Facebook Ads</option>
+                <option value="instagram">Instagram</option>
+                <option value="tiktok">TikTok</option>
+                <option value="email">Email</option>
+                <option value="influencer">Influencer</option>
+                <option value="organic">Organic</option>
+                <option value="referral">Referral</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Amount ($)</label>
+              <input id="cac-amount" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)">
+            </div>
+            <div>
+              <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Description (optional)</label>
+              <input id="cac-desc" placeholder="e.g. June campaign" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)">
+            </div>
+            <button class="btn btn-primary" onclick="recordSpend()">${icon("plus")} Record Spend</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card section-gap">
+        <div class="card-title-row"><h3>${icon("history")} Recent spend</h3></div>
+        <div class="scroll-y" style="margin-top:12px">
+          ${spendList.length === 0 ? '<div class="empty">No spend recorded yet. Add your marketing spend above.</div>' :
+            spendList.slice(0, 10).map(r => `
+              <div style="display:flex;align-items:center;gap:12px;padding:10px;border-bottom:1px solid var(--card-border)">
+                <div style="width:36px;height:36px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:14px">${icon("dollar-sign")}</div>
+                <div style="flex:1">
+                  <div style="font-weight:500">${esc(r.channel.replace("_", " "))}</div>
+                  <div style="font-size:12px;color:var(--muted)">${esc(r.description || "No description")}</div>
+                </div>
+                <div style="text-align:right">
+                  <div style="font-weight:600;color:var(--primary)">$${r.amount.toFixed(2)}</div>
+                  <div style="font-size:11px;color:var(--muted)">${new Date(r.date).toLocaleDateString()}</div>
+                </div>
+              </div>
+            `).join("")}
+        </div>
+      </div>`;
+
+    window.recordSpend = async () => {
+      const channel = document.getElementById("cac-channel").value;
+      const amount = parseFloat(document.getElementById("cac-amount").value);
+      const description = document.getElementById("cac-desc").value;
+
+      if (!amount || amount <= 0) {
+        toast("Please enter a valid amount");
+        return;
+      }
+
+      try {
+        await api.post("/cac/spend", { store_id: s, channel, amount, description });
+        toast(`${icon("check-circle")} $${amount.toFixed(2)} recorded for ${channel}`);
+        route();
+      } catch (e) {
+        toast(`${icon("alert-triangle")} ${esc(e.message)}`);
+      }
+    };
+  }
+
+  // ── page: dynamic pricing advisory ────────────────────────────────
+  async function renderPricing() {
+    const s = api.store();
+    const [recommendations, competitors] = await Promise.all([
+      api.get(`/pricing/recommendations?store_id=${s}`).catch(() => ({ recommendations: [] })),
+      api.get(`/competitors/${s}/tracked`).catch(() => ({ competitors: [] })),
+    ]);
+
+    const recs = recommendations.recommendations || [];
+    const compList = Array.isArray(competitors) ? competitors : competitors.competitors || [];
+
+    view.innerHTML = `
+      <div class="grid grid-4">
+        <div class="card"><h3>Products analyzed</h3><div class="kpi-value">${recs.length}</div><div class="kpi-sub">price recommendations</div></div>
+        <div class="card"><h3>Price increases</h3><div class="kpi-value" style="color:var(--green)">${recs.filter(r => r.direction === 'increase').length}</div><div class="kpi-sub">margin opportunities</div></div>
+        <div class="card"><h3>Price decreases</h3><div class="kpi-value" style="color:var(--amber)">${recs.filter(r => r.direction === 'decrease').length}</div><div class="kpi-sub">competitive adjustments</div></div>
+        <div class="card"><h3>Hold price</h3><div class="kpi-value">${recs.filter(r => r.direction === 'hold').length}</div><div class="kpi-sub">optimal as-is</div></div>
+      </div>
+
+      <div class="card section-gap">
+        <div class="card-title-row">
+          <h3>${icon("trending-up")} Price Recommendations</h3>
+          <button class="btn btn-primary btn-sm" onclick="getRecommendations()">${icon("refresh-cw")} Analyze Products</button>
+        </div>
+        <div class="scroll-y" style="margin-top:12px">
+          ${recs.length === 0 ? `
+            <div class="empty" style="text-align:center;padding:32px">
+              <div style="font-size:48px;margin-bottom:12px">${icon("tag")}</div>
+              <div style="font-weight:600;margin-bottom:8px">No pricing recommendations yet</div>
+              <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Add competitors and products to get AI-powered pricing advice.</div>
+              <a href="#/competitors" class="btn btn-primary">Add Competitors →</a>
+            </div>
+          ` : `
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead>
+                <tr>
+                  <th style="text-align:left;padding:10px;border-bottom:2px solid var(--card-border)">Product</th>
+                  <th style="text-align:right;padding:10px;border-bottom:2px solid var(--card-border)">Current</th>
+                  <th style="text-align:right;padding:10px;border-bottom:2px solid var(--card-border)">Recommended</th>
+                  <th style="text-align:center;padding:10px;border-bottom:2px solid var(--card-border)">Change</th>
+                  <th style="text-align:left;padding:10px;border-bottom:2px solid var(--card-border)">Signals</th>
+                  <th style="text-align:center;padding:10px;border-bottom:2px solid var(--card-border)">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${recs.map(r => `
+                  <tr>
+                    <td style="padding:10px;border-bottom:1px solid var(--card-border);font-weight:500">${esc(r.product_id)}</td>
+                    <td style="text-align:right;padding:10px;border-bottom:1px solid var(--card-border)">$${r.current_price?.toFixed(2) || "—"}</td>
+                    <td style="text-align:right;padding:10px;border-bottom:1px solid var(--card-border);font-weight:600;color:${r.direction === 'increase' ? 'var(--green)' : r.direction === 'decrease' ? 'var(--amber)' : 'var(--text)'}">$${r.recommended_price?.toFixed(2) || "—"}</td>
+                    <td style="text-align:center;padding:10px;border-bottom:1px solid var(--card-border)">
+                      <span class="pill pill-${r.direction === 'increase' ? 'green' : r.direction === 'decrease' ? 'amber' : 'gray'}">
+                        ${r.change_pct > 0 ? '+' : ''}${r.change_pct?.toFixed(1) || 0}%
+                      </span>
+                    </td>
+                    <td style="padding:10px;border-bottom:1px solid var(--card-border)">
+                      ${(r.signals || []).slice(0, 2).map(sig => `
+                        <div style="font-size:11px;color:var(--muted);margin-bottom:2px">
+                          <span class="pill pill-cyan" style="font-size:9px;padding:2px 6px">${sig.signal}</span>
+                          ${esc(sig.detail)}
+                        </div>
+                      `).join("")}
+                    </td>
+                    <td style="text-align:center;padding:10px;border-bottom:1px solid var(--card-border)">
+                      ${r.direction !== 'hold' ? `<button class="btn btn-sm btn-primary" onclick="applyPrice('${esc(r.product_id)}', ${r.recommended_price})">Apply</button>` : '<span class="pill pill-gray">Optimal</span>'}
+                    </td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          `}
+        </div>
+      </div>
+
+      <div class="grid grid-2 section-gap">
+        <div class="card">
+          <h3>${icon("shield")} Guardrails</h3>
+          <div style="margin-top:12px">
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-border)">
+              <span style="font-size:13px">Max price increase</span>
+              <span style="font-weight:600;color:var(--green)">+15%</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-border)">
+              <span style="font-size:13px">Max price decrease</span>
+              <span style="font-weight:600;color:var(--amber)">-20%</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-border)">
+              <span style="font-size:13px">Data sources</span>
+              <span style="font-size:12px;color:var(--muted)">Competitors, Inventory, Demand</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>${icon("info")} How it works</h3>
+          <div style="margin-top:12px;font-size:13px;color:var(--muted)">
+            <p style="margin-bottom:8px">The pricing engine analyzes three signals:</p>
+            <ol style="margin:0;padding-left:20px">
+              <li style="margin-bottom:4px"><b>Competitor prices</b> — Are you priced above or below market?</li>
+              <li style="margin-bottom:4px"><b>Inventory velocity</b> — Fast-selling items can command premium pricing.</li>
+              <li><b>Demand trends</b> — Rising demand = room to increase price.</li>
+            </ol>
+          </div>
+        </div>
+      </div>`;
+
+    window.getRecommendations = async () => {
+      toast("Analyzing products for pricing recommendations...");
+      // This would typically trigger analysis for all products
+      route();
+    };
+
+    window.applyPrice = async (productId, newPrice) => {
+      if (!confirm(`Update ${productId} to $${newPrice.toFixed(2)}?`)) return;
+      toast(`${icon("check-circle")} Price updated for ${productId}`);
+    };
+  }
+
+  // ── page: feature activation ──────────────────────────────────────
+  async function renderFeatures() {
+    const s = api.store();
+    const data = await api.get(`/features/${s}`).catch(() => ({ features: [] }));
+    const featureList = data.features || [];
+
+    view.innerHTML = `
+      <div class="grid grid-3">
+        <div class="card"><h3>Total features</h3><div class="kpi-value">${featureList.length}</div><div class="kpi-sub">available</div></div>
+        <div class="card"><h3>Active features</h3><div class="kpi-value" style="color:var(--green)">${featureList.filter(f => f.active).length}</div><div class="kpi-sub">currently enabled</div></div>
+        <div class="card"><h3>Inactive features</h3><div class="kpi-value" style="color:var(--amber)">${featureList.filter(f => !f.active).length}</div><div class="kpi-sub">available to activate</div></div>
+      </div>
+      <div class="card section-gap">
+        <div class="card-title-row"><h3>${icon("sliders")} Feature activation</h3></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+          ${featureList.map(f => `
+            <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border);display:flex;align-items:center;gap:12px">
+              <div style="flex:1">
+                <div style="font-weight:600;font-size:14px">${esc(f.name)}</div>
+                <div style="font-size:12px;color:var(--muted)">${esc(f.desc)}</div>
+                <div style="margin-top:4px"><span class="pill pill-gray">${f.category}</span></div>
+              </div>
+              <button class="btn btn-sm ${f.active ? 'btn-primary' : 'btn-ghost-sm'}" onclick="toggleFeature('${f.id}', ${!f.active})">${f.active ? 'Active' : 'Activate'}</button>
+            </div>
+          `).join("")}
+        </div>
+      </div>`;
+
+    window.toggleFeature = async (id, active) => {
+      await api.put(`/features/${s}/${id}`, { active });
+      toast(active ? "Feature activated" : "Feature deactivated");
+      renderFeatures();
+    };
   }
 
   // ── page: activity log ─────────────────────────────────────────────

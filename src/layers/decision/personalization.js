@@ -18,6 +18,33 @@ const MESSAGE_TEMPLATES = {
       body: "Hi {name} — quick heads up: your cart is saved and waiting. Finish checkout whenever you're ready.",
     },
   },
+  recovery_reminder_1h: {
+    email: {
+      subject: "Your cart is still waiting",
+      body: "Hi {name}, just a friendly reminder — the items in your cart are still available. Complete your checkout before they sell out.",
+    },
+    whatsapp: {
+      body: "Hi {name}, quick reminder: your cart is still saved. Complete checkout before your items sell out!",
+    },
+  },
+  recovery_escalation_3h: {
+    email: {
+      subject: "Don't miss out — your cart expires soon",
+      body: "Hi {name}, your cart items are in high demand. We'll hold them for a little longer, but complete your order now to guarantee availability.",
+    },
+    whatsapp: {
+      body: "Hi {name}, your cart items are selling fast! Complete your order now to guarantee availability.",
+    },
+  },
+  recovery_final_24h: {
+    email: {
+      subject: "Last chance: {discount}% off to complete your order",
+      body: "Hi {name}, this is your last chance! We've saved {discount}% off your cart as a thank-you for coming back. Use code {code} at checkout.",
+    },
+    whatsapp: {
+      body: "Hi {name}, final chance! Enjoy {discount}% off your cart with code {code}. Complete your order now before it expires.",
+    },
+  },
   winback_offer: {
     email: {
       subject: "We miss you — here's {discount}% off",
@@ -94,6 +121,7 @@ function createPersonalizationEngine({ store, recommendationEngine }) {
         discount: action.params?.discount || 10,
         code: action.params?.code || `WELCOME${store_id.length}`.toUpperCase(),
         offer: action.params?.offer || "",
+        step: action.params?.sequence_step || 1,
       };
 
       const channel = action.channel === "auto" ? "email" : action.channel;

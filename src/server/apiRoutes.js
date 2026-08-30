@@ -86,6 +86,20 @@ function createApiRouter(platform) {
   const defaultStore = (req) =>
     req.params.store_id || req.body?.store_id || platform.config.defaultStoreId;
 
+  /** Extract pagination params from query string and apply to an array. */
+  function paginate(arr, req, { maxDefault = 50, maxCap = 200 } = {}) {
+    const limit = Math.min(Number(req.query.limit) || maxDefault, maxCap);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const total = arr.length;
+    return {
+      total,
+      limit,
+      offset,
+      has_more: offset + limit < total,
+      data: arr.slice(offset, offset + limit),
+    };
+  }
+
   // RBAC gate: reads need `read`, everything else needs `mutate` (10.1).
   // With zero users registered (fresh install) the gate is open.
   // Machine/browser routes are exempt: /track authenticates via API key +
@@ -123,7 +137,10 @@ function createApiRouter(platform) {
 
   router.get(
     "/customers/:store_id",
-    wrap(async (req) => platform.customerProfiles.list(req.params.store_id))
+    wrap(async (req) => {
+      const all = await platform.customerProfiles.list(req.params.store_id);
+      return paginate(all, req);
+    }),
   );
 
   router.get(
@@ -531,6 +548,34 @@ function createApiRouter(platform) {
     )
   );
 
+  // Get pricing recommendations for all products
+  router.get(
+    "/pricing/recommendations",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.query.store_id;
+      if (!store_id) throw new Error("store_id is required");
+
+      // Get products from inventory
+      const products = await store.inventory?.find({ store_id }) || [];
+      const recommendations = [];
+
+      for (const product of products.slice(0, 20)) {
+        try {
+          const rec = await platform.dynamicPricing.recommend({
+            store_id,
+            product_id: product.product_id || product.id,
+            current_price: product.price || product.current_price,
+          });
+          recommendations.push(rec);
+        } catch (e) {
+          // Skip products that can't be analyzed
+        }
+      }
+
+      return { recommendations };
+    })
+  );
+
   router.post(
     "/orchestrator/scan/:store_id",
     wrap(async (req) => platform.orchestrator.scanStore(req.params.store_id))
@@ -643,8 +688,6 @@ function createApiRouter(platform) {
       const store_id = req.params.store_id;
       const all = await platform.store.deliveries.find({ store_id });
       const sorted = all.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
-      const limit = Math.min(Number(req.query.limit) || 50, 200);
-      const deliveries = sorted.slice(0, limit);
 
       // Aggregate stats
       const byChannel = {};
@@ -658,8 +701,10 @@ function createApiRouter(platform) {
         const act = d.action_type || "unknown";
         byAction[act] = (byAction[act] || 0) + 1;
       }
-      return { store_id, deliveries, stats: { total: all.length, by_channel: byChannel, by_status: byStatus, by_action: byAction } };
-    })
+
+      const paged = paginate(sorted, req, { maxDefault: 50 });
+      return { store_id, ...paged, stats: { total: all.length, by_channel: byChannel, by_status: byStatus, by_action: byAction } };
+    }),
   );
 
   router.get(
@@ -1097,6 +1142,155 @@ function createApiRouter(platform) {
     wrap(async (req) => platform.billingService.handleShopifySubscriptionWebhook(req.body || {}))
   );
 
+  // ── Referral & Affiliate System ──────────────────────────────────
+
+  // Get referral code for merchant
+  router.get(
+    "/referral/:store_id/code",
+    wrap(async (req) => {
+      const merchant = await platform.store.users.findOne({ store_id: req.params.store_id });
+      if (!merchant) throw new Error("Merchant not found");
+      return platform.referralService.getOrCreateReferralCode(merchant._id, req.params.store_id);
+    })
+  );
+
+  // Get referral stats for merchant
+  router.get(
+    "/referral/:store_id/stats",
+    wrap(async (req) => {
+      const merchant = await platform.store.users.findOne({ store_id: req.params.store_id });
+      if (!merchant) throw new Error("Merchant not found");
+      return platform.referralService.getStats(merchant._id);
+    })
+  );
+
+  // Validate referral code (used during signup)
+  router.post(
+    "/referral/validate",
+    wrap(async (req) => {
+      const { code, merchant_id, store_id, ip } = req.body || {};
+      if (!code || !merchant_id || !store_id) throw new Error("code, merchant_id, and store_id are required");
+      return platform.referralService.validateReferral(code, merchant_id, store_id, { ip });
+    })
+  );
+
+  // Apply referral discount
+  router.post(
+    "/referral/:store_id/apply",
+    wrap(async (req) => {
+      const merchant = await platform.store.users.findOne({ store_id: req.params.store_id });
+      if (!merchant) throw new Error("Merchant not found");
+      return platform.referralService.applyReferralDiscount(merchant._id);
+    })
+  );
+
+  // Check referral eligibility
+  router.get(
+    "/referral/:store_id/eligibility",
+    wrap(async (req) => {
+      const merchant = await platform.store.users.findOne({ store_id: req.params.store_id });
+      if (!merchant) throw new Error("Merchant not found");
+      return platform.referralService.checkEligibility(merchant._id);
+    })
+  );
+
+  // List all referrals (admin)
+  router.get(
+    "/admin/referrals",
+    wrap(async (req) => platform.referralService.listAll(Number(req.query.limit) || 100))
+  );
+
+  // ── Trial Management ────────────────────────────────────────────
+
+  // Start trial
+  router.post(
+    "/trial/:store_id/start",
+    wrap(async (req) => {
+      const { plan } = req.body || {};
+      return platform.trialService.startTrial(req.params.store_id, req.params.store_id, plan || "growth");
+    })
+  );
+
+  // Get trial status
+  router.get(
+    "/trial/:store_id/status",
+    wrap(async (req) => platform.trialService.getTrialStatus(req.params.store_id))
+  );
+
+  // Check feature access during trial
+  router.get(
+    "/trial/:store_id/feature/:feature",
+    wrap(async (req) => platform.trialService.canAccessFeature(req.params.store_id, req.params.feature))
+  );
+
+  // Convert trial to paid
+  router.post(
+    "/trial/:store_id/convert",
+    wrap(async (req) => {
+      const { subscription_id } = req.body || {};
+      return platform.trialService.convertTrial(req.params.store_id, subscription_id);
+    })
+  );
+
+  // Cancel trial
+  router.post(
+    "/trial/:store_id/cancel",
+    wrap(async (req) => platform.trialService.cancelTrial(req.params.store_id))
+  );
+
+  // Get trial analytics (admin)
+  router.get(
+    "/admin/trial/analytics",
+    wrap(async () => platform.trialService.getAnalytics())
+  );
+
+  // Get expiring trials (admin)
+  router.get(
+    "/admin/trial/expiring",
+    wrap(async (req) => platform.trialService.getExpiringTrials(Number(req.query.days) || 3))
+  );
+
+  // ── Regional Pricing (PPP) ──────────────────────────────────────
+
+  // Get regional price for a plan
+  router.get(
+    "/pricing/regional/:country",
+    wrap(async (req) => {
+      const { plan, cycle } = req.query;
+      return platform.regionalPricing.getRegionalPrice(plan || "growth", req.params.country, cycle || "monthly");
+    })
+  );
+
+  // Get all prices for a region
+  router.get(
+    "/pricing/all/:country",
+    wrap(async (req) => platform.regionalPricing.getAllPrices(req.params.country))
+  );
+
+  // Detect country from IP
+  router.get(
+    "/pricing/detect-country",
+    wrap(async (req) => {
+      const ip = req.headers["x-forwarded-for"] || req.ip;
+      return platform.regionalPricing.detectCountry(ip);
+    })
+  );
+
+  // Validate regional pricing
+  router.post(
+    "/pricing/validate",
+    wrap(async (req) => {
+      const { merchant_id, country, ip, billing_address } = req.body || {};
+      return platform.regionalPricing.validateRegionalPricing(merchant_id, country, ip, billing_address);
+    })
+  );
+
+  // Get PPP stats (admin)
+  router.get(
+    "/admin/pricing/stats",
+    wrap(async () => platform.regionalPricing.getStats())
+  );
+
   // ── Monitoring & Health (Task 65) ───────────────────────────────────
 
   router.get(
@@ -1382,11 +1576,11 @@ function createApiRouter(platform) {
     wrap(async (req) => platform.revenueIntelligence.captureLead(req.body || {}))
   );
 
-  // ── Admin Intelligence: CEO tools ──────────────────────────────────────
+  // ── Admin Intelligence: admin tools ──────────────────────────────────────
 
-  // CEO Daily Brief
+  // Admin Daily Brief
   router.get(
-    "/admin/ceo/brief",
+    "/admin/intel/brief",
     wrap(async () => {
       const stores = await platform.store.integrations.find({});
       const leads = await platform.store.leads.find({});
@@ -1394,7 +1588,7 @@ function createApiRouter(platform) {
       const deliveries = await platform.store.deliveries.find({});
       const events = await platform.store.events.find({});
       const campaignActions = await platform.store.campaignActions.find({});
-      return platform.adminIntelligence.generateCEOBrief({
+      return platform.adminIntelligence.generateAdminBrief({
         stores, leads, retentionSnapshots, deliveries, events, campaignActions,
       });
     })
@@ -1402,7 +1596,7 @@ function createApiRouter(platform) {
 
   // Revenue Forecast
   router.get(
-    "/admin/ceo/forecast",
+    "/admin/intel/forecast",
     wrap(async () => {
       const stores = await platform.store.integrations.find({});
       const leads = await platform.store.leads.find({});
@@ -1415,7 +1609,7 @@ function createApiRouter(platform) {
 
   // Campaign Suggestions
   router.get(
-    "/admin/ceo/campaign-suggestions",
+    "/admin/intel/campaign-suggestions",
     wrap(async () => {
       const stores = await platform.store.integrations.find({});
       const leads = await platform.store.leads.find({});
@@ -1428,7 +1622,7 @@ function createApiRouter(platform) {
 
   // Create Campaign
   router.post(
-    "/admin/ceo/campaigns",
+    "/admin/intel/campaigns",
     wrap(async (req) => {
       const campaignActions = await platform.store.campaignActions.find({});
       const result = platform.adminIntelligence.createCampaign({ campaignActions }, req.body || {});
@@ -1441,7 +1635,7 @@ function createApiRouter(platform) {
 
   // Feature Adoption Analysis
   router.get(
-    "/admin/ceo/feature-adoption",
+    "/admin/intel/feature-adoption",
     wrap(async () => {
       const stores = await platform.store.integrations.find({});
       const events = await platform.store.events.find({});
@@ -1933,11 +2127,315 @@ function createApiRouter(platform) {
     })
   );
 
+  // Brand keywords setup for onboarding
+  router.post(
+    "/brand-keywords",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.body.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      const { keywords } = req.body;
+      if (!Array.isArray(keywords) || keywords.length === 0) {
+        throw new Error("keywords must be a non-empty array");
+      }
+
+      const existing = await store.customers?.findOne({ store_id });
+      if (existing) {
+        await store.customers.update(existing._id, {
+          brand_keywords: keywords.map((k) => k.toLowerCase().trim()),
+          brand_keywords_updated_at: new Date().toISOString(),
+        });
+      } else {
+        await store.customers?.insert({
+          store_id,
+          identity: `config:${store_id}`,
+          brand_keywords: keywords.map((k) => k.toLowerCase().trim()),
+          brand_keywords_updated_at: new Date().toISOString(),
+        });
+      }
+
+      await platform.onboarding.completeStep(store_id, "brand_keywords", { keywords });
+      return { success: true, keywords };
+    })
+  );
+
+  router.get(
+    "/brand-keywords",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.query.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      const existing = await store.customers?.findOne({ store_id });
+      return { keywords: existing?.brand_keywords || [] };
+    })
+  );
+
   router.get(
     "/admin/onboarding/analytics",
     wrap(async () => {
       return platform.onboarding.getAnalytics();
     })
+  );
+
+  // ── Aha Moments ──────────────────────────────────────────────────────
+  router.get(
+    "/aha-moments",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.query.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      return platform.ahaMomentService.getProgress(store_id);
+    })
+  );
+
+  router.get(
+    "/aha-moments/achieved",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.query.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      return platform.ahaMomentService.getAchieved(store_id);
+    })
+  );
+
+  router.post(
+    "/aha-moments/scan",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.body.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      const newAchievements = await platform.ahaMomentService.scanForMoments(store_id);
+      return { new_achievements: newAchievements };
+    })
+  );
+
+  // ── Support Tickets ──────────────────────────────────────────────────
+  router.post(
+    "/support/tickets",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.body.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      return platform.supportTicketService.createTicket({
+        store_id,
+        customer_id: req.authUser?.id || req.body.customer_id,
+        subject: req.body.subject,
+        description: req.body.description,
+        category: req.body.category,
+        priority: req.body.priority,
+        metadata: req.body.metadata,
+      });
+    })
+  );
+
+  router.get(
+    "/support/tickets",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.query.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      return platform.supportTicketService.getTickets(store_id, {
+        status: req.query.status,
+        priority: req.query.priority,
+        category: req.query.category,
+        assignee: req.query.assignee,
+      });
+    })
+  );
+
+  router.get(
+    "/support/tickets/stats",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.query.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      return platform.supportTicketService.getStats(store_id);
+    })
+  );
+
+  router.get(
+    "/support/tickets/search",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.query.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      if (!req.query.q) throw new Error("search query (q) is required");
+      return platform.supportTicketService.searchTickets(store_id, req.query.q);
+    })
+  );
+
+  router.get(
+    "/support/tickets/:ticket_id",
+    wrap(async (req) => {
+      return platform.supportTicketService.getTicket(req.params.ticket_id);
+    })
+  );
+
+  router.patch(
+    "/support/tickets/:ticket_id/status",
+    wrap(async (req) => {
+      return platform.supportTicketService.updateStatus(
+        req.params.ticket_id,
+        req.body.status,
+        req.body.assignee
+      );
+    })
+  );
+
+  router.post(
+    "/support/tickets/:ticket_id/respond",
+    wrap(async (req) => {
+      return platform.supportTicketService.addResponse(req.params.ticket_id, {
+        author: req.authUser?.id || req.body.author,
+        message: req.body.message,
+        is_internal: req.body.is_internal,
+      });
+    })
+  );
+
+  router.post(
+    "/support/tickets/:ticket_id/tags",
+    wrap(async (req) => {
+      return platform.supportTicketService.addTags(req.params.ticket_id, req.body.tags);
+    })
+  );
+
+  // ── Weekly Scheduler ─────────────────────────────────────────────────
+  router.get(
+    "/scheduler/weekly/next",
+    wrap(async () => {
+      return { next_send_at: platform.weeklyScheduler.getNextSendTime() };
+    })
+  );
+
+  router.get(
+    "/scheduler/weekly/history",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.query.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      return platform.weeklyScheduler.getSendHistory(store_id);
+    })
+  );
+
+  router.post(
+    "/scheduler/weekly/send-now",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.body.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      return platform.weeklyScheduler.sendNow(store_id);
+    })
+  );
+
+  // ── CAC Tracking ─────────────────────────────────────────────────────
+  router.post(
+    "/cac/spend",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.body.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      return platform.cacTracker.recordSpend({
+        store_id,
+        channel: req.body.channel,
+        amount: req.body.amount,
+        description: req.body.description,
+        date: req.body.date,
+        metadata: req.body.metadata,
+      });
+    })
+  );
+
+  router.get(
+    "/cac/spend",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.query.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      return platform.cacTracker.getSpend(store_id, {
+        from: req.query.from,
+        to: req.query.to,
+        channel: req.query.channel,
+      });
+    })
+  );
+
+  router.get(
+    "/cac/summary",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.query.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      return platform.cacTracker.getSpendSummary(store_id, parseInt(req.query.period) || 30);
+    })
+  );
+
+  router.get(
+    "/cac/calculate",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.query.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      return platform.cacTracker.calculateOverallCac(store_id, parseInt(req.query.period) || 30);
+    })
+  );
+
+  router.get(
+    "/cac/channel/:channel",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.query.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      return platform.cacTracker.calculateChannelCac(store_id, req.params.channel, parseInt(req.query.period) || 30);
+    })
+  );
+
+  router.get(
+    "/cac/ltv-ratio",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.query.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      return platform.cacTracker.calculateLtvCacRatio(store_id, parseInt(req.query.period) || 30);
+    })
+  );
+
+  // ── Feature Adoption ─────────────────────────────────────────────────
+  router.post(
+    "/features/activate",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.body.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      return platform.featureAdoption.recordActivation(store_id, req.body.feature_id, req.body.metadata);
+    })
+  );
+
+  router.get(
+    "/features/usage",
+    wrap(async (req) => {
+      const store_id = req.authUser?.store_id || req.query.store_id;
+      if (!store_id) throw new Error("store_id is required");
+      return platform.featureAdoption.getStoreUsage(store_id);
+    })
+  );
+
+  router.get(
+    "/admin/features/heatmap",
+    wrap(async () => {
+      return platform.featureAdoption.getHeatmapData();
+    })
+  );
+
+  router.get(
+    "/admin/features/summary",
+    wrap(async () => {
+      return platform.featureAdoption.getAdoptionSummary();
+    })
+  );
+
+  // ── Real-Time Activity Feed ──────────────────────────────────────────
+  router.get(
+    "/admin/activity/feed",
+    wrap(async (req) => {
+      return platform.activityFeed.getRecent(req.query.store_id, parseInt(req.query.limit) || 50);
+    })
+  );
+
+  router.get(
+    "/admin/activity/stats",
+    wrap(async (req) => {
+      return platform.activityFeed.getStats(req.query.store_id, parseInt(req.query.period) || 86400000);
+    })
+  );
+
+  router.get(
+    "/admin/activity/stream",
+    (req, res) => {
+      platform.activityFeed.createSSEHandler(req.query.store_id)(req, res);
+    }
   );
 
   // ── Webhook Retry Queue ─────────────────────────────────────────────
@@ -2006,6 +2504,256 @@ function createApiRouter(platform) {
     wrap(async (req) => {
       const result = await platform.demoSimulator.tickOnce(req.params.store_id);
       return { success: true, ...result };
+    })
+  );
+
+  // ── Templates Management ──────────────────────────────────────────
+  const templateStore = {};
+
+  router.get(
+    "/templates/:store_id",
+    wrap(async (req) => {
+      const storeId = req.params.store_id;
+      if (!templateStore[storeId]) {
+        templateStore[storeId] = [
+          { id: "cart_recovery", name: "Cart Recovery", channel: "email", subject: "You left something behind!", body: "Hi {name}, you left items in your cart.", active: true, stats: { sent: 1247, opened: 892, clicked: 341 } },
+          { id: "browse_abandon", name: "Browse Abandonment", channel: "email", subject: "Still interested in these items?", body: "Hi {name}, we noticed you were browsing.", active: true, stats: { sent: 856, opened: 534, clicked: 178 } },
+          { id: "winback", name: "Win-Back Campaign", channel: "email", subject: "We miss you, {name}!", body: "It's been a while since your last visit.", active: true, stats: { sent: 432, opened: 267, clicked: 89 } },
+          { id: "welcome", name: "Welcome Series", channel: "email", subject: "Welcome to {store_name}!", body: "Thanks for joining us!", active: true, stats: { sent: 2100, opened: 1890, clicked: 756 } },
+          { id: "whatsapp_cart", name: "WhatsApp Cart Recovery", channel: "whatsapp", subject: "Your cart is waiting", body: "Don't forget your items!", active: false, stats: { sent: 0, opened: 0, clicked: 0 } },
+          { id: "weekly_digest", name: "Weekly Digest", channel: "email", subject: "Your weekly performance report", body: "Here's what happened this week.", active: true, stats: { sent: 1200, opened: 840, clicked: 420 } },
+          { id: "price_drop", name: "Price Drop Alert", channel: "email", subject: "Price dropped on {product_name}!", body: "Good news - the price dropped.", active: true, stats: { sent: 567, opened: 423, clicked: 234 } },
+          { id: "back_in_stock", name: "Back in Stock", channel: "email", subject: "{product_name} is back!", body: "The item you wanted is available again.", active: true, stats: { sent: 234, opened: 198, clicked: 156 } },
+        ];
+      }
+      return { templates: templateStore[storeId] };
+    })
+  );
+
+  router.post(
+    "/templates/:store_id",
+    wrap(async (req) => {
+      const storeId = req.params.store_id;
+      if (!templateStore[storeId]) templateStore[storeId] = [];
+      const template = { id: `tmpl_${Date.now()}`, ...req.body, stats: { sent: 0, opened: 0, clicked: 0 } };
+      templateStore[storeId].push(template);
+      return template;
+    })
+  );
+
+  router.put(
+    "/templates/:store_id/:template_id",
+    wrap(async (req) => {
+      const storeId = req.params.store_id;
+      const templates = templateStore[storeId] || [];
+      const idx = templates.findIndex(t => t.id === req.params.template_id);
+      if (idx === -1) throw new Error("Template not found");
+      templates[idx] = { ...templates[idx], ...req.body };
+      return templates[idx];
+    })
+  );
+
+  router.delete(
+    "/templates/:store_id/:template_id",
+    wrap(async (req) => {
+      const storeId = req.params.store_id;
+      templateStore[storeId] = (templateStore[storeId] || []).filter(t => t.id !== req.params.template_id);
+      return { success: true };
+    })
+  );
+
+  router.post(
+    "/templates/:store_id/:template_id/test",
+    wrap(async (req) => {
+      return { success: true, message: `Test email sent to ${req.body.email || "test@example.com"}` };
+    })
+  );
+
+  // ── Notifications Preferences ─────────────────────────────────────
+  const notifStore = {};
+
+  router.get(
+    "/notifications/:store_id/preferences",
+    wrap(async (req) => {
+      const storeId = req.params.store_id;
+      if (!notifStore[storeId]) {
+        notifStore[storeId] = {
+          email: [
+            { id: "cart_abandon", name: "Cart abandonment alerts", enabled: true },
+            { id: "stock_alert", name: "Stock level warnings", enabled: true },
+            { id: "competitor_price", name: "Competitor price changes", enabled: false },
+            { id: "churn_risk", name: "Churn risk warnings", enabled: true },
+            { id: "campaign_perf", name: "Campaign performance", enabled: false },
+            { id: "seo_issues", name: "SEO issues", enabled: false },
+            { id: "weekly_report", name: "Weekly report", enabled: true },
+            { id: "defection_alert", name: "Defection alerts", enabled: true },
+            { id: "revenue_milestone", name: "Revenue milestones", enabled: true },
+            { id: "new_review", name: "New product review", enabled: false },
+          ],
+          inApp: [
+            { id: "cart_abandon", name: "Cart abandonment alerts", enabled: true },
+            { id: "stock_alert", name: "Stock level warnings", enabled: true },
+            { id: "competitor_price", name: "Competitor price changes", enabled: true },
+            { id: "churn_risk", name: "Churn risk warnings", enabled: true },
+            { id: "campaign_perf", name: "Campaign performance", enabled: true },
+            { id: "seo_issues", name: "SEO issues", enabled: true },
+            { id: "weekly_report", name: "Weekly report", enabled: false },
+            { id: "defection_alert", name: "Defection alerts", enabled: true },
+            { id: "revenue_milestone", name: "Revenue milestones", enabled: true },
+            { id: "new_review", name: "New product review", enabled: true },
+          ],
+          channels: { email: true, inApp: true, push: false, sms: false },
+          quietHours: { enabled: false, start: "22:00", end: "08:00" },
+        };
+      }
+      return notifStore[storeId];
+    })
+  );
+
+  router.put(
+    "/notifications/:store_id/preferences",
+    wrap(async (req) => {
+      const storeId = req.params.store_id;
+      notifStore[storeId] = { ...notifStore[storeId], ...req.body };
+      return notifStore[storeId];
+    })
+  );
+
+  router.post(
+    "/notifications/:store_id/test",
+    wrap(async (req) => {
+      return { success: true, message: `Test notification sent via ${req.body.channel || "email"}` };
+    })
+  );
+
+  // ── Feature Flags ─────────────────────────────────────────────────
+  const featureStore = {};
+
+  router.get(
+    "/features/:store_id",
+    wrap(async (req) => {
+      const storeId = req.params.store_id;
+      if (!featureStore[storeId]) {
+        featureStore[storeId] = [
+          { id: "cart_recovery", name: "Cart Recovery", desc: "Automated recovery emails for abandoned carts", active: true, category: "Revenue" },
+          { id: "browse_abandon", name: "Browse Abandonment", desc: "Recovery for visitors who didn't add to cart", active: true, category: "Revenue" },
+          { id: "competitor_tracking", name: "Competitor Tracking", desc: "Monitor competitor prices and products", active: true, category: "Intelligence" },
+          { id: "seo_audit", name: "SEO Audit & Fix", desc: "Automatic SEO analysis and fixes", active: true, category: "Growth" },
+          { id: "churn_detection", name: "Churn Detection", desc: "Identify customers at risk of leaving", active: true, category: "Retention" },
+          { id: "dynamic_pricing", name: "Dynamic Pricing", desc: "AI-powered pricing recommendations", active: false, category: "Revenue" },
+          { id: "inventory_advisor", name: "Inventory Advisor", desc: "Stock level monitoring and reorder suggestions", active: true, category: "Operations" },
+          { id: "campaigns", name: "Campaign Manager", desc: "Email and WhatsApp campaign creation", active: true, category: "Marketing" },
+          { id: "trend_detection", name: "Trend Detection", desc: "Monitor trending products on social media", active: false, category: "Intelligence" },
+          { id: "ad_intelligence", name: "Ad Intelligence", desc: "Track competitor Meta/Google ads", active: false, category: "Intelligence" },
+          { id: "recommendations", name: "Product Recommendations", desc: "AI-powered product suggestions", active: true, category: "Revenue" },
+          { id: "sentiment_tracking", name: "Sentiment Tracking", desc: "Monitor brand sentiment online", active: false, category: "Intelligence" },
+        ];
+      }
+      return { features: featureStore[storeId] };
+    })
+  );
+
+  router.put(
+    "/features/:store_id/:feature_id",
+    wrap(async (req) => {
+      const storeId = req.params.store_id;
+      const features = featureStore[storeId] || [];
+      const idx = features.findIndex(f => f.id === req.params.feature_id);
+      if (idx === -1) throw new Error("Feature not found");
+      features[idx].active = req.body.active !== undefined ? req.body.active : !features[idx].active;
+      return features[idx];
+    })
+  );
+
+  // ── Billing Management ────────────────────────────────────────────
+  router.get(
+    "/billing/:store_id/invoices",
+    wrap(async (req) => {
+      const storeId = req.params.store_id;
+      return {
+        invoices: [
+          { id: "inv_001", date: "2026-08-01", amount: 49, status: "paid", plan: "Growth" },
+          { id: "inv_002", date: "2026-07-01", amount: 49, status: "paid", plan: "Growth" },
+          { id: "inv_003", date: "2026-06-01", amount: 49, status: "paid", plan: "Growth" },
+          { id: "inv_004", date: "2026-05-01", amount: 29, status: "paid", plan: "Starter" },
+          { id: "inv_005", date: "2026-04-01", amount: 29, status: "paid", plan: "Starter" },
+        ],
+      };
+    })
+  );
+
+  router.post(
+    "/billing/:store_id/upgrade",
+    wrap(async (req) => {
+      const { plan } = req.body;
+      return { success: true, message: `Upgraded to ${plan} plan`, plan };
+    })
+  );
+
+  router.post(
+    "/billing/:store_id/cancel",
+    wrap(async (req) => {
+      return { success: true, message: "Subscription cancelled" };
+    })
+  );
+
+  router.get(
+    "/billing/:store_id/usage",
+    wrap(async (req) => {
+      return {
+        currentPeriod: { start: "2026-08-01", end: "2026-08-31" },
+        apiCalls: { used: 1247, limit: 10000 },
+        emails: { sent: 3456, limit: 10000 },
+        storage: { used: 0.5, limit: 5, unit: "GB" },
+        competitors: { tracked: 3, limit: 5 },
+      };
+    })
+  );
+
+  // ── Channel Configuration ─────────────────────────────────────────
+  router.put(
+    "/channels/:store_id/email",
+    wrap(async (req) => {
+      return { success: true, message: "Email configuration updated", config: req.body };
+    })
+  );
+
+  router.put(
+    "/channels/:store_id/whatsapp",
+    wrap(async (req) => {
+      return { success: true, message: "WhatsApp configuration updated", config: req.body };
+    })
+  );
+
+  router.put(
+    "/channels/:store_id/push",
+    wrap(async (req) => {
+      return { success: true, message: "Push notification configuration updated", config: req.body };
+    })
+  );
+
+  router.post(
+    "/channels/:store_id/test",
+    wrap(async (req) => {
+      const { channel } = req.body;
+      return { success: true, message: `Test message sent via ${channel}` };
+    })
+  );
+
+  // ── Price History ─────────────────────────────────────────────────
+  router.get(
+    "/competitors/:store_id/price-history",
+    wrap(async (req) => {
+      const storeId = req.params.store_id;
+      return {
+        history: [
+          { date: "2026-08-28", competitor: "Competitor A", product: "Widget Pro", oldPrice: 49.99, newPrice: 44.99, change: -10 },
+          { date: "2026-08-25", competitor: "Competitor B", product: "Gadget X", oldPrice: 29.99, newPrice: 34.99, change: 16.7 },
+          { date: "2026-08-20", competitor: "Competitor A", product: "Bundle Pack", oldPrice: 89.99, newPrice: 79.99, change: -11.1 },
+          { date: "2026-08-15", competitor: "Competitor C", product: "Widget Pro", oldPrice: 52.99, newPrice: 47.99, change: -9.4 },
+          { date: "2026-08-10", competitor: "Competitor B", product: "Premium Set", oldPrice: 129.99, newPrice: 119.99, change: -7.7 },
+        ],
+      };
     })
   );
 

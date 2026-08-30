@@ -23,6 +23,7 @@ const STEPS = [
   { id: "first_audit", title: "Run Your First Audit", description: "Get a comprehensive health score for your store." },
   { id: "choose_plan", title: "Choose Your Plan", description: "Select the plan that fits your growth goals." },
   { id: "add_competitors", title: "Add Competitors", description: "Track competitor pricing and strategies." },
+  { id: "brand_keywords", title: "Set Brand Keywords", description: "Add keywords to monitor your brand mentions and sentiment." },
   { id: "first_automation", title: "Set Up Automation", description: "Configure your first automated campaign." },
   { id: "complete", title: "You're All Set!", description: "Your store is fully configured for growth." },
 ];
@@ -34,13 +35,43 @@ const STEP_WEIGHTS = {
   first_audit: 15,
   choose_plan: 15,
   add_competitors: 10,
+  brand_keywords: 10,
   first_automation: 10,
   complete: 5,
 };
 
 function createOnboardingService({ store }) {
-  return {
+  const service = {
     STEPS,
+
+    /**
+     * Persist an onboarding state to storage.
+     */
+    async _persist(state) {
+      if (!store.onboardingStates) return;
+      const existing = await store.onboardingStates.findOne({ store_id: state.store_id });
+      if (existing) {
+        await store.onboardingStates.update(existing._id, state);
+      } else {
+        await store.onboardingStates.insert(state);
+      }
+    },
+
+    /**
+     * Advance current_step and recalculate completion.
+     */
+    _advance(state) {
+      const nextIncomplete = STEPS.find(
+        (s) => !state.steps[s.id].completed && !state.steps[s.id].skipped,
+      );
+      state.current_step = nextIncomplete?.id || "complete";
+      const completedSteps = STEPS.filter((s) => state.steps[s.id].completed).length;
+      state.completion_pct = Math.round((completedSteps / STEPS.length) * 100);
+      if (completedSteps === STEPS.length) {
+        state.completed = true;
+        state.completed_at = new Date().toISOString();
+      }
+    },
 
     /**
      * Get the onboarding state for a store.
@@ -84,35 +115,15 @@ function createOnboardingService({ store }) {
       if (!store_id) throw new Error("store_id is required");
       if (!STEPS.find((s) => s.id === step_id)) throw new Error(`Unknown step: ${step_id}`);
 
-      const state = await this.getState(store_id);
+      const state = await service.getState(store_id);
       if (!state.steps[step_id]) throw new Error(`Step not found: ${step_id}`);
 
       state.steps[step_id].completed = true;
       state.steps[step_id].completed_at = new Date().toISOString();
       state.steps[step_id].data = { ...state.steps[step_id].data, ...data };
 
-      // Advance current_step to the next incomplete step.
-      const nextIncomplete = STEPS.find((s) => !state.steps[s.id].completed && !state.steps[s.id].skipped);
-      state.current_step = nextIncomplete?.id || "complete";
-
-      // Calculate completion percentage.
-      const completedSteps = STEPS.filter((s) => state.steps[s.id].completed).length;
-      state.completion_pct = Math.round((completedSteps / STEPS.length) * 100);
-
-      // Check if all steps are done.
-      if (completedSteps === STEPS.length) {
-        state.completed = true;
-        state.completed_at = new Date().toISOString();
-      }
-
-      if (store.onboardingStates) {
-        const existing = await store.onboardingStates.findOne({ store_id });
-        if (existing) {
-          await store.onboardingStates.update(existing._id, state);
-        } else {
-          await store.onboardingStates.insert(state);
-        }
-      }
+      service._advance(state);
+      await service._persist(state);
 
       return state;
     },
@@ -121,19 +132,12 @@ function createOnboardingService({ store }) {
      * Skip a step (merchant doesn't want to do it now).
      */
     async skipStep(store_id, step_id) {
-      const state = await this.getState(store_id);
+      const state = await service.getState(store_id);
       if (!state.steps[step_id]) throw new Error(`Step not found: ${step_id}`);
 
       state.steps[step_id].skipped = true;
-      const nextIncomplete = STEPS.find((s) => !state.steps[s.id].completed && !state.steps[s.id].skipped);
-      state.current_step = nextIncomplete?.id || "complete";
-
-      if (store.onboardingStates) {
-        const existing = await store.onboardingStates.findOne({ store_id });
-        if (existing) {
-          await store.onboardingStates.update(existing._id, state);
-        }
-      }
+      service._advance(state);
+      await service._persist(state);
 
       return state;
     },
@@ -143,7 +147,7 @@ function createOnboardingService({ store }) {
      * Call this on dashboard load, after integrations, after sync, etc.
      */
     async autoCheck(store_id) {
-      const state = await this.getState(store_id);
+      const state = await service.getState(store_id);
       const updates = [];
 
       // welcome — mark when user first accesses dashboard
@@ -181,6 +185,12 @@ function createOnboardingService({ store }) {
         updates.push("add_competitors");
       }
 
+      // brand_keywords — brand keywords are configured
+      const customer = await store.customers?.findOne({ store_id });
+      if (customer?.brand_keywords && customer.brand_keywords.length > 0) {
+        updates.push("brand_keywords");
+      }
+
       // first_automation — automation rules exist
       const automations = await store.automationRules?.find({ store_id }) || [];
       if (automations.length > 0) {
@@ -198,25 +208,8 @@ function createOnboardingService({ store }) {
       }
 
       if (changed) {
-        const nextIncomplete = STEPS.find((s) => !state.steps[s.id].completed && !state.steps[s.id].skipped);
-        state.current_step = nextIncomplete?.id || "complete";
-
-        const completedSteps = STEPS.filter((s) => state.steps[s.id].completed).length;
-        state.completion_pct = Math.round((completedSteps / STEPS.length) * 100);
-
-        if (completedSteps === STEPS.length) {
-          state.completed = true;
-          state.completed_at = new Date().toISOString();
-        }
-
-        if (store.onboardingStates) {
-          const existing = await store.onboardingStates.findOne({ store_id });
-          if (existing) {
-            await store.onboardingStates.update(existing._id, state);
-          } else {
-            await store.onboardingStates.insert(state);
-          }
-        }
+        service._advance(state);
+        await service._persist(state);
       }
 
       return state;
@@ -226,7 +219,7 @@ function createOnboardingService({ store }) {
      * Get the next recommended action for the merchant.
      */
     async getNextAction(store_id) {
-      const state = await this.getState(store_id);
+      const state = await service.getState(store_id);
       if (state.completed) return { action: "complete", message: "Onboarding is complete!" };
 
       const currentStep = STEPS.find((s) => s.id === state.current_step);
@@ -303,6 +296,8 @@ function createOnboardingService({ store }) {
       };
     },
   };
+
+  return service;
 }
 
 module.exports = { createOnboardingService, STEPS };

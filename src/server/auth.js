@@ -12,6 +12,7 @@
  */
 
 const crypto = require("crypto");
+const { verifyTOTP } = require("./twoFactorAuth");
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD = 8;
@@ -122,8 +123,6 @@ function createAuthService({ store, config, auditLog }) {
         if (!totpCode) {
           return { requires2FA: true, message: "Two-factor authentication code required." };
         }
-        // Verify TOTP code
-        const { verifyTOTP } = require("./twoFactorAuth");
         const valid = verifyTOTP(user.twoFactor.secret, totpCode);
         if (!valid) {
           throw new Error("Invalid two-factor authentication code.");

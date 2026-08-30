@@ -1,0 +1,167 @@
+# Storecops - AI-Driven E-Commerce Growth Platform
+# Shopify App Store Configuration
+
+name = "Storecops"
+id = "storecops-growth-platform"
+handle = "storecops"
+app_url = "https://storecops.com"
+developer_name = "Storecops"
+developer_email = "support@storecops.com"
+developer_url = "https://storecops.com"
+
+# App description (max 200 characters)
+description = "AI-driven e-commerce growth platform: recover abandoned carts, track competitors, optimize SEO, and automate revenue generation with intelligent analytics."
+
+# Privacy policy URL (required)
+privacy_url = "https://storecops.com/privacy"
+
+# Terms of service URL
+terms_of_service_url = "https://storecops.com/terms"
+
+# Support URL
+support_url = "https://storecops.com/support"
+
+# App category
+categories = ["-store-operations", "marketing", "analytics"]
+
+# Pricing
+# pricing = { monthly = { amount = "0.00", currency_code = "USD" } }
+
+# ─── Scopes ──────────────────────────────────────────────────────────────────
+# Required permissions for the app to function.
+# Read more: https://shopify.dev/docs/apps/build/cli/configuration/scopes
+
+[access_scopes]
+# Read scopes (data collection)
+scopes = [
+  "read_products",
+  "read_orders",
+  "read_customers",
+  "read_inventory",
+  "read_analytics",
+  "read_content",
+  "read_themes",
+  "read_script_tags",
+  "read_checkouts",
+  "read_shipping",
+  
+  # Write scopes (actions)
+  "write_products",
+  "write_orders",
+  "write_customers",
+  "write_inventory",
+  "write_script_tags",
+  "write_content",
+  "write_themes",
+  
+  # Unauthenticated (for checkout extensibility)
+  "unauthenticated_read_product_inventory",
+  "unauthenticated_read_product_listings",
+  "unauthenticated_read_checkouts",
+  "unauthenticated_read_content",
+]
+
+# Use online access mode (per-user tokens)
+online_access_scopes = [
+  "read_products",
+  "read_orders",
+  "read_customers",
+  "read_inventory",
+  "read_analytics",
+]
+
+# ─── App Bridge ───────────────────────────────────────────────────────────────
+# Enable App Bridge for embedded app experience in Shopify Admin.
+
+[app_bridge]
+# Redirect URL after OAuth completion
+redirect_url = "/app"
+
+# ─── Webhooks ─────────────────────────────────────────────────────────────────
+# Register webhooks declaratively. These are registered when the app is installed.
+
+[[webhooks]]
+topic = "orders/create"
+uri = "/webhooks/shopify/orders"
+format = "json"
+
+[[webhooks]]
+topic = "app/uninstalled"
+uri = "/webhooks/shopify/app-uninstalled"
+format = "json"
+
+# GDPR compliance webhooks (required for all public apps)
+
+[[webhooks]]
+topic = "customers/data_request"
+uri = "/webhooks/shopify/data-request"
+format = "json"
+
+[[webhooks]]
+topic = "customers/redact"
+uri = "/webhooks/shopify/customer-redact"
+format = "json"
+
+[[webhooks]]
+topic = "shop/redact"
+uri = "/webhooks/shopify/shop-redact"
+format = "json"
+
+# Additional webhooks for revenue intelligence
+
+[[webhooks]]
+topic = "products/update"
+uri = "/webhooks/shopify/products"
+format = "json"
+
+[[webhooks]]
+topic = "inventory_levels/update"
+uri = "/webhooks/shopify/inventory"
+format = "json"
+
+[[webhooks]]
+topic = "refunds/create"
+uri = "/webhooks/shopify/refunds"
+format = "json"
+
+# ─── Billing ──────────────────────────────────────────────────────────────────
+# Subscription plans using Shopify App Pricing.
+
+[billing]
+# Use Shopify App Billing (preferred for public apps)
+use_shopify_billing = true
+
+# ─── App Proxy ────────────────────────────────────────────────────────────────
+# Optional: proxy requests through Shopify for storefront access.
+
+# [app_proxy]
+# prefix = "apps/storecops"
+# path = "proxy"
+# url = "https://storecops.com/proxy"
+
+# ─── Theme Extension ──────────────────────────────────────────────────────────
+# Theme extension for consent banner and tracker disclosure.
+
+[[theme_extensions]]
+uuid = "storecops-tracker"
+type = "theme"
+title = "Storecops Tracker"
+description = "GDPR-compliant consent banner and tracker disclosure"
+api_version = "2025-01"
+
+# ─── Extensions ───────────────────────────────────────────────────────────────
+# Admin and checkout extensions.
+
+# [[extensions]]
+# uuid = "storecops-admin-block"
+# type = "ui_extension"
+# title = "Storecops Dashboard"
+# description = "In-admin dashboard block for quick insights"
+# api_version = "2025-01"
+
+# ─── POSIX Compliance ─────────────────────────────────────────────────────────
+# Ensure the app responds to webhooks within 5 seconds.
+
+[posix]
+# Webhook timeout protection: offload heavy work to background jobs
+webhook_timeout_ms = 4500

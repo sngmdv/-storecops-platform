@@ -155,12 +155,17 @@ function createExecutionService({
       });
     },
 
-    /** Drain the full pending queue for a store. */
+    /** Drain the full pending queue for a store. Only process actions where send_after <= now. */
     async processStore(store_id) {
       const pending = await orchestrator.pendingActions(store_id);
-      const results = { processed: 0, delivered: 0, failed: 0, errors: [] };
+      const now = new Date();
+      const ready = pending.filter((action) => {
+        if (!action.send_after) return true;
+        return new Date(action.send_after) <= now;
+      });
+      const results = { processed: 0, delivered: 0, failed: 0, errors: [], deferred: pending.length - ready.length };
 
-      for (const action of pending) {
+      for (const action of ready) {
         try {
           await this.executeAction(action);
           results.delivered += 1;

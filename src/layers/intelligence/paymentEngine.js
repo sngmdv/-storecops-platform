@@ -11,9 +11,27 @@
  *  - Webhook verification (Stripe + Razorpay)
  *  - E-mandate compliance for Indian auto-debit (RBI guidelines)
  *  - PCI-DSS: no raw card data stored, tokenized references only
+ *
+ * Real SDK integration:
+ *  - Stripe: Uses official `stripe` npm package
+ *  - Razorpay: Uses official `razorpay` npm package
+ *  - Falls back to mock mode if SDKs not configured
  */
 
 const crypto = require("node:crypto");
+
+// Try to load SDKs; fall back gracefully if not installed
+let Stripe, Razorpay;
+try {
+  Stripe = require("stripe");
+} catch {
+  Stripe = null;
+}
+try {
+  Razorpay = require("razorpay");
+} catch {
+  Razorpay = null;
+}
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -54,7 +72,7 @@ function formatCurrency(amount, currency) {
 
 /**
  * Create a Stripe checkout session.
- * In production, this calls the Stripe API. In dev/test, it returns a mock.
+ * Uses real Stripe SDK when configured, falls back to mock.
  */
 async function createStripeCheckout({ config, customer, plan, billingCycle }) {
   const planData = config.payment.plans[plan];
@@ -63,38 +81,149 @@ async function createStripeCheckout({ config, customer, plan, billingCycle }) {
   const amount = billingCycle === "annual" ? planData.annual : planData.monthly;
   const interval = billingCycle === "annual" ? "year" : "month";
 
-  // PCI-DSS compliance: never store raw card data
-  // Stripe handles all card data — we only get tokens/IDs back
+  // Real Stripe integration
+  if (config.payment.stripe.secretKey && Stripe) {
+    try {
+      const stripe = new Stripe(config.payment.stripe.secretKey, {
+        apiVersion: "2024-12-18.acacia",
+      });
+
+      // Create or retrieve customer
+      let stripeCustomerId = customer.stripe_customer_id;
+      if (!stripeCustomerId) {
+        const stripeCustomer = await stripe.customers.create({
+          email: customer.email,
+          name: customer.name,
+          metadata: {
+            storecops_id: customer.id,
+            store_id: customer.store_id,
+          },
+        });
+        stripeCustomerId = stripeCustomer.id;
+      }
+
+      // Create checkout session
+      const session = await stripe.checkout.sessions.create({
+        customer: stripeCustomerId,
+        payment_method_types: ["card"],
+        line_items: [{
+          price_data: {
+            currency: planData.currency || "usd",
+            product_data: {
+              name: `Storecops ${plan.charAt(0).toUpperCase() + plan.slice(1)} Plan`,
+              description: billingCycle === "annual" ? "Annual subscription" : "Monthly subscription",
+            },
+            unit_amount: amount * 100, // Stripe uses cents
+            recurring: { interval },
+          },
+          quantity: 1,
+        }],
+        mode: "subscription",
+        success_url: `${config.publicUrl}/app?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${config.publicUrl}/app?payment=cancelled`,
+        metadata: {
+          storecops_plan: plan,
+          storecops_customer_id: customer.id,
+          storecops_store_id: customer.store_id,
+        },
+        subscription_data: {
+          trial_period_days: 14, // 14-day trial
+          metadata: {
+            storecops_plan: plan,
+          },
+        },
+        automatic_tax: { enabled: true },
+        allow_promotion_codes: true,
+      });
+
+      return {
+        session: {
+          id: session.id,
+          url: session.url,
+          expires_at: session.expires_at,
+        },
+        provider: "stripe",
+        stripe_customer_id: stripeCustomerId,
+      };
+    } catch (err) {
+      console.error("[Stripe] Checkout error:", err.message);
+      return { error: err.message };
+    }
+  }
+
+  // Mock mode (development/testing)
   const session = {
     id: `cs_${generateId("stripe")}`,
+    url: `${config.publicUrl}/app?payment=mock_checkout`,
     provider: "stripe",
     customer_email: customer.email,
     customer_name: customer.name,
     customer_country: customer.country || "US",
-    line_items: [{
-      price_data: {
-        currency: planData.currency,
-        product_data: { name: `Storecops ${plan.charAt(0).toUpperCase() + plan.slice(1)} Plan` },
-        unit_amount: amount * 100, // Stripe uses cents
-        recurring: { interval },
-      },
-      quantity: 1,
-    }],
-    mode: "subscription",
-    success_url: `${config.publicUrl}/app?payment=success`,
-    cancel_url: `${config.publicUrl}/app?payment=cancelled`,
+    plan,
+    billing_cycle: billingCycle,
+    amount,
+    currency: planData.currency || "usd",
+    trial_days: 14,
+    created_at: now(),
+    expires_at: addDays(now(), 30),
     metadata: {
       storecops_plan: plan,
       storecops_customer_id: customer.id,
     },
-    // Compliance: auto-include tax calculation for EU/UK
     automatic_tax: { enabled: true },
-    // PCI-DSS: Stripe handles all card data, we never see PAN
-    payment_method_types: ["card"],
-    created_at: now(),
+    mock: true,
   };
 
   return { session, provider: "stripe" };
+}
+
+/**
+ * Create a Stripe subscription (for existing customers).
+ */
+async function createStripeSubscription({ config, customerId, priceId, trialDays = 14 }) {
+  if (!config.payment.stripe.secretKey || !Stripe) {
+    return { error: "Stripe not configured" };
+  }
+
+  try {
+    const stripe = new Stripe(config.payment.stripe.secretKey, {
+      apiVersion: "2024-12-18.acacia",
+    });
+
+    const subscription = await stripe.subscriptions.create({
+      customer: customerId,
+      items: [{ price: priceId }],
+      trial_period_days: trialDays,
+      payment_behavior: "default_incomplete",
+      expand: ["latest_invoice.payment_intent"],
+    });
+
+    return { subscription };
+  } catch (err) {
+    console.error("[Stripe] Subscription error:", err.message);
+    return { error: err.message };
+  }
+}
+
+/**
+ * Cancel a Stripe subscription.
+ */
+async function cancelStripeSubscription({ config, subscriptionId }) {
+  if (!config.payment.stripe.secretKey || !Stripe) {
+    return { error: "Stripe not configured" };
+  }
+
+  try {
+    const stripe = new Stripe(config.payment.stripe.secretKey, {
+      apiVersion: "2024-12-18.acacia",
+    });
+
+    const subscription = await stripe.subscriptions.cancel(subscriptionId);
+    return { subscription };
+  } catch (err) {
+    console.error("[Stripe] Cancel error:", err.message);
+    return { error: err.message };
+  }
 }
 
 /**
@@ -105,6 +234,16 @@ function verifyStripeWebhook({ payload, signature, webhookSecret }) {
   if (!signature) return { valid: false, reason: "Missing Stripe-Signature header" };
 
   try {
+    // Use Stripe SDK's built-in verification if available
+    if (Stripe && config?.payment?.stripe?.secretKey) {
+      const stripe = new Stripe(config.payment.stripe.secretKey, {
+        apiVersion: "2024-12-18.acacia",
+      });
+      const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+      return { valid: true, event };
+    }
+
+    // Manual verification fallback
     const parts = signature.split(",").reduce((acc, part) => {
       const [key, val] = part.split("=");
       acc[key] = val;
@@ -133,6 +272,7 @@ function verifyStripeWebhook({ payload, signature, webhookSecret }) {
 
 /**
  * Create a Razorpay order for Indian customers.
+ * Uses real Razorpay SDK when configured, falls back to mock.
  * Supports UPI, net banking, wallets, cards.
  * Includes GST calculation and e-mandate for subscriptions.
  */
@@ -145,66 +285,178 @@ async function createRazorpayOrder({ config, customer, plan, billingCycle }) {
   const gstAmount = Math.round(baseAmount * (config.payment.gstRate / 100));
   const totalAmount = baseAmount + gstAmount;
 
-  // RBI e-mandate compliance for recurring payments
-  // For subscriptions, Razorpay requires e-mandate setup
-  const isRecurring = true; // subscriptions are always recurring
+  // Real Razorpay integration
+  if (config.payment.razorpay.keyId && Razorpay) {
+    try {
+      const razorpay = new Razorpay({
+        key_id: config.payment.razorpay.keyId,
+        key_secret: config.payment.razorpay.keySecret,
+      });
 
+      // Create order
+      const order = await razorpay.orders.create({
+        amount: totalAmount * 100, // Razorpay uses paise
+        currency: "INR",
+        receipt: `rcpt_${generateId("rzp")}`,
+        notes: {
+          plan,
+          billing_cycle: billingCycle,
+          storecops_customer_id: customer.id,
+          storecops_store_id: customer.store_id,
+        },
+      });
+
+      // Create customer if needed
+      let razorpayCustomerId = customer.razorpay_customer_id;
+      if (!razorpayCustomerId) {
+        const razorpayCustomer = await razorpay.customers.create({
+          name: customer.name,
+          email: customer.email,
+          contact: customer.phone || "",
+          notes: {
+            storecops_id: customer.id,
+          },
+        });
+        razorpayCustomerId = razorpayCustomer.id;
+      }
+
+      return {
+        order: {
+          id: order.id,
+          amount: totalAmount,
+          currency: "INR",
+          status: order.status,
+        },
+        customer_id: razorpayCustomerId,
+        provider: "razorpay",
+        gst: {
+          base_amount: baseAmount,
+          gst_amount: gstAmount,
+          total_amount: totalAmount,
+          gst_rate: config.payment.gstRate,
+          gst_type: getGstType(customer),
+        },
+      };
+    } catch (err) {
+      console.error("[Razorpay] Order error:", err.message);
+      return { error: err.message };
+    }
+  }
+
+  // Mock mode (development/testing)
   const order = {
     id: `order_${generateId("rzp")}`,
-    provider: "razorpay",
-    amount: totalAmount * 100, // Razorpay uses paise
+    amount: totalAmount,
     currency: "INR",
-    receipt: generateId("rcpt"),
-    customer: {
-      name: customer.name || "Customer",
-      email: customer.email,
-      contact: customer.phone || "",
-    },
-    // GST breakdown
-    gst: {
-      rate: config.payment.gstRate,
-      cgst: Math.round(gstAmount / 2), // Central GST
-      sgst: Math.round(gstAmount / 2), // State GST (for intra-state)
-      // For inter-state, IGST = full gstAmount
-      igst: customer.state ? 0 : gstAmount,
-      amount: gstAmount,
-    },
-    line_items: [{
-      name: `Storecops ${plan.charAt(0).toUpperCase() + plan.slice(1)} Plan (${billingCycle})`,
-      amount: baseAmount * 100,
-      description: "Platform subscription",
-    }, {
-      name: `GST @ ${config.payment.gstRate}%`,
-      amount: gstAmount * 100,
-      description: "Goods and Services Tax",
-    }],
-    // RBI e-mandate for auto-debit
-    recurring: isRecurring ? {
-      enabled: true,
-      // RBI: customer must be notified 24h before each debit
-      notification_notice_days: config.payment.autoRenewNoticeDays,
-      // RBI: max amount cap for e-mandate
-      max_amount: totalAmount * 100,
-      // Mandate frequency
-      frequency: billingCycle === "annual" ? "yearly" : "monthly",
-    } : null,
-    // Payment methods enabled for Indian customers
-    payment_methods: {
-      upi: true,       // Google Pay, PhonePe, Paytm, BHIM
-      card: true,       // Visa, Mastercard, RuPay
-      netbanking: true, // All major Indian banks
-      wallet: true,     // Paytm, PhonePe, Amazon Pay, etc.
-      emi: false,       // Not available for subscriptions
-    },
-    notes: {
-      storecops_plan: plan,
-      storecops_customer_id: customer.id,
-      billing_cycle: billingCycle,
-    },
+    status: "created",
+    receipt: `rcpt_${generateId("rzp")}`,
     created_at: now(),
+    mock: true,
   };
 
-  return { order, provider: "razorpay" };
+  return {
+    order,
+    provider: "razorpay",
+    gst: {
+      base_amount: baseAmount,
+      gst_amount: gstAmount,
+      total_amount: totalAmount,
+      gst_rate: config.payment.gstRate,
+      gst_type: getGstType(customer),
+    },
+  };
+}
+
+/**
+ * Create a Razorpay subscription (for recurring payments).
+ */
+async function createRazorpaySubscription({ config, customerId, planId, totalCount }) {
+  if (!config.payment.razorpay.keyId || !Razorpay) {
+    return { error: "Razorpay not configured" };
+  }
+
+  try {
+    const razorpay = new Razorpay({
+      key_id: config.payment.razorpay.keyId,
+      key_secret: config.payment.razorpay.keySecret,
+    });
+
+    const subscription = await razorpay.subscriptions.create({
+      plan_id: planId,
+      customer_id: customerId,
+      total_count: totalCount || 12, // 12 months
+      notes: {
+        storecops_subscription: true,
+      },
+    });
+
+    return { subscription };
+  } catch (err) {
+    console.error("[Razorpay] Subscription error:", err.message);
+    return { error: err.message };
+  }
+}
+
+/**
+ * Verify Razorpay webhook signature.
+ */
+function verifyRazorpayWebhook({ payload, signature, webhookSecret }) {
+  if (!webhookSecret) return { valid: false, reason: "No webhook secret configured" };
+  if (!signature) return { valid: false, reason: "Missing X-Razorpay-Signature header" };
+
+  try {
+    const expected = crypto
+      .createHmac("sha256", webhookSecret)
+      .update(payload)
+      .digest("hex");
+
+    const valid = crypto.timingSafeEqual(
+      Buffer.from(signature),
+      Buffer.from(expected)
+    );
+
+    return { valid, reason: valid ? null : "Signature mismatch" };
+  } catch (e) {
+    return { valid: false, reason: e.message };
+  }
+}
+
+/**
+ * Get GST type based on customer location.
+ */
+function getGstType(customer) {
+  // IGST for inter-state, CGST+SGST for intra-state
+  // In production, compare with store's GST registration state
+  if (customer.state === "MH") { // Maharashtra (假设公司所在地)
+    return { type: "intra_state", cgst: 9, sgst: 9 };
+  }
+  return { type: "inter_state", igst: 18 };
+}
+
+/**
+ * Process Razorpay refund.
+ */
+async function processRazorpayRefund({ config, paymentId, amount, notes }) {
+  if (!config.payment.razorpay.keyId || !Razorpay) {
+    return { error: "Razorpay not configured" };
+  }
+
+  try {
+    const razorpay = new Razorpay({
+      key_id: config.payment.razorpay.keyId,
+      key_secret: config.payment.razorpay.keySecret,
+    });
+
+    const refund = await razorpay.payments.refund(paymentId, {
+      amount: amount * 100, // paise
+      notes: notes || { reason: "Customer requested refund" },
+    });
+
+    return { refund };
+  } catch (err) {
+    console.error("[Razorpay] Refund error:", err.message);
+    return { error: err.message };
+  }
 }
 
 /**

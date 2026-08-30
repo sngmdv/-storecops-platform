@@ -1,9 +1,12 @@
 node_modules
 data
 .env
+.env.*
 .git
 test
 *.md
 *.png
 *.zip
 *.xlsx
+.eslintrc.js
+.prettierrc

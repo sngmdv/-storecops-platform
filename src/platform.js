@@ -16,6 +16,14 @@ const { createStore } = require("./storage/store");
 const { createSqliteStore } = require("./storage/sqliteStore");
 const { EventEmitter } = require("node:events");
 
+// Redis store (lazy-loaded)
+let createRedisStore;
+try {
+  createRedisStore = require("./storage/redisStore").createStore;
+} catch {
+  createRedisStore = null;
+}
+
 // Layer 1
 const { createCustomerProfiles } = require("./layers/data/customerProfile");
 const { createEventTracker } = require("./layers/data/eventTracker");
@@ -68,11 +76,16 @@ const { createPurchaseOrderGenerator } = require("./layers/execution/purchaseOrd
 const { createConsentService } = require("./layers/execution/consentService");
 const { createBillingService } = require("./layers/execution/billingService");
 const { createMonitoringService } = require("./layers/execution/monitoringService");
+const { createReferralService } = require("./layers/execution/referralService");
+const { createTrialService } = require("./layers/execution/trialService");
 
 // Layer 5
 const { createAttributionEngine } = require("./layers/reporting/attribution");
 const { createReportingService } = require("./layers/reporting/reportingService");
 const { createLiveOrders } = require("./layers/reporting/liveOrders");
+
+// Intelligence (for regional pricing)
+const { createRegionalPricingService } = require("./layers/intelligence/regionalPricing");
 
 // Security & Administration
 const { createAuditLog, createRbac } = require("./server/security");
@@ -85,6 +98,12 @@ const { createSecretRotationService } = require("./server/secretRotation");
 const { createEmailService } = require("./layers/execution/emailService");
 const { createPdfService } = require("./layers/execution/pdfService");
 const { createNotificationService } = require("./layers/execution/notificationService");
+const { createAhaMomentService } = require("./layers/execution/ahaMomentService");
+const { createSupportTicketService } = require("./layers/execution/supportTicketService");
+const { createWeeklyScheduler } = require("./layers/execution/weeklyScheduler");
+const { createCacTracker } = require("./layers/intelligence/cacTracker");
+const { createFeatureAdoption } = require("./layers/intelligence/featureAdoption");
+const { createActivityFeed } = require("./layers/execution/activityFeed");
 const { createEmailTemplates } = require("./layers/execution/emailTemplates");
 const { createActivityLog } = require("./server/activityLog");
 const { createTwoFactorAuth } = require("./server/twoFactorAuth");
@@ -106,9 +125,13 @@ function createPlatform(overrides = {}) {
   };
   // SQLite by default so data survives restarts; tests pass an
   // in-memory store (or STORAGE=memory) for speed.
+  // Redis is used if REDIS_URL or REDIS_HOST is configured.
+  const useRedis = cfg.redis?.url || cfg.redis?.host;
   const store =
     overrides.store ||
-    (cfg.storage === "sqlite" ? createSqliteStore(cfg.sqlitePath) : createStore());
+    (cfg.storage === "redis" && createRedisStore ? createRedisStore(cfg) :
+     cfg.storage === "sqlite" ? createSqliteStore(cfg.sqlitePath) :
+     createStore());
 
   // Layer 1
   const customerProfiles = createCustomerProfiles({ store });
@@ -127,6 +150,9 @@ function createPlatform(overrides = {}) {
   // Live broadcast channel: purchases are pushed to SSE subscribers.
   const live = new EventEmitter();
   live.setMaxListeners(0);
+
+  // Real-time activity feed for admin dashboard.
+  const activityFeed = createActivityFeed({ store, live });
 
   // Every sale decrements stock and is broadcast in real time.
   eventTracker.onEvent(async (event) => {
@@ -165,6 +191,8 @@ function createPlatform(overrides = {}) {
   const adIntelligence = createAdIntelligence({ store });
   const competitorScraper = createCompetitorScraper({ store, competitorIngestor });
   const metaAdLibrary = createMetaAdLibrary({ config: cfg, adIntelligence });
+  const cacTracker = createCacTracker({ store });
+  const featureAdoption = createFeatureAdoption({ store });
 
   // Layer 3
   const rulesEngine = createRulesEngine({ store });
@@ -175,11 +203,13 @@ function createPlatform(overrides = {}) {
     inventoryIntelligence,
     demandForecastEngine,
   });
-  const orchestrator = createOrchestrator({ store, rulesEngine, churnScoring, brandSentiment });
   const segmentation = createSegmentationEngine({ store });
   const campaignGenerator = createCampaignGenerator({ store, trendIntelligence, seasonalAlerts });
   // Notification center must exist before campaignLifecycle (for launch notifications).
   const notificationService = createNotificationService({ store });
+  const ahaMomentService = createAhaMomentService({ store, notificationService });
+  const supportTicketService = createSupportTicketService({ store, notificationService });
+  const orchestrator = createOrchestrator({ store, rulesEngine, churnScoring, brandSentiment, ahaMomentService });
   const sendTimeOptimizer = createSendTimeOptimizer({ store });
 
   // Layer 4
@@ -188,6 +218,15 @@ function createPlatform(overrides = {}) {
 
   // Billing & Entitlements (Tasks 41-45)
   const billingService = createBillingService({ store, config: cfg });
+
+  // Referral & Affiliate System
+  const referralService = createReferralService({ store, config: cfg });
+
+  // Trial Management
+  const trialService = createTrialService({ store, config: cfg });
+
+  // Regional Pricing (PPP)
+  const regionalPricing = createRegionalPricingService({ store, config: cfg });
 
   // Monitoring & Alerting (Task 65)
   const monitoringService = createMonitoringService({ store, config: cfg });
@@ -229,6 +268,7 @@ function createPlatform(overrides = {}) {
     config: cfg,
     store,
     live,
+    activityFeed,
 
     // Layer 1
     customerProfiles,
@@ -262,6 +302,8 @@ function createPlatform(overrides = {}) {
     adIntelligence,
     competitorScraper,
     metaAdLibrary,
+    cacTracker,
+    featureAdoption,
 
     // Layer 3
     rulesEngine,
@@ -283,6 +325,9 @@ function createPlatform(overrides = {}) {
     consentService,
     billingService,
     monitoringService,
+    referralService,
+    trialService,
+    regionalPricing,
 
     // Layer 5
     attribution,
@@ -340,8 +385,20 @@ function createPlatform(overrides = {}) {
   platform.pdfService = createPdfService({ config: cfg });
   // Notification center — already created above (needed by campaignLifecycle).
   platform.notificationService = notificationService;
+  // Aha moment detection — celebrates first milestones.
+  platform.ahaMomentService = ahaMomentService;
+  // Support ticket system.
+  platform.supportTicketService = supportTicketService;
   // Branded email templates for all transactional emails.
   platform.emailTemplates = createEmailTemplates({ config: cfg });
+  // Weekly email scheduler — automated digest sending.
+  platform.weeklyScheduler = createWeeklyScheduler({
+    store,
+    reporting,
+    emailService: platform.emailService,
+    emailTemplates: platform.emailTemplates,
+    notificationService: platform.notificationService,
+  });
   // Enhanced activity log — business-level audit trail.
   platform.activityLog = createActivityLog({ store });
   // Two-factor authentication (TOTP).
@@ -358,6 +415,9 @@ function createPlatform(overrides = {}) {
   platform.demoSimulator = createDemoSimulator(platform);
   // External signal collectors — fetches trending data from Google Trends, Reddit, etc.
   platform.signalCollectors = { collectAll: (storeId, keywords) => collectAll(storeId, keywords, externalSignals) };
+
+  // Start the weekly scheduler
+  platform.weeklyScheduler.start();
 
   return platform;
 }

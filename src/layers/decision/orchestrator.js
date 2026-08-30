@@ -12,7 +12,7 @@
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ACTION_COOLDOWN_HOURS = 12;
 
-function createOrchestrator({ store, rulesEngine, churnScoring, brandSentiment }) {
+function createOrchestrator({ store, rulesEngine, churnScoring, brandSentiment, ahaMomentService }) {
   /** Dedup guard: one action per customer per rule inside the cooldown. */
   async function recentlyActed(store_id, customer_id, rule_id) {
     const cutoff = new Date(Date.now() - ACTION_COOLDOWN_HOURS * 60 * 60 * 1000).toISOString();
@@ -49,6 +49,58 @@ function createOrchestrator({ store, rulesEngine, churnScoring, brandSentiment }
     return { skipped: false, action };
   }
 
+  /** Queue a drip sequence: multiple scheduled actions for the same customer+rule. */
+  async function queueDripSequence({ store_id, customer_id, rule, context, source }) {
+    const sequenceId = `seq_${Date.now()}_${customer_id.replace(/[^a-z0-9]/gi, "")}`;
+    const results = [];
+
+    for (const step of rule.drip_sequence.steps) {
+      const sendAfter = new Date(Date.now() + step.delay_ms).toISOString();
+      const action = await store.actions.insert({
+        store_id,
+        customer_id,
+        rule_id: rule.rule_id,
+        rule_name: rule.name,
+        type: step.type,
+        channel: rule.action.channel,
+        urgency: step.urgency,
+        params: { ...rule.action.params, sequence_step: step.step },
+        context,
+        source,
+        status: "pending",
+        send_after: sendAfter,
+        sequence_id: sequenceId,
+        sequence_step: step.step,
+        created_at: new Date().toISOString(),
+      });
+      results.push(action);
+    }
+
+    return { skipped: false, actions: results, sequence_id: sequenceId };
+  }
+
+  /** Cancel all pending actions in a drip sequence (e.g. if customer completes purchase). */
+  async function cancelDripSequence(store_id, customer_id, rule_id) {
+    const pending = await store.actions.find(
+      (a) =>
+        a.store_id === store_id &&
+        a.customer_id === customer_id &&
+        a.rule_id === rule_id &&
+        a.status === "pending" &&
+        a.sequence_id
+    );
+
+    for (const action of pending) {
+      await store.actions.update(action._id, {
+        status: "cancelled",
+        cancel_reason: "sequence_cancelled",
+        cancelled_at: new Date().toISOString(),
+      });
+    }
+
+    return { cancelled: pending.length };
+  }
+
   return {
     /**
      * Real-time path: called right after Layer 1 logs a high-priority
@@ -64,6 +116,11 @@ function createOrchestrator({ store, rulesEngine, churnScoring, brandSentiment }
       );
 
       if (!profile) return { evaluated: false, actions: [] };
+
+      // Cancel any pending drip sequences when a purchase is completed
+      if (["purchase", "checkout_completed"].includes(event.event_type)) {
+        await this.cancelSequences(event.store_id, profile.identity);
+      }
 
       const context = {
         abandoned_carts: profile.abandoned_carts,
@@ -81,23 +138,69 @@ function createOrchestrator({ store, rulesEngine, churnScoring, brandSentiment }
 
       const results = [];
       for (const { rule } of matches) {
-        results.push(
-          await queueAction({
+        if (rule.drip_sequence && rule.drip_sequence.enabled) {
+          // Cancel any existing pending sequence before starting a new one
+          await cancelDripSequence(event.store_id, profile.identity, rule.rule_id);
+          const seqResult = await queueDripSequence({
             store_id: event.store_id,
             customer_id: profile.identity,
             rule,
             context,
             source: `event:${event.event_type}`,
-          })
-        );
+          });
+          results.push(seqResult);
+        } else {
+          results.push(
+            await queueAction({
+              store_id: event.store_id,
+              customer_id: profile.identity,
+              rule,
+              context,
+              source: `event:${event.event_type}`,
+            })
+          );
+        }
+      }
+
+      const queuedActions = results
+        .filter((r) => !r.skipped)
+        .flatMap((r) => r.actions || (r.action ? [r.action] : []));
+
+      // Check for aha moments after processing the event
+      if (ahaMomentService && queuedActions.length > 0) {
+        const event_type = event.event_type;
+        const momentData = {};
+        for (const action of queuedActions) {
+          if (action.type === "recovery_message") momentData.cart_recoveries = (momentData.cart_recoveries || 0) + 1;
+          if (action.type === "browse_abandonment") momentData.browse_abandonments = (momentData.browse_abandonments || 0) + 1;
+        }
+        await ahaMomentService.checkMoments(event.store_id, event_type, momentData);
       }
 
       return {
         evaluated: true,
         customer_id: profile.identity,
-        actions: results.filter((r) => !r.skipped).map((r) => r.action),
+        actions: queuedActions,
         skipped: results.filter((r) => r.skipped).length,
       };
+    },
+
+    /**
+     * Cancel all pending drip sequence actions for a customer.
+     * Called when a customer completes a purchase or recovers their cart.
+     */
+    async cancelSequences(store_id, customer_id) {
+      const rules = await this.activeRules(store_id);
+      let totalCancelled = 0;
+
+      for (const rule of rules) {
+        if (rule.drip_sequence && rule.drip_sequence.enabled) {
+          const result = await cancelDripSequence(store_id, customer_id, rule.rule_id);
+          totalCancelled += result.cancelled;
+        }
+      }
+
+      return { cancelled: totalCancelled };
     },
 
     /**

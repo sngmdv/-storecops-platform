@@ -6,10 +6,10 @@ const test = require("node:test");
 const assert = require("node:assert");
 const adminIntel = require("../src/layers/intelligence/adminIntelligence");
 
-// ─── CEO Daily Brief ──────────────────────────────────────────────────────────
+// ─── Admin Daily Brief ──────────────────────────────────────────────────────
 
-test("CEO Brief: generates brief with empty data", () => {
-  const brief = adminIntel.generateCEOBrief({
+test("Admin Brief: generates brief with empty data", () => {
+  const brief = adminIntel.generateAdminBrief({
     stores: [], leads: [], retentionSnapshots: [], deliveries: [], events: [], campaignActions: [],
   });
   assert.ok(brief);
@@ -19,8 +19,8 @@ test("CEO Brief: generates brief with empty data", () => {
   assert.equal(brief.metrics.totalStores, 0);
 });
 
-test("CEO Brief: identifies critical stores as priority", () => {
-  const brief = adminIntel.generateCEOBrief({
+test("Admin Brief: identifies critical stores as priority", () => {
+  const brief = adminIntel.generateAdminBrief({
     stores: [
       { storeId: "s1", mrr: 100, riskBand: "critical", healthScore: 20, status: "active" },
       { storeId: "s2", mrr: 200, riskBand: "low", healthScore: 80, status: "active" },
@@ -32,8 +32,8 @@ test("CEO Brief: identifies critical stores as priority", () => {
   assert.equal(brief.metrics.atRiskRevenue, 100);
 });
 
-test("CEO Brief: identifies hot leads as priority", () => {
-  const brief = adminIntel.generateCEOBrief({
+test("Admin Brief: identifies hot leads as priority", () => {
+  const brief = adminIntel.generateAdminBrief({
     stores: [],
     leads: [
       { score: 90, status: "new", createdAt: new Date().toISOString() },
@@ -45,9 +45,9 @@ test("CEO Brief: identifies hot leads as priority", () => {
   assert.ok(brief.priorities.some(p => p.type === "revenue" || p.type === "leads"));
 });
 
-test("CEO Brief: counts new leads correctly", () => {
+test("Admin Brief: counts new leads correctly", () => {
   const today = new Date().toISOString().slice(0, 10);
-  const brief = adminIntel.generateCEOBrief({
+  const brief = adminIntel.generateAdminBrief({
     stores: [],
     leads: [
       { score: 50, status: "new", createdAt: today + "T10:00:00Z" },
@@ -58,8 +58,8 @@ test("CEO Brief: counts new leads correctly", () => {
   assert.equal(brief.metrics.newLeadsToday, 2);
 });
 
-test("CEO Brief: calculates delivery rate", () => {
-  const brief = adminIntel.generateCEOBrief({
+test("Admin Brief: calculates delivery rate", () => {
+  const brief = adminIntel.generateAdminBrief({
     stores: [], leads: [], retentionSnapshots: [],
     deliveries: [
       { status: "delivered", createdAt: new Date().toISOString() },

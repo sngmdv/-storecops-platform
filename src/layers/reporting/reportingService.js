@@ -151,7 +151,7 @@ function createReportingService({ store, churnScoring, brandSentiment, channelOp
     },
 
     /**
-     * Weekly digest (9.3) + sentiment trend (4.9): the CEO-ready
+     * Weekly digest (9.3) + sentiment trend (4.9): the admin-ready
      * summary combining the current rollup with deltas against the
      * previous snapshot.
      */

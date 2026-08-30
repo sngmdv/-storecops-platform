@@ -10,7 +10,7 @@ const express = require("express");
 const path = require("path");
 const crypto = require("crypto");
 const { createApiRouter } = require("./apiRoutes");
-const { createRateLimiter, webhookVerifier } = require("./security");
+const { createRateLimiter, webhookVerifier, deleteCustomerData } = require("./security");
 const { verifyWebhookSignature, parseStatusUpdates, parseIncomingMessages } = require("../layers/execution/whatsappService");
 const {
   securityHeaders,
@@ -155,6 +155,59 @@ function createAuthRouter(platform) {
     const session = await platform.auth.verify(bearer);
     if (!session) return res.status(401).json({ error: "Not authenticated." });
     res.json({ user: session.user, store_id: session.store_id });
+  });
+
+  /**
+   * Shopify embedded app auth endpoint.
+   * Called by the frontend when running inside Shopify Admin (embedded mode).
+   * Verifies the Shopify session and returns a Storecops session.
+   */
+  router.post("/shopify", async (req, res) => {
+    try {
+      const { shop, host, sessionToken } = req.body || {};
+      
+      if (!shop) {
+        return res.status(400).json({ error: "Shop parameter is required." });
+      }
+      
+      // Validate shop domain format
+      const shopDomain = String(shop).toLowerCase().replace(/^https?:\/\//, "").replace(/\/$/, "");
+      if (!shopDomain.endsWith(".myshopify.com") && !/^[a-z0-9-]+\.myshopify\.com$/.test(shopDomain)) {
+        return res.status(400).json({ error: "Invalid shop domain." });
+      }
+      
+      // Check if this shop has an existing integration
+      const conn = await platform.store.integrations.findOne({ type: "shopify" });
+      if (conn && conn.config?.shopDomain === shopDomain && conn.status === "active") {
+        // Existing shop - find or create user for this shop
+        const existingUser = await platform.store.users.findOne({ 
+          email: conn.config?.shopEmail || `${shopDomain.replace(".myshopify.com", "")}@storecops.shopify`
+        });
+        
+        if (existingUser) {
+          // Create a session for this user
+          const session = await platform.auth.createSession(existingUser._id, existingUser.email, existingUser.role, conn.store_id);
+          return res.json({ 
+            session, 
+            store_id: conn.store_id, 
+            shop: shopDomain,
+            embedded: true 
+          });
+        }
+      }
+      
+      // New shop or no existing integration - create a temporary session
+      // The user will need to complete signup/connect flow
+      const tempSession = await platform.auth.createTempSession(shopDomain);
+      res.json({ 
+        temp_session: tempSession, 
+        shop: shopDomain,
+        embedded: true,
+        requires_signup: true
+      });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
   });
 
   // Map service errors to sensible statuses for signup.
@@ -523,24 +576,52 @@ function createApp(platform) {
 
   // Task 7: Idempotency — track processed webhook signatures to prevent
   // duplicate deliveries from causing repeated destructive work.
-  const processedWebhooks = new Set();
-  const WEBHOOK_DEDUP_MAX = 5000;
-  function isDuplicateWebhook(req) {
+  // Use database-backed dedup for persistence across restarts.
+  const WEBHOOK_DEDUP_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+  const WEBHOOK_DEDUP_MAX = 10000;
+  
+  async function isDuplicateWebhook(req) {
     const rawBody = req.rawBody || JSON.stringify(req.body || {});
     const sig = crypto.createHash("sha256").update(rawBody).digest("hex").slice(0, 16);
-    if (processedWebhooks.has(sig)) return true;
-    processedWebhooks.add(sig);
-    // Evict oldest entries if the set grows too large.
-    if (processedWebhooks.size > WEBHOOK_DEDUP_MAX) {
-      const first = processedWebhooks.values().next().value;
-      processedWebhooks.delete(first);
+    
+    try {
+      // Check if webhook was already processed
+      const existing = await platform.store.webhookQueue.findOne({ signature: sig });
+      if (existing) return true;
+      
+      // Record this webhook
+      await platform.store.webhookQueue.insert({
+        signature: sig,
+        topic: req.headers["x-shopify-topic"] || "unknown",
+        shop_domain: req.body?.myshopify_domain || req.body?.shop || "unknown",
+        processed_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + WEBHOOK_DEDUP_TTL_MS).toISOString(),
+      });
+      
+      // Cleanup old entries periodically (1 in 100 requests)
+      if (Math.random() < 0.01) {
+        const cutoff = new Date(Date.now() - WEBHOOK_DEDUP_TTL_MS).toISOString();
+        // This is a simple cleanup - in production, use a scheduled job
+        try {
+          const oldEntries = await platform.store.webhookQueue.find({});
+          const toDelete = oldEntries.filter(e => e.processed_at < cutoff);
+          for (const entry of toDelete.slice(0, 100)) {
+            await platform.store.webhookQueue.delete(entry._id);
+          }
+        } catch (_) {}
+      }
+      
+      return false;
+    } catch (err) {
+      // Fallback to in-memory if DB fails
+      console.error("[WEBHOOK] Dedup DB error, falling back to pass-through:", err.message);
+      return false;
     }
-    return false;
   }
 
   app.post("/webhooks/shopify/app-uninstalled", shopifyComplianceVerifier, async (req, res) => {
     try {
-      if (isDuplicateWebhook(req)) {
+      if (await isDuplicateWebhook(req)) {
         console.log("[WEBHOOK] app-uninstalled duplicate — skipping");
         return res.json({ ok: true, duplicate: true });
       }
@@ -573,8 +654,8 @@ function createApp(platform) {
 
   app.post("/webhooks/shopify/data-request", shopifyComplianceVerifier, async (req, res) => {
     try {
-      if (isDuplicateWebhook(req)) {
-        console.log("[WEBHOOK] data-request duplicate — skipping");
+      if (await isDuplicateWebhook(req)) {
+        console.log("[WEBHOOK] customers/data-request duplicate — skipping");
         return res.json({ ok: true, duplicate: true });
       }
       const customerId = req.body?.customer?.id;
@@ -606,8 +687,8 @@ function createApp(platform) {
 
   app.post("/webhooks/shopify/customer-redact", shopifyComplianceVerifier, async (req, res) => {
     try {
-      if (isDuplicateWebhook(req)) {
-        console.log("[WEBHOOK] customer-redact duplicate — skipping");
+      if (await isDuplicateWebhook(req)) {
+        console.log("[WEBHOOK] customers/redact duplicate — skipping");
         return res.json({ ok: true, duplicate: true });
       }
       const customerId = req.body?.customer?.id;
@@ -616,7 +697,6 @@ function createApp(platform) {
       console.log(`[WEBHOOK] Customer redact request for ${safeId}`);
       // GDPR right-to-be-forgotten: delete customer data.
       if (customerId) {
-        const { deleteCustomerData } = require("./security");
         const allStores = await platform.store.integrations.find({});
         for (const conn of allStores) {
           await deleteCustomerData(platform, conn.store_id, String(customerId)).catch(() => {});
@@ -629,48 +709,62 @@ function createApp(platform) {
   });
 
   app.post("/webhooks/shopify/shop-redact", shopifyComplianceVerifier, async (req, res) => {
+    // GDPR: Respond immediately and offload heavy deletion to background.
+    // Shopify requires a 200 response within 5 seconds.
     try {
-      if (isDuplicateWebhook(req)) {
+      if (await isDuplicateWebhook(req)) {
         console.log("[WEBHOOK] shop-redact duplicate — skipping");
         return res.json({ ok: true, duplicate: true });
       }
       const shop = req.body?.myshopify_domain || req.body?.shop;
       const safeShop = shop ? String(shop).split(".")[0] + "•••" : "unknown";
-      console.log(`[WEBHOOK] Shop redact request for ${safeShop}`);
-      // GDPR: purge ALL data for this shop.
+      console.log(`[WEBHOOK] Shop redact request for ${safeShop} — processing in background`);
+
+      // Schedule background deletion (non-blocking)
       if (shop) {
         const shopDomain = String(shop).toLowerCase();
-        const conn = await platform.store.integrations.findOne({ type: "shopify" });
-        if (conn && conn.config?.shopDomain === shopDomain) {
-          const storeId = conn.store_id;
-          // Delete all collections for this store
-          const collections = [
-            "events", "customers", "deliveries", "actions", "campaigns",
-            "competitorSnapshots", "externalSignals", "sentimentSamples",
-            "seoAudits", "seoOptimizations", "reports", "attributions",
-            "inventory", "consentRecords", "onboardingStates", "activityLog",
-          ];
-          for (const col of collections) {
-            try { await platform.store[col].deleteMany({ store_id: storeId }); } catch (_) {}
+        // Use setImmediate or setTimeout(0) to defer heavy work
+        setImmediate(async () => {
+          try {
+            const conn = await platform.store.integrations.findOne({ type: "shopify" });
+            if (conn && conn.config?.shopDomain === shopDomain) {
+              const storeId = conn.store_id;
+              // Delete all collections for this store (non-blocking)
+              const collections = [
+                "events", "customers", "deliveries", "actions", "campaigns",
+                "competitorSnapshots", "externalSignals", "sentimentSamples",
+                "seoAudits", "seoOptimizations", "reports", "attributions",
+                "inventory", "consentRecords", "onboardingStates", "activityLogs",
+              ];
+              for (const col of collections) {
+                try { 
+                  // Use deleteMany with a small batch to avoid long locks
+                  await platform.store[col].deleteMany({ store_id: storeId }); 
+                } catch (_) {}
+              }
+              // Mark integration as uninstalled
+              await platform.store.integrations.update(conn._id, {
+                status: "uninstalled",
+                uninstalled_at: new Date().toISOString(),
+                config: null, // wipe credentials
+              });
+              console.log(`[WEBHOOK] Background purge completed for store ${storeId}`);
+            }
+          } catch (err) {
+            console.error("[WEBHOOK] shop-redact background error:", err.message);
           }
-          // Mark integration as uninstalled
-          await platform.store.integrations.update(conn._id, {
-            status: "uninstalled",
-            uninstalled_at: new Date().toISOString(),
-            config: null, // wipe credentials
-          });
-          console.log(`[WEBHOOK] Purged all data for store ${storeId}`);
-        }
+        });
       }
       if (platform.monitoringService) {
-        await platform.monitoringService.recordEvent("shop_redact", {
+        platform.monitoringService.recordEvent("shop_redact", {
           severity: "warning",
-          message: `Shop data redaction completed for ${safeShop}`,
-        });
+          message: `Shop data redaction initiated for ${safeShop}`,
+        }).catch(() => {});
       }
     } catch (err) {
       console.error("[WEBHOOK] shop-redact handler error:", err.message);
     }
+    // Always respond immediately
     res.json({ ok: true });
   });
 

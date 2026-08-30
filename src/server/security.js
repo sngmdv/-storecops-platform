@@ -107,7 +107,7 @@ function createRbac({ store, auditLog }) {
 }
 
 /** 10.5 — sliding-window rate limiter per API key/IP. */
-function createRateLimiter({ windowMs = 60000, max = 300, maxKeys = 10000 } = {}) {
+function createRateLimiter({ windowMs = 60000, max = 300, maxKeys = 10000, maxPerKey = 500 } = {}) {
   const hits = new Map();
 
   // Evict stale entries so one-off keys can't grow memory without bound.
@@ -132,6 +132,12 @@ function createRateLimiter({ windowMs = 60000, max = 300, maxKeys = 10000 } = {}
 
     const windowStart = now - windowMs;
     const timestamps = (hits.get(key) || []).filter((at) => at > windowStart);
+
+    // Hard cap per key: trim oldest timestamps to prevent unbounded growth.
+    if (timestamps.length >= maxPerKey) {
+      timestamps.splice(0, timestamps.length - maxPerKey + 1);
+    }
+
     timestamps.push(now);
     hits.set(key, timestamps);
 

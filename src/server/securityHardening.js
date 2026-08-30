@@ -8,12 +8,28 @@
  * - Input validation and sanitization
  * - Request logging for security auditing
  * - IP blocking capabilities
+ *
+ * Supports both Shopify embedded app mode and standalone mode.
+ * Detects embedded mode via query param or header.
  */
 
 const crypto = require("crypto");
 
 /**
- * Security headers middleware (Helmet-like)
+ * Detect if request is from Shopify embedded app (iframe).
+ */
+function isEmbeddedApp(req) {
+  // Check for Shopify embedded app indicators
+  const host = req.query?.host || req.headers?.["x-shopify-host"];
+  const isEmbedded = req.query?.embedded === "1" || 
+                     req.query?.shop !== undefined ||
+                     (host && host.endsWith(".myshopify.com"));
+  return isEmbedded;
+}
+
+/**
+ * Security headers middleware.
+ * Automatically detects Shopify embedded mode and adjusts CSP/X-Frame-Options.
  */
 function securityHeaders() {
   return (req, res, next) => {
@@ -22,9 +38,6 @@ function securityHeaders() {
 
     // Prevent MIME type sniffing
     res.setHeader("X-Content-Type-Options", "nosniff");
-
-    // Prevent clickjacking
-    res.setHeader("X-Frame-Options", "DENY");
 
     // Enable HSTS (HTTPS only)
     if (req.secure || req.headers["x-forwarded-proto"] === "https") {
@@ -37,11 +50,49 @@ function securityHeaders() {
     // Control permissions
     res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
 
-    // Content Security Policy (adjust for your needs)
-    res.setHeader(
-      "Content-Security-Policy",
-      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;"
-    );
+    // Detect embedded app mode
+    const embedded = isEmbeddedApp(req);
+
+    if (embedded) {
+      // ─── EMBEDDED APP MODE (Shopify Admin) ────────────────────────────
+      // Allow Shopify domains for iframe embedding
+      res.setHeader(
+        "Content-Security-Policy",
+        [
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://*.myshopify.com https://admin.shopify.com",
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.myshopify.com",
+          "img-src 'self' data: https: https://*.myshopify.com",
+          "font-src 'self' data: https://fonts.gstatic.com https://*.myshopify.com",
+          "connect-src 'self' https: wss: https://*.myshopify.com https://admin.shopify.com",
+          "frame-ancestors https://*.myshopify.com https://admin.shopify.com",
+          "form-action 'self' https://*.myshopify.com",
+          "base-uri 'self'",
+        ].join("; "),
+      );
+
+      // Do NOT set X-Frame-Options for embedded apps (CSP frame-ancestors takes precedence)
+    } else {
+      // ─── STANDALONE MODE ──────────────────────────────────────────────
+      // Prevent iframe embedding (clickjacking protection)
+      res.setHeader("X-Frame-Options", "DENY");
+
+      // Content Security Policy for standalone mode
+      res.setHeader(
+        "Content-Security-Policy",
+        [
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com",
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+          "img-src 'self' data: https:",
+          "font-src 'self' data: https://fonts.gstatic.com",
+          "connect-src 'self' https:",
+          "frame-ancestors 'none'",
+          "form-action 'self'",
+          "base-uri 'self'",
+        ].join("; "),
+      );
+    }
 
     // Remove server identification
     res.removeHeader("X-Powered-By");
@@ -253,6 +304,7 @@ function preventPathTraversal() {
 
 module.exports = {
   securityHeaders,
+  isEmbeddedApp,
   sanitizeInput,
   securityLogger,
   createIpBlocklist,

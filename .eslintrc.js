@@ -1,0 +1,31 @@
+"use strict";
+
+module.exports = {
+  env: { node: true, es2022: true },
+  extends: ["eslint:recommended"],
+  parserOptions: { ecmaVersion: 2022, sourceType: "commonjs" },
+  rules: {
+    "no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+    "no-console": "off",
+    "semi": ["error", "always"],
+    "quotes": ["error", "single"],
+    "indent": ["error", 2],
+    "trailing-commas": ["error", "all"],
+    "eqeqeq": ["error", "always"],
+    "no-var": "error",
+    "prefer-const": ["error", { destructuring: "any", ignoreReadBeforeAssign: false }],
+    "no-shadow": "error",
+    "no-redeclare": "error",
+    "arrow-padding": ["error", "never"],
+    "object-curly-spacing": ["error", "always"],
+    "array-bracket-spacing": ["error", "never"],
+    "block-spacing": ["error", "always"],
+    "key-spacing": ["error", { beforeColon: false, afterColon: true }],
+    "keyword-spacing": ["error", { before: true, after: true }],
+    "space-before-blocks": ["error", "always"],
+    "comma-dangle": ["error", "all"],
+    "consistent-return": "error",
+    "no-multiple-empty-lines": ["error", { max: 2, maxEOF: 1 }],
+  },
+  ignorePatterns: ["node_modules/", "dist/", "*.lock", "data/", ".env"],
+};

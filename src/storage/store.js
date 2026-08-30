@@ -146,7 +146,7 @@ const COLLECTIONS = [
   "leads", // captured leads from audits, landing pages, etc.
 
   // Admin Intelligence
-  "campaignActions", // CEO campaign/outreach tracking
+  "campaignActions", // admin campaign/outreach tracking
 
   // Payment & Billing
   "invoices", // generated invoices with GST
@@ -166,6 +166,15 @@ const COLLECTIONS = [
 
   // Onboarding
   "onboardingStates", // per-store onboarding progress
+
+  // Support Tickets
+  "supportTickets", // customer support tickets
+
+  // Marketing & CAC Tracking
+  "marketingSpend", // marketing spend records
+
+  // Feature Adoption
+  "featureUsage", // per-store feature usage tracking
 ];
 
 /**

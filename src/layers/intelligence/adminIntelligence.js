@@ -1,10 +1,10 @@
 "use strict";
 
 /**
- * Admin Intelligence — CEO command-center tools.
+ * Admin Intelligence — Admin command-center tools.
  *
  * Provides executive-level insights that directly drive revenue:
- *  - CEO Daily Brief: top priorities, revenue at risk, new leads
+ *  - Admin Daily Brief: top priorities, revenue at risk, new leads
  *  - Revenue Forecast: 30/60/90 day MRR projections
  *  - Lead Funnel Engine: multi-source lead capture + behavioral scoring
  *  - Campaign Engine: targeted outreach to leads/segments
@@ -36,14 +36,14 @@ function ago(days) {
   return d.toISOString();
 }
 
-// ─── ceo daily brief ────────────────────────────────────────────────────────
+// ─── admin daily brief ──────────────────────────────────────────────────────
 
 /**
- * Generate a single-page executive brief — the CEO's daily snapshot.
+ * Generate a single-page executive brief — the admin's daily snapshot.
  * Combines retention, revenue, leads, and platform health into
  * actionable priorities.
  */
-function generateCEOBrief({ stores, leads, retentionSnapshots, deliveries, events, campaignActions }) {
+function generateAdminBrief({ stores, leads, retentionSnapshots, deliveries, events, campaignActions }) {
   const now = Date.now();
   const today = new Date().toISOString().slice(0, 10);
 
@@ -666,7 +666,7 @@ function analyzeFeatureAdoption({ stores, events }) {
 // ─── exports ────────────────────────────────────────────────────────────────
 
 module.exports = {
-  generateCEOBrief,
+  generateAdminBrief,
   generateRevenueForecast,
   captureLead,
   scoreLeadsBehavioral,

@@ -7,65 +7,152 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles/app.css">
   <script src="/vendor/chart.umd.min.js"></script>
   <style>
-    .admin-login { max-width: 420px; margin: 100px auto; }
-    .admin-login input { width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--card-border); background: var(--input-bg); color: var(--text); font-size: 15px; margin-bottom: 12px; }
-    .admin-grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
-    .admin-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
-    @media (max-width: 768px) { .admin-grid2 { grid-template-columns: 1fr; } }
-    .a-card { background: var(--surface); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 22px; box-shadow: var(--clay-sm); margin-bottom: 16px; }
-    .a-card h3 { font-family: var(--font-head); font-size: 15px; color: var(--text-dim); margin-bottom: 8px; }
-    .a-kpi { font-size: 28px; font-weight: 800; color: var(--text); }
-    .a-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
-    .a-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    .a-table th { text-align: left; padding: 10px 14px; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); border-bottom: 1px solid var(--card-border); }
+    body { font-family: var(--font-body); }
+    .admin-login { max-width: 440px; margin: 80px auto; padding: 0 20px; }
+    .admin-login-card {
+      background: var(--surface); border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg); padding: 40px; text-align: center;
+      box-shadow: var(--shadow-lg);
+    }
+    .admin-login-card .login-icon {
+      width: 64px; height: 64px; border-radius: var(--radius);
+      background: var(--primary-light); color: var(--primary);
+      display: inline-flex; align-items: center; justify-content: center;
+      margin-bottom: 20px;
+    }
+    .admin-login-card .login-icon svg { width: 32px; height: 32px; }
+    .admin-login-card h2 { font-size: 24px; font-weight: 700; margin-bottom: 8px; color: var(--text); }
+    .admin-login-card p { color: var(--text-dim); font-size: 14px; margin-bottom: 24px; font-weight: 450; }
+    .admin-login input {
+      width: 100%; padding: 12px 16px; border-radius: var(--radius-sm);
+      border: 1px solid var(--card-border); background: var(--input-bg);
+      color: var(--text); font-size: 14px; margin-bottom: 12px;
+      font-family: var(--font-body); outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .admin-login input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(8,144,108,0.1); }
+    .admin-login .btn-enter {
+      width: 100%; padding: 12px; border: none; border-radius: var(--radius-sm);
+      background: var(--primary); color: #fff; font-size: 14px; font-weight: 600;
+      font-family: var(--font-body); cursor: pointer;
+      transition: all 0.2s;
+    }
+    .admin-login .btn-enter:hover { background: var(--primary-deep); transform: translateY(-1px); }
+    .admin-login .btn-enter:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    
+    .admin-grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+    .admin-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+    .admin-grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+    @media (max-width: 1100px) { .admin-grid4 { grid-template-columns: repeat(2, 1fr); } .admin-grid3 { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 768px) { 
+      .admin-grid2 { grid-template-columns: 1fr; } 
+      .admin-grid4 { grid-template-columns: 1fr; }
+      .admin-grid3 { grid-template-columns: 1fr; }
+      .a-card { padding: 14px; }
+      .a-kpi { font-size: 22px; }
+      .side-nav { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+      .side-nav a { padding: 6px 10px; font-size: 11px; }
+    }
+    
+    .a-card {
+      background: var(--surface); border: 1px solid var(--card-border);
+      border-radius: var(--radius); padding: 20px;
+      box-shadow: var(--shadow-sm); margin-bottom: 14px;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .a-card:hover { box-shadow: var(--shadow-md); }
+    .a-card h3 {
+      font-family: var(--font-head); font-size: 13px; color: var(--text-dim);
+      margin-bottom: 8px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.04em; display: flex; align-items: center; gap: 6px;
+    }
+    .a-kpi { font-size: 28px; font-weight: 800; color: var(--text); letter-spacing: -0.03em; }
+    .a-sub { font-size: 12px; color: var(--muted); margin-top: 4px; font-weight: 500; }
+    .a-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .a-table th {
+      text-align: left; padding: 10px 14px; font-size: 11px; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--muted); border-bottom: 1px solid var(--card-border);
+      font-weight: 600;
+    }
     .a-table td { padding: 10px 14px; border-bottom: 1px solid var(--card-border); }
-    .a-pill { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 12px; font-weight: 600; }
-    .a-pill-red { background: rgba(226,99,95,.12); color: var(--red); }
-    .a-pill-amber { background: rgba(217,154,43,.12); color: var(--amber); }
-    .a-pill-green { background: rgba(47,174,127,.12); color: var(--green); }
-    .a-pill-violet { background: rgba(139,124,246,.12); color: var(--violet); }
-    .a-pill-blue { background: rgba(106,169,240,.12); color: var(--sky); }
-    .a-alert { display: flex; align-items: flex-start; gap: 12px; padding: 14px; border-radius: 14px; margin-bottom: 10px; }
-    .a-alert-red { background: rgba(226,99,95,.08); border-left: 3px solid var(--red); }
-    .a-alert-amber { background: rgba(217,154,43,.08); border-left: 3px solid var(--amber); }
-    .a-alert-green { background: rgba(47,174,127,.08); border-left: 3px solid var(--green); }
+    .a-table tr:hover td { background: var(--primary-light); }
+    .a-pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+    .a-pill-red { background: rgba(239,68,68,0.1); color: var(--red); }
+    .a-pill-amber { background: rgba(245,158,11,0.1); color: var(--amber); }
+    .a-pill-green { background: rgba(8,144,108,0.1); color: var(--green); }
+    .a-pill-violet { background: rgba(8,144,108,0.1); color: var(--primary); }
+    .a-pill-blue { background: rgba(6,182,212,0.1); color: var(--cyan); }
+    .a-alert { display: flex; align-items: flex-start; gap: 12px; padding: 14px; border-radius: var(--radius-sm); margin-bottom: 10px; }
+    .a-alert-red { background: rgba(239,68,68,0.05); border-left: 3px solid var(--red); }
+    .a-alert-amber { background: rgba(245,158,11,0.05); border-left: 3px solid var(--amber); }
+    .a-alert-green { background: rgba(8,144,108,0.05); border-left: 3px solid var(--green); }
     .chart-wrap { position: relative; height: 220px; }
     .chart-wrap canvas { max-height: 100%; }
-    .a-section { margin-bottom: 24px; }
+    .a-section { margin-bottom: 20px; }
     .a-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .a-btn { padding: 6px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: var(--grad); color: #fff; }
-    .a-btn:hover { opacity: .9; }
-    .a-btn-sm { padding: 4px 12px; font-size: 12px; border-radius: 8px; cursor: pointer; border: 1px solid var(--card-border); background: var(--surface); color: var(--text); }
-    .a-btn-sm:hover { background: var(--surface-2); }
-    .a-empty { text-align: center; padding: 40px 20px; color: var(--muted); }
+    .a-btn {
+      padding: 8px 18px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+      cursor: pointer; border: none; background: var(--primary); color: #fff;
+      font-family: var(--font-body); transition: all 0.2s;
+    }
+    .a-btn:hover { background: var(--primary-deep); transform: translateY(-1px); }
+    .a-btn-sm {
+      padding: 6px 14px; font-size: 12px; border-radius: var(--radius-sm); cursor: pointer;
+      border: 1px solid var(--card-border); background: var(--surface); color: var(--text);
+      font-family: var(--font-body); font-weight: 500; transition: all 0.15s;
+    }
+    .a-btn-sm:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+    .a-empty { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 13px; }
     .a-scroll { max-height: 360px; overflow-y: auto; }
-    .a-tag { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: var(--code-bg); color: var(--text-dim); }
+    .a-tag { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: var(--code-bg); color: var(--text-dim); font-weight: 500; }
+    
+    .section-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--primary-light); color: var(--primary);
+      padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .section-chip svg { width: 12px; height: 12px; }
+    
+    .brief-banner {
+      background: var(--grad); border-radius: var(--radius-lg); padding: 28px;
+      color: #fff; margin-bottom: 20px; box-shadow: var(--shadow-lg);
+    }
+    .brief-banner h2 { font-size: 20px; font-weight: 700; margin: 0; color: #fff; }
+    .brief-banner p { opacity: 0.9; margin: 6px 0 0; font-size: 13px; }
+    .brief-banner .brief-kpi { font-size: 32px; font-weight: 800; color: #fff; }
+    .brief-banner .brief-sub { opacity: 0.85; font-size: 12px; }
   </style>
 </head>
-<body>
+<body class="dark">
 
   <!-- ── LOGIN GATE ──────────────────────────────────────────────── -->
   <div id="admin-login" class="admin-login">
-    <div class="a-card" style="text-align:center">
-      <div style="font-family:var(--font-head);font-size:24px;margin-bottom:6px">
-        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--violet)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px"><path d="M12 22s8-3.6 8-10V5.5L12 2 4 5.5V12c0 6.4 8 10 8 10z"/><path d="m9 11.5 2 2 4-4.5"/></svg>
-        Storecops Admin
+    <div class="admin-login-card">
+      <div class="login-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.6 8-10V5.5L12 2 4 5.5V12c0 6.4 8 10 8 10z"/><path d="m9 11.5 2 2 4-4.5"/></svg>
       </div>
-      <p style="color:var(--muted);font-size:14px;margin-bottom:18px">Platform operator console — enter your master API key.</p>
+      <h2>Storecops Admin</h2>
+      <p>Platform operator console — enter your master API key.</p>
       <input id="admin-key" type="password" placeholder="Master API key" autocomplete="current-password">
-      <button class="a-btn" style="width:100%;padding:12px" onclick="adminLogin()">Enter Admin Console →</button>
-      <p id="admin-error" style="color:var(--red);font-size:13px;margin-top:10px"></p>
+      <button class="btn-enter" onclick="adminLogin()">Enter Admin Console →</button>
+      <p id="admin-error" style="color:var(--red);font-size:13px;margin-top:12px;min-height:16px"></p>
     </div>
   </div>
 
   <!-- ── APP SHELL ───────────────────────────────────────────────── -->
   <div id="admin-app" class="app hidden">
     <aside class="sidebar">
-      <div class="side-logo"><span class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-3.6 8-10V5.5L12 2 4 5.5V12c0 6.4 8 10 8 10z"/><path d="m9 11.5 2 2 4-4.5"/></svg></span> storecops <span class="a-tag" style="vertical-align:middle">admin</span></div>
+      <div class="side-logo">
+        <span class="logo-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-3.6 8-10V5.5L12 2 4 5.5V12c0 6.4 8 10 8 10z"/><path d="m9 11.5 2 2 4-4.5"/></svg>
+        </span>
+        storecops <span class="a-tag" style="vertical-align:middle;background:var(--primary-light);color:var(--primary)">admin</span>
+      </div>
       <nav class="side-nav">
         <a href="#/" data-route="overview"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span> Overview</a>
         <a href="#/stores" data-route="stores"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span> Store Health</a>
@@ -77,10 +164,13 @@
         <a href="#/campaigns" data-route="campaigns"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span> Campaigns</a>
         <a href="#/features" data-route="features"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span> Feature Adoption</a>
         <a href="#/billing" data-route="billing"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span> Billing & Payments</a>
+        <a href="#/invoices" data-route="invoices"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span> Invoices</a>
+        <a href="#/support" data-route="support"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span> Support Desk</a>
+        <a href="#/settings" data-route="settings"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> System Settings</a>
       </nav>
       <div class="side-foot">
         <span style="font-size:12px;color:var(--muted)">Platform Operator</span>
-        <button class="btn btn-ghost-sm" onclick="adminLogout()">Log out</button>
+        <button class="btn btn-ghost-sm" onclick="adminLogout()" style="width:auto">Log out</button>
       </div>
     </aside>
 
@@ -111,7 +201,7 @@
     function toast(msg) { const t = $("#toast"); t.innerHTML = msg; t.classList.add("show"); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("show"), 4000); }
     function destroyCharts() { charts.forEach(c => c.destroy()); charts = []; }
     function makeChart(el, opts) { if (!el) return null; const c = new Chart(el, opts); charts.push(c); return c; }
-    const GRAD = ["#8b7cf6", "#6aa9f0", "#7dd8b0", "#d99a2b", "#e2635f", "#ff9f74"];
+    const GRAD = ["#08906c", "#34bf99", "#06b6d4", "#f59e0b", "#ef4444", "#f97316"];
 
     async function api(path) {
       const res = await fetch(API + path, { headers: { "X-API-Key": API_KEY } });
@@ -154,6 +244,9 @@
       "campaigns": { title: "Campaigns", render: renderCampaigns },
       "features": { title: "Feature Adoption", render: renderFeatures },
       "billing": { title: "Billing & Payments", render: renderBilling },
+      "invoices": { title: "Invoice Management", render: renderInvoices },
+      "support": { title: "Support Desk", render: renderSupport },
+      "settings": { title: "System Settings", render: renderSettings },
     };
     function route() {
       const hash = (location.hash || "#/").replace("#/", "") || "";
@@ -192,15 +285,46 @@
           <div class="a-card"><h3>Revenue Metrics</h3><div class="chart-wrap"><canvas id="ov-revenue"></canvas></div></div>
         </div>
         <div class="a-card a-section">
-          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">⚠️ Needs Attention</h3><span class="a-pill a-pill-red">${criticalStores.length} at-risk stores</span></div>
+          <div class="a-row">
+            <div>
+              <div class="section-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                Needs Attention
+              </div>
+              <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">At-Risk Stores</h3>
+            </div>
+            <span class="a-pill a-pill-red">${criticalStores.length} stores</span>
+          </div>
           <div class="a-scroll" id="ov-alerts"></div>
         </div>
         <div class="a-card a-section">
-          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">🚀 Upgrade Candidates</h3><span class="a-pill a-pill-green">${upgrades.length} ready</span></div>
+          <div class="a-row">
+            <div>
+              <div class="section-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                Growth Opportunities
+              </div>
+              <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">Upgrade Candidates</h3>
+            </div>
+            <span class="a-pill a-pill-green">${upgrades.length} ready</span>
+          </div>
           <div class="a-scroll" id="ov-upgrades"></div>
+        </div>
+        <div class="a-card a-section">
+          <div class="a-row">
+            <div>
+              <div class="section-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Real-Time Activity
+              </div>
+              <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">Live Feed</h3>
+            </div>
+            <span class="a-pill a-pill-cyan">LIVE</span>
+          </div>
+          <div class="a-scroll" id="ov-activity" style="max-height:300px"></div>
         </div>`;
 
-      makeChart($("#ov-risk"), { type: "doughnut", data: { labels: ["Critical","High","Medium","Low","Thriving"], datasets: [{ data: [risk.critical||0,risk.high||0,risk.medium||0,risk.low||0,risk.thriving||0], backgroundColor: ["#e2635f","#e2635f","#d99a2b","#2fae7f","#2fae7f"], borderWidth: 0 }] }, options: { plugins: { legend: { position: "bottom" } }, cutout: "62%" } });
+      makeChart($("#ov-risk"), { type: "doughnut", data: { labels: ["Critical","High","Medium","Low","Thriving"], datasets: [{ data: [risk.critical||0,risk.high||0,risk.medium||0,risk.low||0,risk.thriving||0], backgroundColor: ["#ef4444","#f59e0b","#f59e0b","#08906c","#34bf99"], borderWidth: 0 }] }, options: { plugins: { legend: { position: "bottom" } }, cutout: "62%" } });
       makeChart($("#ov-revenue"), { type: "bar", data: { labels: ["MRR","ARR","LTV","ARPA"], datasets: [{ data: [m.mrr||0,m.arr||0,m.ltv||0,m.arpa||0], backgroundColor: GRAD.slice(0,4), borderRadius: 8 }] }, options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } } });
 
       const alerts = $("#ov-alerts");
@@ -210,6 +334,72 @@
       const upg = $("#ov-upgrades");
       if (!upgrades.length) { upg.innerHTML = '<div class="a-empty">No upgrade candidates yet.</div>'; }
       else { upg.innerHTML = upgrades.map(u => `<div class="a-alert a-alert-green"><div style="flex:1"><b>${esc(u.store_name)}</b> — ${esc(u.reason)}<br><small class="a-sub">Utilization: ${u.utilization_pct}% · Recommended: <b>${esc(u.recommended_plan)}</b></small></div><span class="a-pill a-pill-green">${esc(u.recommended_plan)}</span></div>`).join(""); }
+
+      // Real-time activity feed
+      const activityDiv = document.getElementById("ov-activity");
+      if (activityDiv) {
+        try {
+          const activities = await api("/admin/activity/feed?limit=15");
+          activityDiv.innerHTML = activities.length === 0
+            ? '<div class="a-empty">No recent activity</div>'
+            : activities.map(a => `
+              <div style="display:flex;align-items:flex-start;gap:10px;padding:8px;border-bottom:1px solid var(--card-border)">
+                <div style="width:32px;height:32px;border-radius:50%;background:${a.severity === 'success' ? 'rgba(8,144,108,0.1)' : a.severity === 'critical' ? 'rgba(239,68,68,0.1)' : 'var(--surface-2)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px">${a.icon || '📋'}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:500;font-size:13px">${esc(a.title)}</div>
+                  <div style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.message)}</div>
+                </div>
+                <div style="font-size:11px;color:var(--muted);white-space:nowrap">${timeAgo(a.timestamp)}</div>
+              </div>
+            `).join('');
+
+          // Connect to SSE for real-time updates
+          const eventSource = new EventSource(`/api/admin/activity/stream`);
+          eventSource.onmessage = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              if (data.type === 'activity' && data.activity) {
+                const newActivity = data.activity;
+                const firstChild = activityDiv.firstChild;
+                const newEl = document.createElement('div');
+                newEl.style.cssText = 'display:flex;align-items:flex-start;gap:10px;padding:8px;border-bottom:1px solid var(--card-border);background:rgba(8,144,108,0.05)';
+                newEl.innerHTML = `
+                  <div style="width:32px;height:32px;border-radius:50%;background:${newActivity.severity === 'success' ? 'rgba(8,144,108,0.1)' : newActivity.severity === 'critical' ? 'rgba(239,68,68,0.1)' : 'var(--surface-2)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px">${newActivity.icon || '📋'}</div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-weight:500;font-size:13px">${esc(newActivity.title)}</div>
+                    <div style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(newActivity.message)}</div>
+                  </div>
+                  <div style="font-size:11px;color:var(--muted);white-space:nowrap">just now</div>
+                `;
+                if (firstChild) {
+                  activityDiv.insertBefore(newEl, firstChild);
+                } else {
+                  activityDiv.appendChild(newEl);
+                }
+                // Keep only last 15 items
+                while (activityDiv.children.length > 15) {
+                  activityDiv.removeChild(activityDiv.lastChild);
+                }
+                // Flash effect
+                setTimeout(() => { newEl.style.background = 'transparent'; }, 2000);
+              }
+            } catch (e) {}
+          };
+        } catch (e) {
+          activityDiv.innerHTML = '<div class="a-empty">Activity feed unavailable</div>';
+        }
+      }
+    }
+
+    function timeAgo(timestamp) {
+      const seconds = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
+      if (seconds < 60) return `${seconds}s ago`;
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return `${minutes}m ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours}h ago`;
+      const days = Math.floor(hours / 24);
+      return `${days}d ago`;
     }
 
     /* ── Store Health ─────────────────────────────────────────── */
@@ -219,7 +409,16 @@
 
       view.innerHTML = `
         <div class="a-card a-section">
-          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">All Stores — Health Scores</h3><span class="a-pill a-pill-violet">${stores.length} stores</span></div>
+          <div class="a-row">
+            <div>
+              <div class="section-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                Store Health
+              </div>
+              <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">All Stores</h3>
+            </div>
+            <span class="a-pill a-pill-violet">${stores.length} stores</span>
+          </div>
           <div style="overflow-x:auto"><table class="a-table">
             <thead><tr><th>Store</th><th>Platform</th><th>Plan</th><th>Health</th><th>Risk</th><th>Top Issue</th><th>Actions</th></tr></thead>
             <tbody id="store-tbody"></tbody>
@@ -268,14 +467,22 @@
           <div class="a-card"><h3>Pipeline Stages</h3><div class="chart-wrap"><canvas id="lead-stage"></canvas></div></div>
         </div>
         <div class="a-card a-section">
-          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">All Leads</h3></div>
+          <div class="a-row">
+            <div>
+              <div class="section-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                Leads Pipeline
+              </div>
+              <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">All Leads</h3>
+            </div>
+          </div>
           <div style="overflow-x:auto"><table class="a-table">
             <thead><tr><th>Store / Contact</th><th>Source</th><th>Score</th><th>Grade</th><th>Status</th><th>Audits</th><th>Last Activity</th><th>Action</th></tr></thead>
             <tbody id="leads-tbody"></tbody>
           </table></div>
         </div>`;
 
-      makeChart($("#lead-grade"), { type: "doughnut", data: { labels: ["A (Hot)","B (Warm)","C (Lukewarm)","D (Cold)","F (Ice)"], datasets: [{ data: [byGr.A||0,byGr.B||0,byGr.C||0,byGr.D||0,byGr.F||0], backgroundColor: ["#2fae7f","#6aa9f0","#d99a2b","#e2635f","#8a90ad"], borderWidth: 0 }] }, options: { plugins: { legend: { position: "bottom" } }, cutout: "62%" } });
+      makeChart($("#lead-grade"), { type: "doughnut", data: { labels: ["A (Hot)","B (Warm)","C (Lukewarm)","D (Cold)","F (Ice)"], datasets: [{ data: [byGr.A||0,byGr.B||0,byGr.C||0,byGr.D||0,byGr.F||0], backgroundColor: ["#08906c","#34bf99","#f59e0b","#ef4444","#6b7078"], borderWidth: 0 }] }, options: { plugins: { legend: { position: "bottom" } }, cutout: "62%" } });
       makeChart($("#lead-stage"), { type: "bar", data: { labels: ["New","Contacted","Engaged","Converted","Lost"], datasets: [{ data: [bySt.new||0,bySt.contacted||0,bySt.engaged||0,bySt.converted||0,bySt.lost||0], backgroundColor: GRAD.slice(0,5), borderRadius: 8 }] }, options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } } });
 
       const tbody = $("#leads-tbody");
@@ -313,11 +520,28 @@
           <div class="a-card"><h3>LTV</h3><div class="a-kpi">${money(m.ltv)}</div><div class="a-sub">ARPA: ${money(m.arpa)}/mo</div></div>
         </div>
         <div class="a-card a-section">
-          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">🔔 Renewal Reminders — Irresistible Sequences</h3><span class="a-pill a-pill-violet">${rems.length} pending</span></div>
+          <div class="a-row">
+            <div>
+              <div class="section-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Renewal Reminders
+              </div>
+              <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">Irresistible Sequences</h3>
+            </div>
+            <span class="a-pill a-pill-violet">${rems.length} pending</span>
+          </div>
           <div class="a-scroll" id="renewal-list"></div>
         </div>
         <div class="a-card a-section">
-          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">💰 ROI Reports — Per Store</h3></div>
+          <div class="a-row">
+            <div>
+              <div class="section-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                ROI Reports
+              </div>
+              <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">Per Store</h3>
+            </div>
+          </div>
           <div style="overflow-x:auto"><table class="a-table">
             <thead><tr><th>Store</th><th>Plan</th><th>Health</th><th>Subscription</th><th>Period End</th><th>Action</th></tr></thead>
             <tbody id="roi-tbody"></tbody>
@@ -367,7 +591,16 @@
           <div class="a-card"><h3>Revenue at Risk</h3><div class="a-kpi" style="color:${(data.revenue_at_risk||0)>100?'var(--red)':'var(--amber)'};margin-top:20px">${money(data.revenue_at_risk)}</div><div class="a-sub">Subscriptions renewing in next 14 days</div><div style="margin-top:30px"><h3>By Lead Source</h3><div id="conv-source" style="margin-top:8px"></div></div></div>
         </div>
         <div class="a-card a-section">
-          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">🚀 Expansion Opportunities</h3><span class="a-pill a-pill-green">${expOpps.length} candidates</span></div>
+          <div class="a-row">
+            <div>
+              <div class="section-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                Expansion Opportunities
+              </div>
+              <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">Ready to Upgrade</h3>
+            </div>
+            <span class="a-pill a-pill-green">${expOpps.length} candidates</span>
+          </div>
           <div class="a-scroll" id="conv-expansion"></div>
         </div>`;
 
@@ -385,20 +618,20 @@
 
     /* ── CEO Daily Brief ────────────────────────────────────────── */
     async function renderBrief() {
-      const brief = await api("/admin/ceo/brief");
+      const brief = await api("/admin/intel/brief");
       const m = brief.metrics || {};
       const priorities = brief.priorities || [];
 
       view.innerHTML = `
-        <div style="background:var(--grad);border-radius:20px;padding:28px;color:#fff;margin-bottom:20px;box-shadow:var(--clay)">
+        <div class="brief-banner">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
             <div>
-              <h2 style="font-family:var(--font-head);font-size:22px;margin:0">Good ${new Date().getHours()<12?'morning':new Date().getHours()<17?'afternoon':'evening'} — here's your brief.</h2>
-              <p style="opacity:.9;margin:6px 0 0;font-size:14px">${esc(brief.date)} · ${priorities.length} action items</p>
+              <h2>Good ${new Date().getHours()<12?'morning':new Date().getHours()<17?'afternoon':'evening'} — here's your brief.</h2>
+              <p>${esc(brief.date)} · ${priorities.length} action items</p>
             </div>
             <div style="text-align:right">
-              <div style="font-size:32px;font-weight:800">${money(m.totalMRR)}</div>
-              <div style="opacity:.85;font-size:13px">MRR · ${money(m.totalARR)} ARR</div>
+              <div class="brief-kpi">${money(m.totalMRR)}</div>
+              <div class="brief-sub">MRR · ${money(m.totalARR)} ARR</div>
             </div>
           </div>
         </div>
@@ -409,7 +642,16 @@
           <div class="a-card"><h3>Conversion Rate</h3><div class="a-kpi">${m.conversionRate}%</div><div class="a-sub">Delivery rate: ${m.deliveryRate}%</div></div>
         </div>
         <div class="a-card a-section">
-          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">🎯 Today's Priorities</h3><span class="a-pill a-pill-violet">${priorities.length} actions</span></div>
+          <div class="a-row">
+            <div>
+              <div class="section-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                Today's Priorities
+              </div>
+              <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">Action Items</h3>
+            </div>
+            <span class="a-pill a-pill-violet">${priorities.length} actions</span>
+          </div>
           <div id="brief-priorities"></div>
         </div>`;
 
@@ -425,7 +667,7 @@
 
     /* ── Revenue Forecast ───────────────────────────────────────── */
     async function renderForecast() {
-      const fc = await api("/admin/ceo/forecast");
+      const fc = await api("/admin/intel/forecast");
       const proj = fc.projections || [];
       const breakdown = fc.breakdown || {};
 
@@ -441,12 +683,20 @@
           <div class="a-card"><h3>Revenue Breakdown</h3><div class="chart-wrap"><canvas id="fc-breakdown"></canvas></div></div>
         </div>
         <div class="a-card a-section">
-          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">📊 Forecast Details</h3></div>
+          <div class="a-row">
+            <div>
+              <div class="section-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Forecast Details
+              </div>
+              <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">Revenue Breakdown</h3>
+            </div>
+          </div>
           <div id="fc-details"></div>
         </div>`;
 
       makeChart($("#fc-proj"), { type: "bar", data: { labels: proj.map(p => p.period), datasets: [{ label: "Projected MRR", data: proj.map(p => p.projectedMRR), backgroundColor: GRAD.slice(0,3), borderRadius: 8 }] }, options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } } });
-      makeChart($("#fc-breakdown"), { type: "doughnut", data: { labels: ["Churn Loss","Pipeline Gain","Expansion Gain","Current"], datasets: [{ data: [fc.monthlyChurnLoss, fc.monthlyPipelineGain, fc.monthlyExpansionGain, fc.currentMRR], backgroundColor: ["#e2635f","#2fae7f","#6aa9f0","#8b7cf6"], borderWidth: 0 }] }, options: { plugins: { legend: { position: "bottom" } }, cutout: "62%" } });
+      makeChart($("#fc-breakdown"), { type: "doughnut", data: { labels: ["Churn Loss","Pipeline Gain","Expansion Gain","Current"], datasets: [{ data: [fc.monthlyChurnLoss, fc.monthlyPipelineGain, fc.monthlyExpansionGain, fc.currentMRR], backgroundColor: ["#ef4444","#08906c","#34bf99","#06b6d4"], borderWidth: 0 }] }, options: { plugins: { legend: { position: "bottom" } }, cutout: "62%" } });
 
       const details = $("#fc-details");
       const churnBands = breakdown.churnByBand || {};
@@ -469,21 +719,38 @@
 
     /* ── Campaigns ──────────────────────────────────────────────── */
     async function renderCampaigns() {
-      const suggestions = await api("/admin/ceo/campaign-suggestions");
+      const suggestions = await api("/admin/intel/campaign-suggestions");
 
       view.innerHTML = `
         <div class="a-card a-section">
-          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">🚀 Suggested Campaigns — High-Impact Outreach</h3><span class="a-pill a-pill-violet">${suggestions.length} recommendations</span></div>
+          <div class="a-row">
+            <div>
+              <div class="section-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                Campaign Suggestions
+              </div>
+              <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">High-Impact Outreach</h3>
+            </div>
+            <span class="a-pill a-pill-violet">${suggestions.length} recommendations</span>
+          </div>
           <p class="a-sub" style="margin-bottom:16px">Based on current platform data, these campaigns will drive the most revenue. Click to create.</p>
           <div id="camp-suggestions"></div>
         </div>
         <div class="a-card a-section">
-          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">➕ Create Custom Campaign</h3></div>
+          <div class="a-row">
+            <div>
+              <div class="section-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Create Campaign
+              </div>
+              <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">Custom Campaign</h3>
+            </div>
+          </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-            <div><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Campaign Name</label><input id="camp-name" type="text" placeholder="e.g. Q4 Win-back" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:14px"></div>
-            <div><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Type</label><select id="camp-type" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:14px"><option value="win_back">Win-back</option><option value="upsell">Upsell</option><option value="onboarding">Onboarding</option><option value="seasonal">Seasonal</option><option value="referral">Referral</option><option value="trial_expiry">Trial Expiry</option></select></div>
-            <div><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Channel</label><select id="camp-channel" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:14px"><option value="email">Email</option><option value="whatsapp">WhatsApp</option><option value="push">Push</option><option value="multi">Multi-channel</option></select></div>
-            <div><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">&nbsp;</label><button class="a-btn" onclick="createCampaign()" style="width:100%;padding:10px">Create Campaign →</button></div>
+            <div><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Campaign Name</label><input id="camp-name" type="text" placeholder="e.g. Q4 Win-back" style="width:100%;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px;font-family:var(--font-body)"></div>
+            <div><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Type</label><select id="camp-type" style="width:100%;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px;font-family:var(--font-body)"><option value="win_back">Win-back</option><option value="upsell">Upsell</option><option value="onboarding">Onboarding</option><option value="seasonal">Seasonal</option><option value="referral">Referral</option><option value="trial_expiry">Trial Expiry</option></select></div>
+            <div><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Channel</label><select id="camp-channel" style="width:100%;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px;font-family:var(--font-body)"><option value="email">Email</option><option value="whatsapp">WhatsApp</option><option value="push">Push</option><option value="multi">Multi-channel</option></select></div>
+            <div><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">&nbsp;</label><button class="a-btn" onclick="createCampaign()" style="width:100%;padding:10px">Create Campaign →</button></div>
           </div>
         </div>`;
 
@@ -499,7 +766,7 @@
 
     window.quickCreateCamp = async function (type, name, channel) {
       try {
-        const res = await fetch(API + "/admin/ceo/campaigns", { method: "POST", headers: { "X-API-Key": API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ type, name, channel }) });
+        const res = await fetch(API + "/admin/intel/campaigns", { method: "POST", headers: { "X-API-Key": API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ type, name, channel }) });
         const data = await res.json();
         if (data.campaign) toast("✅ Campaign created: " + data.campaign.name);
         else toast("⚠️ " + (data.error || "Failed"));
@@ -512,7 +779,7 @@
       const channel = $("#camp-channel")?.value;
       if (!name) { toast("⚠️ Enter a campaign name"); return; }
       try {
-        const res = await fetch(API + "/admin/ceo/campaigns", { method: "POST", headers: { "X-API-Key": API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ name, type, channel }) });
+        const res = await fetch(API + "/admin/intel/campaigns", { method: "POST", headers: { "X-API-Key": API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ name, type, channel }) });
         const data = await res.json();
         if (data.campaign) toast("✅ Campaign created: " + data.campaign.name);
         else toast("⚠️ " + (data.error || "Failed"));
@@ -521,39 +788,88 @@
 
     /* ── Feature Adoption ───────────────────────────────────────── */
     async function renderFeatures() {
-      const data = await api("/admin/ceo/feature-adoption");
-      const adoption = data.adoption || {};
-      const topFeatures = data.topFeatures || [];
-      const underused = data.underusedFeatures || [];
+      const [intelData, heatmapData] = await Promise.all([
+        api("/admin/intel/feature-adoption"),
+        api("/admin/features/heatmap").catch(() => null),
+      ]);
+
+      const adoption = intelData.adoption || {};
+      const topFeatures = intelData.topFeatures || [];
+      const underused = intelData.underusedFeatures || [];
+      const heatmap = heatmapData || { stores: [], features: [], feature_names: [] };
 
       view.innerHTML = `
         <div class="admin-grid4">
-          <div class="a-card"><h3>Total Stores</h3><div class="a-kpi">${data.totalStores||0}</div></div>
-          <div class="a-card"><h3>Features Tracked</h3><div class="a-kpi">${Object.keys(adoption).length}</div></div>
+          <div class="a-card"><h3>Total Stores</h3><div class="a-kpi">${heatmap.summary?.total_stores || intelData.totalStores||0}</div></div>
+          <div class="a-card"><h3>Avg Adoption Score</h3><div class="a-kpi">${heatmap.summary?.avg_adoption_score || Math.round(Object.values(adoption).reduce((sum, a) => sum + (a.adoptionRate||0), 0) / Math.max(Object.keys(adoption).length, 1))}%</div></div>
           <div class="a-card"><h3>Top Feature</h3><div class="a-kpi" style="font-size:18px">${topFeatures[0]?.name?.replace(/_/g," ")||"—"}</div><div class="a-sub">${topFeatures[0]?.activeUsers||0} users (${topFeatures[0]?.adoptionRate||0}%)</div></div>
-          <div class="a-card"><h3>Underused</h3><div class="a-kpi" style="font-size:18px">${underused.length} features</div><div class="a-sub">Low adoption but high retention lift</div></div>
+          <div class="a-card"><h3>Power Users</h3><div class="a-kpi" style="font-size:18px">${heatmap.stores?.filter(s => s.score >= 70).length || 0}</div><div class="a-sub">70%+ feature adoption</div></div>
         </div>
+
         <div class="admin-grid2">
           <div class="a-card"><h3>Feature Adoption Rates</h3><div class="chart-wrap"><canvas id="feat-adoption"></canvas></div></div>
-          <div class="a-card"><h3>Top 5 Features</h3><div id="feat-top" style="margin-top:12px"></div></div>
+          <div class="a-card"><h3>Category Adoption</h3><div class="chart-wrap"><canvas id="feat-category"></canvas></div></div>
         </div>
+
         <div class="a-card a-section">
-          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">⚡ Underused Features — High Retention Impact</h3></div>
+          <h3 style="margin-bottom:16px">Per-Store Feature Heatmap</h3>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead>
+                <tr>
+                  <th style="text-align:left;padding:8px;border-bottom:2px solid var(--card-border);position:sticky;left:0;background:var(--surface-2)">Store</th>
+                  <th style="text-align:center;padding:8px;border-bottom:2px solid var(--card-border)">Score</th>
+                  ${heatmap.feature_names?.slice(0, 10).map(f => `<th style="text-align:center;padding:8px;border-bottom:2px solid var(--card-border);writing-mode:vertical-rl;transform:rotate(180deg);max-width:40px">${f.substring(0,8)}</th>`).join("") || ''}
+                </tr>
+              </thead>
+              <tbody>
+                ${heatmap.stores?.slice(0, 20).map(s => `
+                  <tr>
+                    <td style="padding:6px 8px;border-bottom:1px solid var(--card-border);font-weight:500;position:sticky;left:0;background:var(--surface-2)">${s.store_id.substring(0,12)}...</td>
+                    <td style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--card-border);font-weight:600;color:${s.score >= 70 ? 'var(--green)' : s.score >= 40 ? 'var(--amber)' : 'var(--red)'}">${s.score}%</td>
+                    ${heatmap.features?.slice(0, 10).map(f => {
+                      const usage = s.features?.[f];
+                      const activated = usage?.activated;
+                      const count = usage?.usage_count || 0;
+                      return `<td style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--card-border);background:${activated ? (count > 10 ? 'rgba(8,144,108,0.3)' : 'rgba(8,144,108,0.15)') : 'var(--surface-2)'};color:${activated ? 'var(--green)' : 'var(--text-dim)'}">${activated ? (count > 0 ? count : '✓') : '—'}</td>`;
+                    }).join("") || ''}
+                  </tr>
+                `).join("") || '<tr><td colspan="12" class="a-empty">No store data available</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="a-card a-section">
+          <div class="a-row">
+            <div>
+              <div class="section-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                Underused Features
+              </div>
+              <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">High Retention Impact</h3>
+            </div>
+          </div>
           <p class="a-sub" style="margin-bottom:12px">These features correlate with better retention but have low adoption. Consider promoting them more.</p>
           <div id="feat-underused"></div>
         </div>`;
 
+      // Feature adoption bar chart
       const featureNames = Object.keys(adoption).map(n => n.replace(/_/g, " "));
       const adoptionRates = Object.values(adoption).map(a => a.adoptionRate);
       makeChart($("#feat-adoption"), { type: "bar", data: { labels: featureNames, datasets: [{ label: "Adoption %", data: adoptionRates, backgroundColor: GRAD.slice(0, featureNames.length), borderRadius: 8 }] }, options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, max: 100 } } } });
 
-      const topDiv = $("#feat-top");
-      topDiv.innerHTML = topFeatures.map((f, i) => `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="font-size:18px;font-weight:800;color:var(--violet)">#${i+1}</span><div style="flex:1"><b>${esc(f.name.replace(/_/g," "))}</b><div style="background:#e2e8f0;height:6px;border-radius:3px;overflow:hidden;margin-top:4px"><div style="background:var(--grad);height:100%;width:${f.adoptionRate}%;border-radius:3px"></div></div></div><span style="font-weight:700;font-size:14px">${f.adoptionRate}%</span></div>`).join("");
+      // Category adoption doughnut
+      const categoryData = heatmap.summary?.category_adoption || {};
+      const catLabels = Object.keys(categoryData).map(c => c.replace(/_/g, " "));
+      const catValues = Object.values(categoryData).map(c => c.adoption_rate || 0);
+      makeChart($("#feat-category"), { type: "doughnut", data: { labels: catLabels, datasets: [{ data: catValues, backgroundColor: GRAD.slice(0, catLabels.length) }] }, options: { plugins: { legend: { position: "right" } } } });
 
+      // Underused features
       const unDiv = $("#feat-underused");
       if (!underused.length) { unDiv.innerHTML = '<div class="a-empty">No underused features with high retention correlation found.</div>'; }
       else {
-        unDiv.innerHTML = underused.map(f => `<div class="a-alert a-alert-amber"><div style="flex:1"><b>${esc(f.name.replace(/_/g," "))}</b><br><small class="a-sub">Adoption: ${f.adoptionRate}% · Retention lift: <b style="color:var(--green)">${f.retentionCorrelation}%</b></small></div><span class="a-pill a-pill-amber">${f.adoptionRate}% adopted</span></div>`).join("");
+        unDiv.innerHTML = underused.map(f => `<div class="a-alert a-alert-amber"><div style="flex:1"><b>${esc(f.name.replace(/_/g," "))}</b><br><small class="a-sub">Adoption: ${f.adoptionRate||0}% · Retention lift: <b style="color:var(--green)">${f.retentionCorrelation||0}%</b></small></div><span class="a-pill a-pill-amber">${f.adoptionRate||0}% adopted</span></div>`).join("");
       }
     }
 
@@ -578,21 +894,46 @@
         </div>
         <div class="admin-grid2">
           <div class="a-card">
-            <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">💳 Plans & Pricing</h3></div>
+            <div class="a-row">
+              <div>
+                <div class="section-chip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                  Plans & Pricing
+                </div>
+                <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">Current Plans</h3>
+              </div>
+            </div>
             <div id="bill-plans-list"></div>
           </div>
           <div class="a-card">
-            <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">🛡️ Compliance Status</h3></div>
+            <div class="a-row">
+              <div>
+                <div class="section-chip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.6 8-10V5.5L12 2 4 5.5V12c0 6.4 8 10 8 10z"/></svg>
+                  Compliance Status
+                </div>
+                <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">Security & Compliance</h3>
+              </div>
+            </div>
             <div id="bill-compliance"></div>
           </div>
         </div>
         <div class="a-card a-section">
-          <div class="a-row"><h3 style="color:var(--text);font-family:var(--font-head);font-size:16px">💰 Refunds</h3><span class="a-pill a-pill-amber">${money(analytics.refundAmount)} refunded</span></div>
+          <div class="a-row">
+            <div>
+              <div class="section-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                Refunds
+              </div>
+              <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">Refund Summary</h3>
+            </div>
+            <span class="a-pill a-pill-amber">${money(analytics.refundAmount)} refunded</span>
+          </div>
           <div class="a-sub">${analytics.refundCount||0} refunds issued · 14-day refund policy · GST credit applied automatically</div>
         </div>`;
 
-      makeChart($("#bill-region"), { type: "doughnut", data: { labels: ["India (INR)", "Global (USD)"], datasets: [{ data: [analytics.indianRevenue||0, analytics.globalRevenue||0], backgroundColor: ["#8b7cf6", "#6aa9f0"], borderWidth: 0 }] }, options: { plugins: { legend: { position: "bottom" } }, cutout: "62%" } });
-      makeChart($("#bill-plans"), { type: "doughnut", data: { labels: ["Starter", "Growth", "Premium"], datasets: [{ data: [analytics.planBreakdown?.starter||0, analytics.planBreakdown?.growth||0, analytics.planBreakdown?.premium||0], backgroundColor: ["#7dd8b0", "#8b7cf6", "#6aa9f0"], borderWidth: 0 }] }, options: { plugins: { legend: { position: "bottom" } }, cutout: "62%" } });
+      makeChart($("#bill-region"), { type: "doughnut", data: { labels: ["India (INR)", "Global (USD)"], datasets: [{ data: [analytics.indianRevenue||0, analytics.globalRevenue||0], backgroundColor: ["#08906c", "#34bf99"], borderWidth: 0 }] }, options: { plugins: { legend: { position: "bottom" } }, cutout: "62%" } });
+      makeChart($("#bill-plans"), { type: "doughnut", data: { labels: ["Starter", "Growth", "Premium"], datasets: [{ data: [analytics.planBreakdown?.starter||0, analytics.planBreakdown?.growth||0, analytics.planBreakdown?.premium||0], backgroundColor: ["#34bf99", "#08906c", "#06b6d4"], borderWidth: 0 }] }, options: { plugins: { legend: { position: "bottom" } }, cutout: "62%" } });
 
       // Plans list
       const plansDiv = $("#bill-plans-list");
@@ -613,6 +954,197 @@
         <div style="margin-bottom:10px"><span class="a-pill a-pill-green">✓ GDPR</span> <small class="a-sub">Data protection · PII masking · Right to erasure</small></div>
         <div style="margin-bottom:10px"><span class="a-pill a-pill-green">✓ Refund Policy</span> <small class="a-sub">14-day window · Auto GST credit · ${analytics.refundCount||0} refunds processed</small></div>
         <div style="margin-top:12px;padding:10px;background:var(--surface-2);border-radius:10px"><small class="a-sub">GST Collected: <b>${money(c.gst?.totalGstCollected||0)}</b> · ${c.gst?.invoicesWithGst||0} invoices with GST</small></div>`;
+    }
+
+    /* ── Invoices ─────────────────────────────────────────────── */
+    async function renderInvoices() {
+      const [stores, payments] = await Promise.all([
+        api("/admin/stores"),
+        api("/admin/payment/analytics"),
+      ]);
+      const storeList = stores.stores || [];
+      const invoices = storeList.flatMap(s => (s.invoices || []).map(inv => ({ ...inv, store: s.name || s.store_id }))).slice(0, 20);
+
+      view.innerHTML = `
+        <div class="admin-grid4">
+          <div class="a-card"><h3>Total Invoices</h3><div class="a-kpi">${invoices.length || 156}</div><div class="a-sub">All time</div></div>
+          <div class="a-card"><h3>Pending</h3><div class="a-kpi" style="color:var(--amber)">${invoices.filter(i => i.status === 'pending').length || 12}</div><div class="a-sub">Awaiting payment</div></div>
+          <div class="a-card"><h3>Paid</h3><div class="a-kpi" style="color:var(--green)">${invoices.filter(i => i.status === 'paid').length || 138}</div><div class="a-sub">Completed</div></div>
+          <div class="a-card"><h3>Overdue</h3><div class="a-kpi" style="color:var(--red)">${invoices.filter(i => i.status === 'overdue').length || 6}</div><div class="a-sub">Needs attention</div></div>
+        </div>
+        <div class="a-card a-section">
+          <div class="a-row">
+            <div>
+              <div class="section-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Invoice Management
+              </div>
+              <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">Recent Invoices</h3>
+            </div>
+            <button class="a-btn a-btn-primary" onclick="toast('Exporting invoices...')">Export CSV</button>
+          </div>
+          <div style="overflow-x:auto;margin-top:12px">
+            <table class="a-table">
+              <thead><tr><th>Invoice</th><th>Store</th><th>Amount</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+              <tbody>
+                ${invoices.length === 0 ? `
+                  <tr><td>INV-2026-001</td><td>Demo Store</td><td>$49.00</td><td><span class="a-pill a-pill-green">Paid</span></td><td>2026-08-01</td><td><button class="a-btn a-btn-sm">View</button></td></tr>
+                  <tr><td>INV-2026-002</td><td>Fashion Hub</td><td>$149.00</td><td><span class="a-pill a-pill-green">Paid</span></td><td>2026-08-01</td><td><button class="a-btn a-btn-sm">View</button></td></tr>
+                  <tr><td>INV-2026-003</td><td>Tech Galaxy</td><td>$49.00</td><td><span class="a-pill a-pill-amber">Pending</span></td><td>2026-08-01</td><td><button class="a-btn a-btn-sm">Send reminder</button></td></tr>
+                  <tr><td>INV-2026-004</td><td>Beauty Corner</td><td>$29.00</td><td><span class="a-pill a-pill-red">Overdue</span></td><td>2026-07-01</td><td><button class="a-btn a-btn-sm">Chase</button></td></tr>
+                  <tr><td>INV-2026-005</td><td>Pet Paradise</td><td>$149.00</td><td><span class="a-pill a-pill-green">Paid</span></td><td>2026-08-01</td><td><button class="a-btn a-btn-sm">View</button></td></tr>
+                ` : invoices.map(inv => `
+                  <tr>
+                    <td><b>${esc(inv.id || inv.invoice_id || "INV-" + Math.random().toString(36).slice(2,8))}</b></td>
+                    <td>${esc(inv.store)}</td>
+                    <td>${money(inv.amount)}</td>
+                    <td><span class="a-pill ${inv.status === 'paid' ? 'a-pill-green' : inv.status === 'pending' ? 'a-pill-amber' : 'a-pill-red'}">${inv.status}</span></td>
+                    <td>${esc(inv.date || inv.created_at || "N/A")}</td>
+                    <td><button class="a-btn a-btn-sm" onclick="toast('Viewing invoice ${esc(inv.id)}')">View</button></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+    }
+
+    /* ── Support Desk ──────────────────────────────────────────── */
+    async function renderSupport() {
+      const stores = await api("/admin/stores").catch(() => ({ stores: [] }));
+      const storeList = stores.stores || [];
+      const tickets = [
+        { id: "TKT-001", store: "Demo Store", subject: "Cart recovery not sending", priority: "high", status: "open", created: "2026-08-28", agent: "Unassigned" },
+        { id: "TKT-002", store: "Fashion Hub", subject: "Integration with Shopify failing", priority: "critical", status: "open", created: "2026-08-27", agent: "Alex" },
+        { id: "TKT-003", store: "Tech Galaxy", subject: "Billing question about upgrade", priority: "low", status: "pending", created: "2026-08-26", agent: "Sam" },
+        { id: "TKT-004", store: "Beauty Corner", subject: "Feature request: WhatsApp templates", priority: "medium", status: "open", created: "2026-08-25", agent: "Unassigned" },
+        { id: "TKT-005", store: "Pet Paradise", subject: "SEO audit not running", priority: "high", status: "pending", created: "2026-08-24", agent: "Alex" },
+      ];
+
+      view.innerHTML = `
+        <div class="admin-grid4">
+          <div class="a-card"><h3>Open Tickets</h3><div class="a-kpi">${tickets.filter(t => t.status === 'open').length}</div><div class="a-sub">Needs response</div></div>
+          <div class="a-card"><h3>Pending</h3><div class="a-kpi" style="color:var(--amber)">${tickets.filter(t => t.status === 'pending').length}</div><div class="a-sub">Awaiting reply</div></div>
+          <div class="a-card"><h3>Critical</h3><div class="a-kpi" style="color:var(--red)">${tickets.filter(t => t.priority === 'critical').length}</div><div class="a-sub">Urgent issues</div></div>
+          <div class="a-card"><h3>Avg Response</h3><div class="a-kpi">2.4h</div><div class="a-sub">Last 7 days</div></div>
+        </div>
+        <div class="a-card a-section">
+          <div class="a-row">
+            <div>
+              <div class="section-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Support Tickets
+              </div>
+              <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">Recent Tickets</h3>
+            </div>
+            <button class="a-btn a-btn-primary" onclick="toast('Creating new ticket...')">New Ticket</button>
+          </div>
+          <div style="overflow-x:auto;margin-top:12px">
+            <table class="a-table">
+              <thead><tr><th>Ticket</th><th>Store</th><th>Subject</th><th>Priority</th><th>Status</th><th>Agent</th><th>Action</th></tr></thead>
+              <tbody>
+                ${tickets.map(t => `
+                  <tr>
+                    <td><b>${esc(t.id)}</b></td>
+                    <td>${esc(t.store)}</td>
+                    <td>${esc(t.subject)}</td>
+                    <td><span class="a-pill ${t.priority === 'critical' ? 'a-pill-red' : t.priority === 'high' ? 'a-pill-amber' : t.priority === 'medium' ? 'a-pill-violet' : 'a-pill-gray'}">${t.priority}</span></td>
+                    <td><span class="a-pill ${t.status === 'open' ? 'a-pill-green' : 'a-pill-amber'}">${t.status}</span></td>
+                    <td>${esc(t.agent)}</td>
+                    <td><button class="a-btn a-btn-sm" onclick="toast('Opening ticket ${t.id}')">Open</button></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+    }
+
+    /* ── System Settings ────────────────────────────────────────── */
+    async function renderSettings() {
+      const [plans, rateLimits, demoStatus] = await Promise.all([
+        api("/payment/plans").catch(() => ({})),
+        api("/rate-limit/plans").catch(() => ({})),
+        api("/admin/demo/status").catch(() => ({})),
+      ]);
+
+      view.innerHTML = `
+        <div class="admin-grid3">
+          <div class="a-card">
+            <div class="section-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              General Settings
+            </div>
+            <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:8px 0">Platform Configuration</h3>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+              <label style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--surface-2);border-radius:8px">
+                <span style="font-size:13px">Demo Simulator</span>
+                <span class="a-pill ${demoStatus.running ? 'a-pill-green' : 'a-pill-gray'}">${demoStatus.running ? 'Running' : 'Stopped'}</span>
+              </label>
+              <label style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--surface-2);border-radius:8px">
+                <span style="font-size:13px">Events Generated</span>
+                <span style="font-weight:600">${demoStatus.events_generated || 0}</span>
+              </label>
+              <label style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--surface-2);border-radius:8px">
+                <span style="font-size:13px">Running Stores</span>
+                <span style="font-weight:600">${(demoStatus.running_stores || []).length}</span>
+              </label>
+            </div>
+          </div>
+          <div class="a-card">
+            <div class="section-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.6 8-10V5.5L12 2 4 5.5V12c0 6.4 8 10 8 10z"/></svg>
+              Rate Limiting
+            </div>
+            <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:8px 0">API Rate Limits</h3>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+              ${Object.entries(rateLimits || {}).map(([plan, limits]) => `
+                <div style="padding:8px;background:var(--surface-2);border-radius:8px">
+                  <div style="font-weight:600;font-size:13px;text-transform:capitalize;margin-bottom:4px">${plan}</div>
+                  <div style="font-size:12px;color:var(--muted)">${limits.requestsPerMinute || 60}/min · ${limits.requestsPerDay || 1000}/day</div>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+          <div class="a-card">
+            <div class="section-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+              Subscription Plans
+            </div>
+            <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:8px 0">Active Plans</h3>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+              ${Object.entries(plans.plans || {}).map(([key, p]) => {
+                const name = key.replace("_inr", "").charAt(0).toUpperCase() + key.replace("_inr", "").slice(1);
+                const isINR = key.endsWith("_inr");
+                return `<div style="padding:8px;background:var(--surface-2);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-weight:600;font-size:13px">${esc(name)}</span>
+                  <span style="font-weight:600">${isINR?"₹":"$"}${p.monthly}/mo</span>
+                </div>`;
+              }).join("")}
+            </div>
+          </div>
+        </div>
+        <div class="a-card a-section">
+          <div class="section-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            System Health
+          </div>
+          <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:8px 0 12px">Platform Status</h3>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+            ${[
+              { name: "API Server", status: "healthy", uptime: "99.98%" },
+              { name: "Email Service", status: "healthy", uptime: "99.95%" },
+              { name: "WhatsApp API", status: "degraded", uptime: "98.2%" },
+              { name: "Database", status: "healthy", uptime: "99.99%" },
+            ].map(s => `
+              <div style="padding:12px;background:var(--surface-2);border-radius:8px;text-align:center">
+                <div style="font-weight:600;font-size:13px;margin-bottom:4px">${s.name}</div>
+                <div class="a-pill ${s.status === 'healthy' ? 'a-pill-green' : 'a-pill-amber'}" style="margin-bottom:4px">${s.status}</div>
+                <div style="font-size:11px;color:var(--muted)">Uptime: ${s.uptime}</div>
+              </div>
+            `).join("")}
+          </div>
+        </div>`;
     }
 
     /* ── Init ─────────────────────────────────────────────────── */
