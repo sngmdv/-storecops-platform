@@ -37,7 +37,7 @@ app.listen(PORT, "0.0.0.0", async () => {
           console.log(`[BOOT] Seeded demo data for ${storeId}: ${seeded.events} events`);
         }
         if (!platform.demoSimulator.isRunning(storeId)) {
-          platform.demoSimulator.start(storeId, 5000);
+          platform.demoSimulator.start(storeId, 30000);
           simulated++;
         }
       }
@@ -47,7 +47,7 @@ app.listen(PORT, "0.0.0.0", async () => {
     const defaultId = platform.config.defaultStoreId;
     if (!storeIds.includes(defaultId)) {
       await platform.demoSeed.seed(defaultId);
-      platform.demoSimulator.start(defaultId, 5000);
+      platform.demoSimulator.start(defaultId, 30000);
       simulated++;
     }
 
@@ -80,8 +80,8 @@ async function hasRealCredentials(platform, storeId) {
 }
 
 // Growth loop heartbeat: run a full automation cycle for every
-// active store every 15 minutes.
-const CYCLE_INTERVAL_MS = 15 * 60 * 1000;
+// active store every 60 minutes.
+const CYCLE_INTERVAL_MS = 60 * 60 * 1000;
 setInterval(async () => {
   try {
     const allStores = await platform.store.users.find({});

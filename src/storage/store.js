@@ -10,8 +10,42 @@ const crypto = require("crypto");
  * a Mongo/Postgres adapter can implement identically later.
  */
 
+const COLLECTION_CAPS = {
+  events: 3000,
+  actions: 1000,
+  deliveries: 1000,
+  competitorSnapshots: 200,
+  externalSignals: 500,
+  sentimentSamples: 200,
+  competitorAds: 100,
+  monitoringEvents: 300,
+  notifications: 400,
+  activityLogs: 500,
+  retargetingAudiences: 100,
+  attributions: 50,
+  reports: 50,
+  seoAudits: 100,
+  siteAudits: 200,
+  campaignActions: 200,
+  supportTickets: 300,
+  featureUsage: 500,
+  marketingSpend: 200,
+};
+
 function createCollection(name) {
   const records = new Map();
+  const cap = COLLECTION_CAPS[name] || 0;
+
+  function evict() {
+    if (cap <= 0 || records.size <= cap) return;
+    const excess = records.size - cap;
+    let deleted = 0;
+    for (const key of records.keys()) {
+      if (deleted >= excess) break;
+      records.delete(key);
+      deleted++;
+    }
+  }
 
   return {
     name,
@@ -23,6 +57,7 @@ function createCollection(name) {
         ...doc,
       };
       records.set(record._id, record);
+      evict();
       return record;
     },
 
@@ -30,26 +65,37 @@ function createCollection(name) {
       return records.get(id) || null;
     },
 
-    /**
-     * Return all records matching a predicate. A plain object filter is
-     * matched on exact field equality; a function filter receives each
-     * record.
-     */
     async find(filter = {}) {
-      const all = [...records.values()];
-
       if (typeof filter === "function") {
-        return all.filter(filter);
+        const result = [];
+        for (const record of records.values()) {
+          if (filter(record)) result.push(record);
+        }
+        return result;
       }
 
-      return all.filter((record) =>
-        Object.entries(filter).every(([key, value]) => record[key] === value)
-      );
+      const filterKeys = Object.entries(filter);
+      const result = [];
+      for (const record of records.values()) {
+        if (filterKeys.every(([key, value]) => record[key] === value)) {
+          result.push(record);
+        }
+      }
+      return result;
     },
 
     async findOne(filter = {}) {
-      const matches = await this.find(filter);
-      return matches[0] || null;
+      if (typeof filter === "function") {
+        for (const record of records.values()) {
+          if (filter(record)) return record;
+        }
+        return null;
+      }
+      const filterKeys = Object.entries(filter);
+      for (const record of records.values()) {
+        if (filterKeys.every(([key, value]) => record[key] === value)) return record;
+      }
+      return null;
     },
 
     async update(id, patch) {
