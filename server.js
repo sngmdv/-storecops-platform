@@ -22,45 +22,6 @@ app.listen(PORT, "0.0.0.0", async () => {
   console.log(`[BOOT] API: ${publicUrl}/api/v1 (X-API-Key required) | Health: /health`);
   console.log(`[BOOT] Dashboard: ${publicUrl}/app`);
   console.log(`[BOOT] Environment: ${platform.config.env} | Storage: ${platform.config.storage}`);
-
-  // ── Seed + simulate ALL stores without real credentials ─────────────
-  try {
-    const allStores = await platform.store.users.find({});
-    const storeIds = [...new Set(allStores.map((u) => u.store_id).filter(Boolean))];
-    let simulated = 0;
-
-    for (const storeId of storeIds) {
-      const hasReal = await hasRealCredentials(platform, storeId);
-      if (!hasReal) {
-        const seeded = await platform.demoSeed.seed(storeId);
-        if (seeded.seeded) {
-          console.log(`[BOOT] Seeded demo data for ${storeId}: ${seeded.events} events`);
-        }
-        if (!platform.demoSimulator.isRunning(storeId)) {
-          platform.demoSimulator.start(storeId, 30000);
-          simulated++;
-        }
-      }
-    }
-
-    // Always ensure the default store is covered
-    const defaultId = platform.config.defaultStoreId;
-    if (!storeIds.includes(defaultId)) {
-      await platform.demoSeed.seed(defaultId);
-      platform.demoSimulator.start(defaultId, 30000);
-      simulated++;
-    }
-
-    // Auto-check onboarding steps for all stores based on actual state
-    const allIds = [...new Set([...storeIds, defaultId])];
-    for (const storeId of allIds) {
-      try { await platform.onboarding.autoCheck(storeId); } catch (_) {}
-    }
-
-    console.log(`[BOOT] Demo simulator active for ${simulated} store(s) — live activity enabled`);
-  } catch (err) {
-    console.error("[BOOT] Simulator startup failed:", err.message);
-  }
 });
 
 /** Check if a store has real integration credentials (Shopify/WooCommerce/BigCommerce). */

@@ -55,6 +55,22 @@
         <input id="signup-name" type="text" placeholder="Alex Founder" autocomplete="name" />
         <label>Store name</label>
         <input id="signup-store" type="text" placeholder="e.g. Aurora Gadgets" />
+        <label>Store platform</label>
+        <div class="select-wrapper">
+          <select id="signup-platform">
+            <option value="" disabled selected>Choose your platform</option>
+            <option value="shopify">Shopify</option>
+            <option value="woocommerce">WooCommerce</option>
+            <option value="bigcommerce">BigCommerce</option>
+            <option value="wix">Wix</option>
+            <option value="custom">Custom / Other store</option>
+          </select>
+          <svg class="select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <div id="platform-connect-hint" class="platform-connect-hint hidden">
+          <p id="platform-connect-text"></p>
+          <button id="platform-connect-btn" class="btn btn-sm btn-ghost" type="button">Connect now →</button>
+        </div>
         <label>Email</label>
         <input id="signup-email" type="email" placeholder="you@company.com" autocomplete="email" />
         <label>Password <span class="login-note-inline">(min 8 characters)</span></label>
@@ -62,31 +78,9 @@
         <button id="signup-btn" class="btn btn-grad btn-block">Create my store — free →</button>
       </div>
 
-      <!-- One-click platform connect -->
-      <div class="connect-divider"><span>or connect your store platform</span></div>
       <div id="connect-banner" class="connect-banner hidden"></div>
-      <div class="platform-grid">
-        <button class="platform-btn" data-platform="shopify" type="button">
-          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#95BF47" d="M17.2 5.6c0-.2-.2-.3-.3-.3s-2.4-.2-2.4-.2-1.6-1.6-1.8-1.8c-.2-.2-.5-.1-.7-.1l-.8 2.4c-1.3.4-2.5.8-2.6.8-.9.3-.9.3-1 1.2C7.5 8.4 6 20 6 20l11.7 2.2L20 21c0 0-2.7-15.2-2.8-15.4zM13 3.7l-1.5.5c0-.6-.1-1.4-.4-2 .8.2 1.5.9 1.9 1.5zM11 4.4l-2 .6c.4-1.2 1-1.8 1.6-2.1.3.4.4 1 .4 1.5z"/><path fill="#5E8E3E" d="M14.5 5.1l-.8 2.3c-1.3.4-2.5.8-2.6.8-.9.3-.9.3-1 1.2C10 10.2 6 20 6 20l11.7 2.2L20 21l-2.4-13.7s-2.3-.2-2.4-.2c-.2-.1-.4-.3-.7 0z"/><path fill="#FFF" d="M13.6 12.4l-1.3 4s-.6-.3-1.3-.3c-1 0-1 .6-1 1.1 0 1.4 2.3 1.7 2.3 3.8 0 1.6-1 2.7-2.4 2.7-1.6 0-2.5-1-2.5-1l.5-1.6s.9.7 1.6.7c.5 0 .7-.4.7-.7 0-1.2-2-1.2-2-3.3 0-1.7 1.2-3.4 3.7-3.4 1 .1 1.7.7 1.7.7z"/></svg>
-          <span>Shopify</span>
-        </button>
-        <button class="platform-btn" data-platform="woocommerce" type="button">
-          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="1" y="4" width="22" height="15" rx="3" fill="#7F54B3"/><path d="M6.5 15.5c-.3 0-.5-.3-.5-.7V9.3c0-.4.2-.7.6-.7.4 0 .7.3.8.8l.8 3.4 1-2.6c.1-.4.3-.6.6-.6s.5.2.6.6l1 2.6.8-3.4c.1-.5.4-.8.8-.8s.6.3.6.7v5.5c0 .4-.2.7-.5.7s-.5-.2-.6-.7l-.6-2.8-1 2.6c-.1.4-.3.6-.6.6s-.5-.2-.6-.6l-1-2.6-.6 2.8c-.2.5-.4.7-.7.7z" fill="#fff"/><path d="M18.8 19.5l1.7 3-2.9-1.6z" fill="#7F54B3"/></svg>
-          <span>WooCommerce</span>
-        </button>
-        <button class="platform-btn" data-platform="bigcommerce" type="button">
-          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#121118"/><text x="12" y="16" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#fff">bc</text></svg>
-          <span>BigCommerce</span>
-        </button>
-        <button class="platform-btn" data-platform="custom" type="button">
-          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="#22d3ee" stroke-width="1.8"/><ellipse cx="12" cy="12" rx="4.5" ry="10" fill="none" stroke="#22d3ee" stroke-width="1.4"/><path d="M2.5 12h19M3.5 7h17M3.5 17h17" stroke="#22d3ee" stroke-width="1.4" fill="none"/></svg>
-          <span>Custom store</span>
-        </button>
-      </div>
       <div id="platform-modal" class="platform-modal hidden"></div>
 
-      <div class="login-divider"><span>or</span></div>
-      <button id="demo-btn" class="btn btn-grad btn-block"><svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg> Launch instant demo store</button>
       <p id="login-error" class="login-error"></p>
     </div>
   </div>

@@ -432,21 +432,38 @@
   // through OAuth or the demo seeder. The old inline panel exposed raw
   // API keys to the browser, which is not suitable for production.
 
-  $("#demo-btn").addEventListener("click", async () => {
-    const btn = $("#demo-btn");
-    btn.disabled = true;
-    btn.textContent = "Seeding demo store…";
-    showAuthError("");
-    try {
-      api.saveSession("demo_store", "dev-key");
-      await api.post("/demo/seed", { store_id: "demo_store" });
-      await enterApp("demo_store", "dev-key");
-      toast(icon("rocket") + " Demo store is live — sales, carts, stock and competitors seeded.");
-    } catch (error) {
-      showAuthError(error.message);
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = icon("sparkles", "icon-sm") + " Launch instant demo store";
+  // Platform dropdown: show connect hint when a platform is selected.
+  const PLATFORM_HINTS = {
+    shopify: "Connect your Shopify store to sync products, orders and customers in real time.",
+    woocommerce: "Connect your WooCommerce store via REST API keys.",
+    bigcommerce: "Connect your BigCommerce store to sync products and orders.",
+    wix: "Wix integration is coming soon — you can still sign up and explore the platform.",
+    custom: "Enter your store URL after signup and we'll crawl your public catalog.",
+  };
+
+  function updatePlatformHint() {
+    const val = $("#signup-platform").value;
+    const hint = $("#platform-connect-hint");
+    const text = $("#platform-connect-text");
+    const btn = $("#platform-connect-btn");
+    if (!val || val === "wix") {
+      hint.classList.add("hidden");
+      return;
+    }
+    text.textContent = PLATFORM_HINTS[val] || "";
+    btn.dataset.platform = val;
+    hint.classList.remove("hidden");
+  }
+
+  if ($("#signup-platform")) {
+    $("#signup-platform").addEventListener("change", updatePlatformHint);
+  }
+
+  // Platform connect button in signup: opens the platform modal.
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("#platform-connect-btn");
+    if (btn && btn.dataset.platform) {
+      openPlatformModal(btn.dataset.platform);
     }
   });
 
@@ -3685,16 +3702,11 @@
   setTimeout(initNotificationCenter, 1500);
 
   // Task 49: Single, deterministic boot path.
-  // URL params (?demo=1, ?signup=1, ?connect_token=…) take priority
+  // URL params (?signup=1, ?connect_token=…) take priority
   // regardless of session state, then fall back to session restore.
   const bootParams = new URLSearchParams(location.search);
 
-  if (bootParams.get("demo") === "1") {
-    // Demo mode always starts fresh — clear any existing session.
-    api.clearSession();
-    $("#login").classList.remove("hidden");
-    $("#demo-btn").click();
-  } else if (api.session()) {
+  if (api.session()) {
     $("#login").classList.add("hidden");
     enterApp(api.session().storeId, api.session().apiKey);
   } else {
