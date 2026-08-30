@@ -2055,7 +2055,7 @@
         <p class="muted" style="margin-top:10px">WooCommerce and custom stores need no credentials here — they connect via REST keys / public catalog.</p>
       </div>
       <div class="card section-gap"><h3>Platform architecture</h3>
-        <p class="muted">6 layers · 63 tools: Data Foundation → Intelligence → Decision → Execution → Reporting &amp; Attribution → Growth Loop. Live monitoring runs on server-sent events; every sale decrements stock and broadcasts instantly.</p>
+        <p class="muted">How it works: Data → Intelligence → Decision → Execution → Reporting → Growth Loop. Every sale updates stock and analytics in real time.</p>
       </div>`;
 
     $("#gdpr-export").addEventListener("click", async () => {
