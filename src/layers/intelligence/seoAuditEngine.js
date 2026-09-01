@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 /**
  * Layer 2 — SEO Audit Engine.
@@ -8,64 +8,64 @@
  * persisted so weekly crawls can be compared over time.
  */
 
-function scoreChecks(checks) {
-  const passed = checks.filter((check) => check.pass).length;
-  return Math.round((passed / checks.length) * 100);
+function scoreChecks(checks,) {
+  const passed = checks.filter((check,) => check.pass,).length;
+  return Math.round((passed / checks.length) * 100,);
 }
 
-function createSeoAuditEngine({ store }) {
+function createSeoAuditEngine({ store, },) {
   /**
    * Run the audit against HTML. Kept separate from fetch so it is fully
    * testable without network access.
    */
-  function auditHtml(html, url) {
-    const getTag = (regex) => {
-      const match = html.match(regex);
+  function auditHtml(html, url,) {
+    const getTag = (regex,) => {
+      const match = html.match(regex,);
       return match ? match[1] : null;
     };
 
-    const title = getTag(/<title[^>]*>([\s\S]*?)<\/title>/i)?.trim() || null;
-    const description = getTag(/<meta[^>]+name=["']description["'][^>]+content=["']([\s\S]*?)["']/i);
-    const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-    const canonical = getTag(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i);
-    const viewport = /<meta[^>]+name=["']viewport["']/i.test(html);
+    const title = getTag(/<title[^>]*>([\s\S]*?)<\/title>/i,)?.trim() || null;
+    const description = getTag(/<meta[^>]+name=["']description["'][^>]+content=["']([\s\S]*?)["']/i,);
+    const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i,);
+    const canonical = getTag(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i,);
+    const viewport = /<meta[^>]+name=["']viewport["']/i.test(html,);
 
     const checks = [
       {
-        check: "title_tag",
+        check: 'title_tag',
         pass: !!title && title.length >= 10 && title.length <= 70,
-        detail: title || "missing",
+        detail: title || 'missing',
       },
       {
-        check: "meta_description",
+        check: 'meta_description',
         pass: !!description && description.length >= 50 && description.length <= 160,
-        detail: description || "missing",
+        detail: description || 'missing',
       },
       {
-        check: "single_h1",
-        pass: !!h1Match && (html.match(/<h1[\s>]/gi) || []).length === 1,
-        detail: h1Match ? h1Match[1].replace(/<[^>]+>/g, "").trim() : "missing",
+        check: 'single_h1',
+        pass: !!h1Match && (html.match(/<h1[\s>]/gi,) || []).length === 1,
+        detail: h1Match ? h1Match[1].replace(/<[^>]+>/g, '',).trim() : 'missing',
       },
       {
-        check: "canonical_link",
+        check: 'canonical_link',
         pass: !!canonical,
-        detail: canonical || "missing",
+        detail: canonical || 'missing',
       },
       {
-        check: "https",
-        pass: String(url).startsWith("https://"),
+        check: 'https',
+        pass: String(url,).startsWith('https://',),
         detail: url,
       },
       {
-        check: "mobile_viewport",
+        check: 'mobile_viewport',
         pass: viewport,
-        detail: viewport ? "present" : "missing",
+        detail: viewport ? 'present' : 'missing',
       },
     ];
 
     return {
       url,
-      score: scoreChecks(checks),
+      score: scoreChecks(checks,),
       checks,
       audited_at: new Date().toISOString(),
     };
@@ -75,21 +75,21 @@ function createSeoAuditEngine({ store }) {
     auditHtml,
 
     /** Fetch a live URL and audit it. Fails soft on network errors. */
-    async auditUrl(url) {
+    async auditUrl(url,) {
       let audit;
 
       try {
         const response = await fetch(url, {
-          headers: { "user-agent": "StorecopsGrowthPlatform/1.0 (SEO audit)" },
-          signal: AbortSignal.timeout(15000),
-        });
+          headers: { 'user-agent': 'StorecopsGrowthPlatform/1.0 (SEO audit)', },
+          signal: AbortSignal.timeout(15000,),
+        },);
         const html = await response.text();
-        audit = auditHtml(html, url);
-        audit.status = "ok";
+        audit = auditHtml(html, url,);
+        audit.status = 'ok';
       } catch (error) {
         audit = {
           url,
-          status: "unreachable",
+          status: 'unreachable',
           error: error.message,
           score: 0,
           checks: [],
@@ -97,18 +97,18 @@ function createSeoAuditEngine({ store }) {
         };
       }
 
-      await store.seoAudits.insert(audit);
+      await store.seoAudits.insert(audit,);
       return audit;
     },
 
     /** Audit history for trend comparison (weekly crawls). */
-    async history(url, limit = 10) {
-      const audits = await store.seoAudits.find((audit) => audit.url === url);
+    async history(url, limit = 10,) {
+      const audits = await store.seoAudits.find((audit,) => audit.url === url,);
       return audits
-        .sort((a, b) => b.audited_at.localeCompare(a.audited_at))
-        .slice(0, limit);
+        .sort((a, b,) => b.audited_at.localeCompare(a.audited_at,),)
+        .slice(0, limit,);
     },
   };
 }
 
-module.exports = { createSeoAuditEngine, scoreChecks };
+module.exports = { createSeoAuditEngine, scoreChecks, };

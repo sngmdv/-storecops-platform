@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 /**
  * Layer 1 — Event Tracking.
@@ -9,47 +9,47 @@
  */
 
 const EVENT_TYPES = new Set([
-  "page_view",
-  "product_view",
-  "cart_updated",
-  "cart_abandoned",
-  "checkout_started",
-  "checkout_completed",
-  "purchase",
-  "search",
-  "email_opened",
-  "email_clicked",
-  "whatsapp_sent",
-  "whatsapp_read",
-  "whatsapp_replied",
-  "push_sent",
-  "push_opened",
-  "competitor_view",
-  "refund",
-  "lead_captured",
-]);
+  'page_view',
+  'product_view',
+  'cart_updated',
+  'cart_abandoned',
+  'checkout_started',
+  'checkout_completed',
+  'purchase',
+  'search',
+  'email_opened',
+  'email_clicked',
+  'whatsapp_sent',
+  'whatsapp_read',
+  'whatsapp_replied',
+  'push_sent',
+  'push_opened',
+  'competitor_view',
+  'refund',
+  'lead_captured',
+],);
 
-function validateEvent(event) {
+function validateEvent(event,) {
   const errors = [];
 
-  if (!event || typeof event !== "object") {
-    return ["Event payload must be an object."];
+  if (!event || typeof event !== 'object') {
+    return ['Event payload must be an object.',];
   }
-  if (!event.event_type) errors.push("event_type is required.");
-  else if (!EVENT_TYPES.has(event.event_type))
-    errors.push(`Unknown event_type: ${event.event_type}`);
+  if (!event.event_type) errors.push('event_type is required.',);
+  else if (!EVENT_TYPES.has(event.event_type,))
+    errors.push(`Unknown event_type: ${event.event_type}`,);
 
-  if (!event.store_id) errors.push("store_id is required.");
+  if (!event.store_id) errors.push('store_id is required.',);
   if (!event.customer_id && !event.email && !event.session_id)
-    errors.push("At least one of customer_id, email or session_id is required.");
+    errors.push('At least one of customer_id, email or session_id is required.',);
 
-  if (event.total !== undefined && typeof event.total !== "number")
-    errors.push("total must be a number.");
+  if (event.total !== undefined && typeof event.total !== 'number')
+    errors.push('total must be a number.',);
 
   return errors;
 }
 
-function createEventTracker({ store, customerProfiles, consentService }) {
+function createEventTracker({ store, customerProfiles, consentService, },) {
   const listeners = [];
 
   return {
@@ -60,8 +60,8 @@ function createEventTracker({ store, customerProfiles, consentService }) {
      * live-order broadcaster). Listeners run after the event is logged
      * and the profile is updated.
      */
-    onEvent(listener) {
-      listeners.push(listener);
+    onEvent(listener,) {
+      listeners.push(listener,);
     },
 
     /**
@@ -74,10 +74,10 @@ function createEventTracker({ store, customerProfiles, consentService }) {
      * Transactional events (purchase, checkout_completed) are always
      * permitted as essential.
      */
-    async track(rawEvent) {
-      const errors = validateEvent(rawEvent);
+    async track(rawEvent,) {
+      const errors = validateEvent(rawEvent,);
       if (errors.length) {
-        return { accepted: false, errors };
+        return { accepted: false, errors, };
       }
 
       // ── Consent gate for behavioral tracking (Task 32) ──────────────
@@ -86,12 +86,12 @@ function createEventTracker({ store, customerProfiles, consentService }) {
         const check = await consentService.canTrackEvent(
           rawEvent.store_id,
           identity,
-          rawEvent.event_type
+          rawEvent.event_type,
         );
         if (!check.allowed) {
           return {
             accepted: false,
-            errors: [`Event type "${rawEvent.event_type}" requires ${check.category} consent.`],
+            errors: [`Event type "${rawEvent.event_type}" requires ${check.category} consent.`,],
             consent_blocked: true,
           };
         }
@@ -117,32 +117,32 @@ function createEventTracker({ store, customerProfiles, consentService }) {
 
       const event = {
         ...minimized,
-        high_priority: ["checkout_started", "checkout_completed", "purchase", "cart_abandoned"].includes(
-          rawEvent.event_type
+        high_priority: ['checkout_started', 'checkout_completed', 'purchase', 'cart_abandoned',].includes(
+          rawEvent.event_type,
         ),
       };
 
-      const logged = await store.events.insert(event);
+      const logged = await store.events.insert(event,);
 
       // Keep the unified profile in sync with every observed activity.
-      await customerProfiles.applyEvent(logged);
+      await customerProfiles.applyEvent(logged,);
 
       for (const listener of listeners) {
-        await listener(logged);
+        await listener(logged,);
       }
 
-      return { accepted: true, event_id: logged._id, high_priority: logged.high_priority };
+      return { accepted: true, event_id: logged._id, high_priority: logged.high_priority, };
     },
 
     /** Bulk ingest for webhook replays. */
-    async trackBatch(events) {
+    async trackBatch(events,) {
       const results = [];
       for (const event of events) {
-        results.push(await this.track(event));
+        results.push(await this.track(event,),);
       }
       return results;
     },
   };
 }
 
-module.exports = { createEventTracker, validateEvent, EVENT_TYPES };
+module.exports = { createEventTracker, validateEvent, EVENT_TYPES, };

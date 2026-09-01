@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 /**
  * Feature Adoption Tracker
@@ -11,43 +11,43 @@
  */
 
 const FEATURES = [
-  { id: "cart_recovery", name: "Cart Recovery", category: "automation" },
-  { id: "browse_abandonment", name: "Browse Abandonment", category: "automation" },
-  { id: "winback_campaigns", name: "Win-back Campaigns", category: "automation" },
-  { id: "churn_scoring", name: "Churn Scoring", category: "intelligence" },
-  { id: "competitor_tracking", name: "Competitor Tracking", category: "intelligence" },
-  { id: "seo_audit", name: "SEO Audit", category: "intelligence" },
-  { id: "sentiment_monitoring", name: "Sentiment Monitoring", category: "intelligence" },
-  { id: "demand_forecasting", name: "Demand Forecasting", category: "intelligence" },
-  { id: "inventory_advisor", name: "Inventory Advisor", category: "operations" },
-  { id: "recommendations", name: "Product Recommendations", category: "growth" },
-  { id: "referral_program", name: "Referral Program", category: "growth" },
-  { id: "weekly_reports", name: "Weekly Reports", category: "reporting" },
-  { id: "revenue_attribution", name: "Revenue Attribution", category: "reporting" },
-  { id: "whatsapp_recovery", name: "WhatsApp Recovery", category: "communication" },
-  { id: "email_campaigns", name: "Email Campaigns", category: "communication" },
+  { id: 'cart_recovery', name: 'Cart Recovery', category: 'automation', },
+  { id: 'browse_abandonment', name: 'Browse Abandonment', category: 'automation', },
+  { id: 'winback_campaigns', name: 'Win-back Campaigns', category: 'automation', },
+  { id: 'churn_scoring', name: 'Churn Scoring', category: 'intelligence', },
+  { id: 'competitor_tracking', name: 'Competitor Tracking', category: 'intelligence', },
+  { id: 'seo_audit', name: 'SEO Audit', category: 'intelligence', },
+  { id: 'sentiment_monitoring', name: 'Sentiment Monitoring', category: 'intelligence', },
+  { id: 'demand_forecasting', name: 'Demand Forecasting', category: 'intelligence', },
+  { id: 'inventory_advisor', name: 'Inventory Advisor', category: 'operations', },
+  { id: 'recommendations', name: 'Product Recommendations', category: 'growth', },
+  { id: 'referral_program', name: 'Referral Program', category: 'growth', },
+  { id: 'weekly_reports', name: 'Weekly Reports', category: 'reporting', },
+  { id: 'revenue_attribution', name: 'Revenue Attribution', category: 'reporting', },
+  { id: 'whatsapp_recovery', name: 'WhatsApp Recovery', category: 'communication', },
+  { id: 'email_campaigns', name: 'Email Campaigns', category: 'communication', },
 ];
 
-function createFeatureAdoption({ store }) {
+function createFeatureAdoption({ store, },) {
   /**
    * Record a feature activation for a store.
    */
-  async function recordActivation(store_id, feature_id, metadata = {}) {
-    if (!FEATURES.find((f) => f.id === feature_id)) {
-      throw new Error(`Unknown feature: ${feature_id}`);
+  async function recordActivation(store_id, feature_id, metadata = {},) {
+    if (!FEATURES.find((f,) => f.id === feature_id,)) {
+      throw new Error(`Unknown feature: ${feature_id}`,);
     }
 
     const existing = await store.featureUsage?.findOne({
       store_id,
       feature_id,
-    });
+    },);
 
     if (existing) {
       return store.featureUsage.update(existing._id, {
         last_used_at: new Date().toISOString(),
         usage_count: (existing.usage_count || 0) + 1,
-        metadata: { ...existing.metadata, ...metadata },
-      });
+        metadata: { ...existing.metadata, ...metadata, },
+      },);
     }
 
     return store.featureUsage?.insert({
@@ -57,17 +57,17 @@ function createFeatureAdoption({ store }) {
       last_used_at: new Date().toISOString(),
       usage_count: 1,
       metadata,
-    });
+    },);
   }
 
   /**
    * Get feature usage for a store.
    */
-  async function getStoreUsage(store_id) {
-    const usage = await store.featureUsage?.find({ store_id }) || [];
+  async function getStoreUsage(store_id,) {
+    const usage = await store.featureUsage?.find({ store_id, },) || [];
 
-    return FEATURES.map((feature) => {
-      const record = usage.find((u) => u.feature_id === feature.id);
+    return FEATURES.map((feature,) => {
+      const record = usage.find((u,) => u.feature_id === feature.id,);
       return {
         ...feature,
         activated: !!record,
@@ -75,22 +75,22 @@ function createFeatureAdoption({ store }) {
         last_used_at: record?.last_used_at || null,
         usage_count: record?.usage_count || 0,
       };
-    });
+    },);
   }
 
   /**
    * Get adoption heatmap data across all stores.
    */
   async function getHeatmapData() {
-    const allUsage = await store.featureUsage?.find({}) || [];
-    const stores = await store.onboardingStates?.find({}) || [];
-    const storeIds = stores.map((s) => s.store_id);
+    const allUsage = await store.featureUsage?.find({},) || [];
+    const stores = await store.onboardingStates?.find({},) || [];
+    const storeIds = stores.map((s,) => s.store_id,);
 
     // Build heatmap: rows = stores, columns = features
     const heatmap = {
-      features: FEATURES.map((f) => f.id),
-      feature_names: FEATURES.map((f) => f.name),
-      feature_categories: FEATURES.map((f) => f.category),
+      features: FEATURES.map((f,) => f.id,),
+      feature_names: FEATURES.map((f,) => f.name,),
+      feature_categories: FEATURES.map((f,) => f.category,),
       stores: [],
       summary: {
         total_stores: storeIds.length,
@@ -101,7 +101,7 @@ function createFeatureAdoption({ store }) {
     // Calculate feature adoption rates
     for (const feature of FEATURES) {
       const storesUsing = allUsage.filter(
-        (u) => u.feature_id === feature.id && storeIds.includes(u.store_id)
+        (u,) => u.feature_id === feature.id && storeIds.includes(u.store_id,),
       ).length;
       heatmap.summary.feature_adoption[feature.id] = {
         name: feature.name,
@@ -112,7 +112,7 @@ function createFeatureAdoption({ store }) {
 
     // Build per-store rows
     for (const storeId of storeIds) {
-      const storeUsage = allUsage.filter((u) => u.store_id === storeId);
+      const storeUsage = allUsage.filter((u,) => u.store_id === storeId,);
       const row = {
         store_id: storeId,
         features: {},
@@ -121,7 +121,7 @@ function createFeatureAdoption({ store }) {
 
       let activatedCount = 0;
       for (const feature of FEATURES) {
-        const record = storeUsage.find((u) => u.feature_id === feature.id);
+        const record = storeUsage.find((u,) => u.feature_id === feature.id,);
         row.features[feature.id] = {
           activated: !!record,
           usage_count: record?.usage_count || 0,
@@ -130,12 +130,12 @@ function createFeatureAdoption({ store }) {
         if (record) activatedCount++;
       }
 
-      row.score = Math.round((activatedCount / FEATURES.length) * 100);
-      heatmap.stores.push(row);
+      row.score = Math.round((activatedCount / FEATURES.length) * 100,);
+      heatmap.stores.push(row,);
     }
 
     // Sort by score descending
-    heatmap.stores.sort((a, b) => b.score - a.score);
+    heatmap.stores.sort((a, b,) => b.score - a.score,);
 
     return heatmap;
   }
@@ -147,18 +147,18 @@ function createFeatureAdoption({ store }) {
     const heatmap = await getHeatmapData();
 
     // Find power users (high adoption)
-    const powerUsers = heatmap.stores.filter((s) => s.score >= 70);
+    const powerUsers = heatmap.stores.filter((s,) => s.score >= 70,);
 
     // Find under-utilized features
-    const underUtilized = Object.values(heatmap.summary.feature_adoption)
-      .filter((f) => f.adoption_rate < 30)
-      .sort((a, b) => a.adoption_rate - b.adoption_rate);
+    const underUtilized = Object.values(heatmap.summary.feature_adoption,)
+      .filter((f,) => f.adoption_rate < 30,)
+      .sort((a, b,) => a.adoption_rate - b.adoption_rate,);
 
     // Calculate category adoption
     const categoryAdoption = {};
     for (const feature of FEATURES) {
       if (!categoryAdoption[feature.category]) {
-        categoryAdoption[feature.category] = { total: 0, activated: 0 };
+        categoryAdoption[feature.category] = { total: 0, activated: 0, };
       }
       categoryAdoption[feature.category].total++;
       const adoption = heatmap.summary.feature_adoption[feature.id];
@@ -168,7 +168,7 @@ function createFeatureAdoption({ store }) {
     }
 
     // Convert to rates
-    for (const [cat, data] of Object.entries(categoryAdoption)) {
+    for (const [cat, data,] of Object.entries(categoryAdoption,)) {
       categoryAdoption[cat] = {
         ...data,
         adoption_rate: data.total > 0 ? (data.activated / data.total) * 100 : 0,
@@ -179,7 +179,7 @@ function createFeatureAdoption({ store }) {
       total_stores: heatmap.summary.total_stores,
       avg_adoption_score:
         heatmap.stores.length > 0
-          ? Math.round(heatmap.stores.reduce((sum, s) => sum + s.score, 0) / heatmap.stores.length)
+          ? Math.round(heatmap.stores.reduce((sum, s,) => sum + s.score, 0,) / heatmap.stores.length,)
           : 0,
       power_users: powerUsers.length,
       under_utilized_features: underUtilized,
@@ -197,4 +197,4 @@ function createFeatureAdoption({ store }) {
   };
 }
 
-module.exports = { createFeatureAdoption, FEATURES };
+module.exports = { createFeatureAdoption, FEATURES, };

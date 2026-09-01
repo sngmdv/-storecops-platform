@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 /**
  * Weekly Email Scheduler
@@ -13,50 +13,50 @@
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 
-function createWeeklyScheduler({ store, reporting, emailService, emailTemplates, notificationService }) {
+function createWeeklyScheduler({ store, reporting, emailService, emailTemplates, notificationService, },) {
   let schedulerInterval = null;
   const sendHistory = new Map();
 
   function getNextSunday9AM() {
     const now = new Date();
     const daysUntilSunday = (7 - now.getDay()) % 7 || 7;
-    const nextSunday = new Date(now);
-    nextSunday.setDate(now.getDate() + daysUntilSunday);
-    nextSunday.setHours(9, 0, 0, 0);
+    const nextSunday = new Date(now,);
+    nextSunday.setDate(now.getDate() + daysUntilSunday,);
+    nextSunday.setHours(9, 0, 0, 0,);
     return nextSunday;
   }
 
-  function getWeekKey(date) {
-    const d = new Date(date);
-    const startOfYear = new Date(d.getFullYear(), 0, 1);
-    const weekNumber = Math.ceil(((d - startOfYear) / DAY_MS + startOfYear.getDay() + 1) / 7);
+  function getWeekKey(date,) {
+    const d = new Date(date,);
+    const startOfYear = new Date(d.getFullYear(), 0, 1,);
+    const weekNumber = Math.ceil(((d - startOfYear) / DAY_MS + startOfYear.getDay() + 1) / 7,);
     return `${d.getFullYear()}-W${weekNumber}`;
   }
 
-  async function sendWeeklyDigest(store_id) {
-    const weekKey = getWeekKey(new Date());
+  async function sendWeeklyDigest(store_id,) {
+    const weekKey = getWeekKey(new Date(),);
     const historyKey = `${store_id}:${weekKey}`;
 
     // Don't send if already sent this week
-    if (sendHistory.has(historyKey)) {
-      return { sent: false, reason: "already_sent_this_week" };
+    if (sendHistory.has(historyKey,)) {
+      return { sent: false, reason: 'already_sent_this_week', };
     }
 
     try {
       // Generate the weekly digest
-      const digest = await reporting.weeklyDigest(store_id);
+      const digest = await reporting.weeklyDigest(store_id,);
 
       // Get store owner email
-      const user = await store.users?.findOne({ store_id, role: "owner" });
+      const user = await store.users?.findOne({ store_id, role: 'owner', },);
       const email = user?.email;
 
       if (!email) {
-        return { sent: false, reason: "no_email_found" };
+        return { sent: false, reason: 'no_email_found', };
       }
 
       // Build email content
-      const subject = `📊 Your Weekly Store Report — ${digest.headline.revenue > 0 ? `$${digest.headline.revenue.toFixed(2)} revenue` : "Getting started"}`;
-      const body = buildDigestEmail(digest);
+      const subject = `📊 Your Weekly Store Report — ${digest.headline.revenue > 0 ? `$${digest.headline.revenue.toFixed(2,)} revenue` : 'Getting started'}`;
+      const body = buildDigestEmail(digest,);
 
       // Send email
       if (emailService) {
@@ -64,8 +64,8 @@ function createWeeklyScheduler({ store, reporting, emailService, emailTemplates,
           to: email,
           subject,
           html: body,
-          from: "Storecops <reports@storecops.ai>",
-        });
+          from: 'Storecops <reports@storecops.ai>',
+        },);
       }
 
       // Record in history
@@ -73,12 +73,12 @@ function createWeeklyScheduler({ store, reporting, emailService, emailTemplates,
         store_id,
         sent_at: new Date().toISOString(),
         week_key: weekKey,
-      });
+      },);
 
       // Persist to database
       await store.activityLogs?.insert({
         store_id,
-        type: "weekly_digest_sent",
+        type: 'weekly_digest_sent',
         week_key: weekKey,
         sent_at: new Date().toISOString(),
         digest_summary: {
@@ -86,34 +86,34 @@ function createWeeklyScheduler({ store, reporting, emailService, emailTemplates,
           actions_delivered: digest.headline.actions_delivered,
           roi_percent: digest.headline.roi_percent,
         },
-      });
+      },);
 
       // Send notification
       if (notificationService) {
         await notificationService.send(store_id, {
-          type: "weekly_digest",
-          title: "Weekly Report Sent",
+          type: 'weekly_digest',
+          title: 'Weekly Report Sent',
           message: `Your weekly performance report has been sent to ${email}`,
-          icon: "📊",
-          severity: "success",
-          category: "report",
-        });
+          icon: '📊',
+          severity: 'success',
+          category: 'report',
+        },);
       }
 
-      return { sent: true, email, week_key: weekKey };
+      return { sent: true, email, week_key: weekKey, };
     } catch (error) {
-      console.error(`Failed to send weekly digest for ${store_id}:`, error);
-      return { sent: false, reason: "error", error: error.message };
+      console.error(`Failed to send weekly digest for ${store_id}:`, error,);
+      return { sent: false, reason: 'error', error: error.message, };
     }
   }
 
-  function buildDigestEmail(digest) {
+  function buildDigestEmail(digest,) {
     const revenue = digest.headline.revenue || 0;
     const actions = digest.headline.actions_delivered || 0;
     const roi = digest.headline.roi_percent || 0;
-    const maturity = digest.headline.maturity_stage || "N/A";
+    const maturity = digest.headline.maturity_stage || 'N/A';
     const sentiment = digest.sentiment_trend?.current || 0;
-    const sentimentDir = digest.sentiment_trend?.direction || "N/A";
+    const sentimentDir = digest.sentiment_trend?.direction || 'N/A';
 
     return `
 <!DOCTYPE html>
@@ -147,7 +147,7 @@ function createWeeklyScheduler({ store, reporting, emailService, emailTemplates,
     <div class="content">
       <div class="metric-grid">
         <div class="metric">
-          <div class="metric-value">$${revenue.toFixed(2)}</div>
+          <div class="metric-value">$${revenue.toFixed(2,)}</div>
           <div class="metric-label">Total Revenue</div>
         </div>
         <div class="metric">
@@ -155,7 +155,7 @@ function createWeeklyScheduler({ store, reporting, emailService, emailTemplates,
           <div class="metric-label">Actions Delivered</div>
         </div>
         <div class="metric">
-          <div class="metric-value" style="color: ${roi >= 0 ? '#08906c' : '#ef4444'}">${roi.toFixed(1)}%</div>
+          <div class="metric-value" style="color: ${roi >= 0 ? '#08906c' : '#ef4444'}">${roi.toFixed(1,)}%</div>
           <div class="metric-label">ROI</div>
         </div>
         <div class="metric">
@@ -202,14 +202,14 @@ function createWeeklyScheduler({ store, reporting, emailService, emailTemplates,
         const now = new Date();
         // Send on Sunday at 9 AM
         if (now.getDay() === 0 && now.getHours() === 9) {
-          const allStores = await store.onboardingStates?.find({ completed: true }) || [];
+          const allStores = await store.onboardingStates?.find({ completed: true, },) || [];
           for (const state of allStores) {
-            await sendWeeklyDigest(state.store_id);
+            await sendWeeklyDigest(state.store_id,);
           }
         }
-      }, 60 * 60 * 1000); // Check every hour
+      }, 60 * 60 * 1000,); // Check every hour
 
-      console.log("[WeeklyScheduler] Started — will send digests every Sunday at 9 AM");
+      console.log('[WeeklyScheduler] Started — will send digests every Sunday at 9 AM',);
     },
 
     /**
@@ -217,7 +217,7 @@ function createWeeklyScheduler({ store, reporting, emailService, emailTemplates,
      */
     stop() {
       if (schedulerInterval) {
-        clearInterval(schedulerInterval);
+        clearInterval(schedulerInterval,);
         schedulerInterval = null;
       }
     },
@@ -230,22 +230,22 @@ function createWeeklyScheduler({ store, reporting, emailService, emailTemplates,
     /**
      * Get send history for a store.
      */
-    async getSendHistory(store_id, limit = 10) {
+    async getSendHistory(store_id, limit = 10,) {
       const logs = await store.activityLogs?.find({
         store_id,
-        type: "weekly_digest_sent",
-      }) || [];
+        type: 'weekly_digest_sent',
+      },) || [];
 
       return logs
-        .sort((a, b) => new Date(b.sent_at) - new Date(a.sent_at))
-        .slice(0, limit);
+        .sort((a, b,) => new Date(b.sent_at,) - new Date(a.sent_at,),)
+        .slice(0, limit,);
     },
 
     /**
      * Schedule a digest for immediate sending (for testing).
      */
-    async sendNow(store_id) {
-      return sendWeeklyDigest(store_id);
+    async sendNow(store_id,) {
+      return sendWeeklyDigest(store_id,);
     },
 
     /**
@@ -257,4 +257,4 @@ function createWeeklyScheduler({ store, reporting, emailService, emailTemplates,
   };
 }
 
-module.exports = { createWeeklyScheduler };
+module.exports = { createWeeklyScheduler, };

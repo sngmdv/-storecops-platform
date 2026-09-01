@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 /**
  * Layer 2 — Defection Detector.
@@ -12,7 +12,7 @@
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function createDefectionDetector({ store }) {
+function createDefectionDetector({ store, },) {
   return {
     /**
      * Scan a store's customers for defection signals.
@@ -21,9 +21,9 @@ function createDefectionDetector({ store }) {
      *   - recent competitor browsing signals, or
      *   - no purchase for `inactiveDays` while still visiting the site.
      */
-    async detect(store_id, { inactiveDays = 30, minSpend = 1 } = {}) {
-      const profiles = (await store.customers.find({ store_id })).filter(
-        (profile) => !profile.merged_into
+    async detect(store_id, { inactiveDays = 30, minSpend = 1, } = {},) {
+      const profiles = (await store.customers.find({ store_id, },)).filter(
+        (profile,) => !profile.merged_into,
       );
       const now = Date.now();
       const flagged = [];
@@ -32,9 +32,9 @@ function createDefectionDetector({ store }) {
         if (profile.total_spent < minSpend) continue;
 
         const daysSincePurchase = profile.last_purchase_at
-          ? Math.floor((now - new Date(profile.last_purchase_at).getTime()) / DAY_MS)
+          ? Math.floor((now - new Date(profile.last_purchase_at,).getTime()) / DAY_MS,)
           : null;
-        const daysSinceSeen = Math.floor((now - new Date(profile.last_seen).getTime()) / DAY_MS);
+        const daysSinceSeen = Math.floor((now - new Date(profile.last_seen,).getTime()) / DAY_MS,);
 
         const competitorSignal = (profile.competitor_views || 0) > 0;
         const lapsedButBrowsing =
@@ -43,10 +43,10 @@ function createDefectionDetector({ store }) {
         if (!competitorSignal && !lapsedButBrowsing) continue;
 
         const severity = competitorSignal && lapsedButBrowsing
-          ? "CRITICAL"
+          ? 'CRITICAL'
           : competitorSignal
-            ? "HIGH"
-            : "MEDIUM";
+            ? 'HIGH'
+            : 'MEDIUM';
 
         flagged.push({
           customer_id: profile.identity,
@@ -57,16 +57,16 @@ function createDefectionDetector({ store }) {
           days_since_purchase: daysSincePurchase,
           competitor_views: profile.competitor_views || 0,
           reasons: [
-            ...(competitorSignal ? [`Browsed competitor content ${profile.competitor_views} time(s).`] : []),
+            ...(competitorSignal ? [`Browsed competitor content ${profile.competitor_views} time(s).`,] : []),
             ...(lapsedButBrowsing
-              ? [`No purchase for ${daysSincePurchase} days but still visiting the store.`]
+              ? [`No purchase for ${daysSincePurchase} days but still visiting the store.`,]
               : []),
           ],
-          suggested_action: "Trigger a targeted win-back with a strong offer before the switch happens.",
-        });
+          suggested_action: 'Trigger a targeted win-back with a strong offer before the switch happens.',
+        },);
       }
 
-      flagged.sort((a, b) => b.total_spent - a.total_spent);
+      flagged.sort((a, b,) => b.total_spent - a.total_spent,);
 
       return {
         store_id,
@@ -78,4 +78,4 @@ function createDefectionDetector({ store }) {
   };
 }
 
-module.exports = { createDefectionDetector };
+module.exports = { createDefectionDetector, };

@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 /**
  * Composition root.
@@ -11,117 +11,117 @@
  * snapshots make the whole loop observable.
  */
 
-const config = require("./config/config");
-const { createStore } = require("./storage/store");
-const { createSqliteStore } = require("./storage/sqliteStore");
-const { EventEmitter } = require("node:events");
+const config = require('./config/config',);
+const { createStore, } = require('./storage/store',);
+const { createSqliteStore, } = require('./storage/sqliteStore',);
+const { EventEmitter, } = require('node:events',);
 
 // Redis store (lazy-loaded)
 let createRedisStore;
 try {
-  createRedisStore = require("./storage/redisStore").createStore;
+  createRedisStore = require('./storage/redisStore',).createStore;
 } catch {
   createRedisStore = null;
 }
 
 // Layer 1
-const { createCustomerProfiles } = require("./layers/data/customerProfile");
-const { createEventTracker } = require("./layers/data/eventTracker");
-const { createCompetitorIngestor } = require("./layers/data/competitorIngestor");
-const { createExternalSignals } = require("./layers/data/externalSignals");
-const { createSentimentCollector } = require("./layers/data/sentimentCollector");
-const { createInventoryLedger } = require("./layers/data/inventoryLedger");
-const { createSearchConsole } = require("./layers/data/searchConsole");
+const { createCustomerProfiles, } = require('./layers/data/customerProfile',);
+const { createEventTracker, } = require('./layers/data/eventTracker',);
+const { createCompetitorIngestor, } = require('./layers/data/competitorIngestor',);
+const { createExternalSignals, } = require('./layers/data/externalSignals',);
+const { createSentimentCollector, } = require('./layers/data/sentimentCollector',);
+const { createInventoryLedger, } = require('./layers/data/inventoryLedger',);
+const { createSearchConsole, } = require('./layers/data/searchConsole',);
 
 // Layer 2
-const { createRecommendationEngine } = require("./layers/intelligence/recommendationEngine");
-const { createChurnScoringEngine } = require("./layers/intelligence/churnScoring");
-const { createChannelOptimizer } = require("./layers/intelligence/channelOptimizer");
-const { createInventoryIntelligence } = require("./layers/intelligence/inventoryIntelligence");
-const { createSeoAuditEngine } = require("./layers/intelligence/seoAuditEngine");
-const { createTrendIntelligence } = require("./layers/intelligence/trendIntelligence");
-const { createCompetitorIntelligence } = require("./layers/intelligence/competitorIntelligence");
-const { createDemandForecastEngine } = require("./layers/intelligence/demandForecast");
-const { createBrandSentimentEngine } = require("./layers/intelligence/brandSentiment");
-const { createProductInsights } = require("./layers/intelligence/productInsights");
-const { createSeoGrowth } = require("./layers/intelligence/seoGrowth");
-const { createSeoAutoFix } = require("./layers/intelligence/seoAutoFix");
-const { createDeepAudit } = require("./layers/intelligence/deepAudit");
-const { createRetentionEngine } = require("./layers/intelligence/retentionEngine");
-const { createRevenueIntelligence } = require("./layers/intelligence/revenueIntelligence");
-const adminIntelligence = require("./layers/intelligence/adminIntelligence");
-const paymentEngine = require("./layers/intelligence/paymentEngine");
-const { createDefectionDetector } = require("./layers/intelligence/defectionDetector");
-const { createSeasonalAlerts } = require("./layers/intelligence/seasonalAlerts");
-const { createAdIntelligence } = require("./layers/intelligence/adIntelligence");
-const { createCompetitorScraper } = require("./layers/intelligence/competitorScraper");
-const { createMetaAdLibrary } = require("./layers/intelligence/metaAdLibrary");
+const { createRecommendationEngine, } = require('./layers/intelligence/recommendationEngine',);
+const { createChurnScoringEngine, } = require('./layers/intelligence/churnScoring',);
+const { createChannelOptimizer, } = require('./layers/intelligence/channelOptimizer',);
+const { createInventoryIntelligence, } = require('./layers/intelligence/inventoryIntelligence',);
+const { createSeoAuditEngine, } = require('./layers/intelligence/seoAuditEngine',);
+const { createTrendIntelligence, } = require('./layers/intelligence/trendIntelligence',);
+const { createCompetitorIntelligence, } = require('./layers/intelligence/competitorIntelligence',);
+const { createDemandForecastEngine, } = require('./layers/intelligence/demandForecast',);
+const { createBrandSentimentEngine, } = require('./layers/intelligence/brandSentiment',);
+const { createProductInsights, } = require('./layers/intelligence/productInsights',);
+const { createSeoGrowth, } = require('./layers/intelligence/seoGrowth',);
+const { createSeoAutoFix, } = require('./layers/intelligence/seoAutoFix',);
+const { createDeepAudit, } = require('./layers/intelligence/deepAudit',);
+const { createRetentionEngine, } = require('./layers/intelligence/retentionEngine',);
+const { createRevenueIntelligence, } = require('./layers/intelligence/revenueIntelligence',);
+const adminIntelligence = require('./layers/intelligence/adminIntelligence',);
+const paymentEngine = require('./layers/intelligence/paymentEngine',);
+const { createDefectionDetector, } = require('./layers/intelligence/defectionDetector',);
+const { createSeasonalAlerts, } = require('./layers/intelligence/seasonalAlerts',);
+const { createAdIntelligence, } = require('./layers/intelligence/adIntelligence',);
+const { createCompetitorScraper, } = require('./layers/intelligence/competitorScraper',);
+const { createMetaAdLibrary, } = require('./layers/intelligence/metaAdLibrary',);
 
 // Layer 3
-const { createRulesEngine } = require("./layers/decision/rulesEngine");
-const { createPersonalizationEngine } = require("./layers/decision/personalization");
-const { createDynamicPricingEngine } = require("./layers/decision/dynamicPricing");
-const { createOrchestrator } = require("./layers/decision/orchestrator");
-const { createSegmentationEngine } = require("./layers/decision/segmentation");
-const { createCampaignGenerator } = require("./layers/decision/campaignGenerator");
-const { createCampaignLifecycle } = require("./layers/decision/campaignLifecycle");
-const { createSendTimeOptimizer } = require("./layers/decision/sendTimeOptimizer");
+const { createRulesEngine, } = require('./layers/decision/rulesEngine',);
+const { createPersonalizationEngine, } = require('./layers/decision/personalization',);
+const { createDynamicPricingEngine, } = require('./layers/decision/dynamicPricing',);
+const { createOrchestrator, } = require('./layers/decision/orchestrator',);
+const { createSegmentationEngine, } = require('./layers/decision/segmentation',);
+const { createCampaignGenerator, } = require('./layers/decision/campaignGenerator',);
+const { createCampaignLifecycle, } = require('./layers/decision/campaignLifecycle',);
+const { createSendTimeOptimizer, } = require('./layers/decision/sendTimeOptimizer',);
 
 // Layer 4
-const { createProviderRegistry } = require("./layers/execution/providers");
-const { createWebsiteBot } = require("./layers/execution/websiteBot");
-const { createExecutionService } = require("./layers/execution/executionService");
-const { createRetargetingService } = require("./layers/execution/retargeting");
-const { createPurchaseOrderGenerator } = require("./layers/execution/purchaseOrders");
-const { createConsentService } = require("./layers/execution/consentService");
-const { createBillingService } = require("./layers/execution/billingService");
-const { createMonitoringService } = require("./layers/execution/monitoringService");
-const { createReferralService } = require("./layers/execution/referralService");
-const { createTrialService } = require("./layers/execution/trialService");
+const { createProviderRegistry, } = require('./layers/execution/providers',);
+const { createWebsiteBot, } = require('./layers/execution/websiteBot',);
+const { createExecutionService, } = require('./layers/execution/executionService',);
+const { createRetargetingService, } = require('./layers/execution/retargeting',);
+const { createPurchaseOrderGenerator, } = require('./layers/execution/purchaseOrders',);
+const { createConsentService, } = require('./layers/execution/consentService',);
+const { createBillingService, } = require('./layers/execution/billingService',);
+const { createMonitoringService, } = require('./layers/execution/monitoringService',);
+const { createReferralService, } = require('./layers/execution/referralService',);
+const { createTrialService, } = require('./layers/execution/trialService',);
 
 // Layer 5
-const { createAttributionEngine } = require("./layers/reporting/attribution");
-const { createReportingService } = require("./layers/reporting/reportingService");
-const { createLiveOrders } = require("./layers/reporting/liveOrders");
+const { createAttributionEngine, } = require('./layers/reporting/attribution',);
+const { createReportingService, } = require('./layers/reporting/reportingService',);
+const { createLiveOrders, } = require('./layers/reporting/liveOrders',);
 
 // Intelligence (for regional pricing)
-const { createRegionalPricingService } = require("./layers/intelligence/regionalPricing");
+const { createRegionalPricingService, } = require('./layers/intelligence/regionalPricing',);
 
 // Security & Administration
-const { createAuditLog, createRbac } = require("./server/security");
-const { createAuthService } = require("./server/auth");
-const { createStoreAudit } = require("./server/storeAudit");
-const { createIntegrations } = require("./server/integrations");
-const { createOauthConnectors } = require("./server/oauthConnectors");
-const { createDemoSeeder } = require("./server/demoSeed");
-const { createSecretRotationService } = require("./server/secretRotation");
-const { createEmailService } = require("./layers/execution/emailService");
-const { createPdfService } = require("./layers/execution/pdfService");
-const { createNotificationService } = require("./layers/execution/notificationService");
-const { createAhaMomentService } = require("./layers/execution/ahaMomentService");
-const { createSupportTicketService } = require("./layers/execution/supportTicketService");
-const { createWeeklyScheduler } = require("./layers/execution/weeklyScheduler");
-const { createCacTracker } = require("./layers/intelligence/cacTracker");
-const { createFeatureAdoption } = require("./layers/intelligence/featureAdoption");
-const { createActivityFeed } = require("./layers/execution/activityFeed");
-const { createEmailTemplates } = require("./layers/execution/emailTemplates");
-const { createActivityLog } = require("./server/activityLog");
-const { createTwoFactorAuth } = require("./server/twoFactorAuth");
-const { createDataExportService } = require("./server/dataExport");
-const { createOnboardingService } = require("./server/onboardingService");
-const { createWebhookRetryQueue } = require("./server/webhookRetryQueue");
-const { createTieredRateLimiter } = require("./server/tieredRateLimiter");
-const { createDemoSimulator } = require("./server/demoSimulator");
-const { collectAll } = require("./layers/data/signalCollectors");
+const { createAuditLog, createRbac, } = require('./server/security',);
+const { createAuthService, } = require('./server/auth',);
+const { createStoreAudit, } = require('./server/storeAudit',);
+const { createIntegrations, } = require('./server/integrations',);
+const { createOauthConnectors, } = require('./server/oauthConnectors',);
+const { createDemoSeeder, } = require('./server/demoSeed',);
+const { createSecretRotationService, } = require('./server/secretRotation',);
+const { createEmailService, } = require('./layers/execution/emailService',);
+const { createPdfService, } = require('./layers/execution/pdfService',);
+const { createNotificationService, } = require('./layers/execution/notificationService',);
+const { createAhaMomentService, } = require('./layers/execution/ahaMomentService',);
+const { createSupportTicketService, } = require('./layers/execution/supportTicketService',);
+const { createWeeklyScheduler, } = require('./layers/execution/weeklyScheduler',);
+const { createCacTracker, } = require('./layers/intelligence/cacTracker',);
+const { createFeatureAdoption, } = require('./layers/intelligence/featureAdoption',);
+const { createActivityFeed, } = require('./layers/execution/activityFeed',);
+const { createEmailTemplates, } = require('./layers/execution/emailTemplates',);
+const { createActivityLog, } = require('./server/activityLog',);
+const { createTwoFactorAuth, } = require('./server/twoFactorAuth',);
+const { createDataExportService, } = require('./server/dataExport',);
+const { createOnboardingService, } = require('./server/onboardingService',);
+const { createWebhookRetryQueue, } = require('./server/webhookRetryQueue',);
+const { createTieredRateLimiter, } = require('./server/tieredRateLimiter',);
+const { createDemoSimulator, } = require('./server/demoSimulator',);
+const { collectAll, } = require('./layers/data/signalCollectors',);
 
-function createPlatform(overrides = {}) {
+function createPlatform(overrides = {},) {
   // Each platform gets its own config copy so instances never mutate
   // shared state (matters when several run side by side, e.g. tests).
   const cfg = overrides.config || {
     ...config,
-    providers: { ...config.providers },
-    intelligence: { ...config.intelligence },
-    security: { ...config.security },
+    providers: { ...config.providers, },
+    intelligence: { ...config.intelligence, },
+    security: { ...config.security, },
   };
   // SQLite by default so data survives restarts; tests pass an
   // in-memory store (or STORAGE=memory) for speed.
@@ -129,107 +129,107 @@ function createPlatform(overrides = {}) {
   const useRedis = cfg.redis?.url || cfg.redis?.host;
   const store =
     overrides.store ||
-    (cfg.storage === "redis" && createRedisStore ? createRedisStore(cfg) :
-     cfg.storage === "sqlite" ? createSqliteStore(cfg.sqlitePath) :
-     createStore());
+    (cfg.storage === 'redis' && createRedisStore ? createRedisStore(cfg,) :
+      cfg.storage === 'sqlite' ? createSqliteStore(cfg.sqlitePath,) :
+        createStore());
 
   // Layer 1
-  const customerProfiles = createCustomerProfiles({ store });
+  const customerProfiles = createCustomerProfiles({ store, },);
 
   // Consent service must be created early — eventTracker depends on it
   // for consent-aware behavioral tracking (Task 32).
-  const consentService = createConsentService({ store });
+  const consentService = createConsentService({ store, },);
 
-  const eventTracker = createEventTracker({ store, customerProfiles, consentService });
-  const competitorIngestor = createCompetitorIngestor({ store });
-  const externalSignals = createExternalSignals({ store });
-  const sentimentCollector = createSentimentCollector({ store });
-  const inventoryLedger = createInventoryLedger({ store });
-  const searchConsole = createSearchConsole({ store });
+  const eventTracker = createEventTracker({ store, customerProfiles, consentService, },);
+  const competitorIngestor = createCompetitorIngestor({ store, },);
+  const externalSignals = createExternalSignals({ store, },);
+  const sentimentCollector = createSentimentCollector({ store, },);
+  const inventoryLedger = createInventoryLedger({ store, },);
+  const searchConsole = createSearchConsole({ store, },);
 
   // Live broadcast channel: purchases are pushed to SSE subscribers.
   const live = new EventEmitter();
-  live.setMaxListeners(0);
+  live.setMaxListeners(0,);
 
   // Real-time activity feed for admin dashboard.
-  const activityFeed = createActivityFeed({ store, live });
+  const activityFeed = createActivityFeed({ store, live, },);
 
   // Every sale decrements stock and is broadcast in real time.
-  eventTracker.onEvent(async (event) => {
-    if (inventoryLedger.SALE_EVENTS.has(event.event_type)) {
-      await inventoryLedger.onSale(event);
-      live.emit("purchase", {
+  eventTracker.onEvent(async (event,) => {
+    if (inventoryLedger.SALE_EVENTS.has(event.event_type,)) {
+      await inventoryLedger.onSale(event,);
+      live.emit('purchase', {
         store_id: event.store_id,
         event_type: event.event_type,
         customer: event.customer_id || event.email || null,
         items: event.items || [],
         total: event.total ?? null,
         at: event.timestamp,
-      });
+      },);
     }
-  });
+  },);
 
   // Layer 2
-  const recommendationEngine = createRecommendationEngine({ store });
-  const churnScoring = createChurnScoringEngine({ store, config: cfg });
-  const channelOptimizer = createChannelOptimizer({ store });
-  const inventoryIntelligence = createInventoryIntelligence({ store });
-  const seoAuditEngine = createSeoAuditEngine({ store });
-  const trendIntelligence = createTrendIntelligence({ store });
-  const competitorIntelligence = createCompetitorIntelligence({ store, competitorIngestor });
-  const demandForecastEngine = createDemandForecastEngine({ store, config: cfg });
-  const brandSentiment = createBrandSentimentEngine({ store, sentimentCollector });
-  const productInsights = createProductInsights({ store, inventoryIntelligence, inventoryLedger });
-  const seoGrowth = createSeoGrowth({ store, searchConsole });
-  const seoAutoFix = createSeoAutoFix({ store, seoGrowth });
-  const deepAudit = createDeepAudit({ store, config: cfg });
-  const retentionEngine = createRetentionEngine({ store, config: cfg });
-  const revenueIntelligence = createRevenueIntelligence({ store, config: cfg });
+  const recommendationEngine = createRecommendationEngine({ store, },);
+  const churnScoring = createChurnScoringEngine({ store, config: cfg, },);
+  const channelOptimizer = createChannelOptimizer({ store, },);
+  const inventoryIntelligence = createInventoryIntelligence({ store, },);
+  const seoAuditEngine = createSeoAuditEngine({ store, },);
+  const trendIntelligence = createTrendIntelligence({ store, },);
+  const competitorIntelligence = createCompetitorIntelligence({ store, competitorIngestor, },);
+  const demandForecastEngine = createDemandForecastEngine({ store, config: cfg, },);
+  const brandSentiment = createBrandSentimentEngine({ store, sentimentCollector, },);
+  const productInsights = createProductInsights({ store, inventoryIntelligence, inventoryLedger, },);
+  const seoGrowth = createSeoGrowth({ store, searchConsole, },);
+  const seoAutoFix = createSeoAutoFix({ store, seoGrowth, },);
+  const deepAudit = createDeepAudit({ store, config: cfg, },);
+  const retentionEngine = createRetentionEngine({ store, config: cfg, },);
+  const revenueIntelligence = createRevenueIntelligence({ store, config: cfg, },);
   // adminIntelligence is a plain object (no factory), functions take store data directly
-  const defectionDetector = createDefectionDetector({ store });
+  const defectionDetector = createDefectionDetector({ store, },);
   const seasonalAlerts = createSeasonalAlerts();
-  const adIntelligence = createAdIntelligence({ store });
-  const competitorScraper = createCompetitorScraper({ store, competitorIngestor });
-  const metaAdLibrary = createMetaAdLibrary({ config: cfg, adIntelligence });
-  const cacTracker = createCacTracker({ store });
-  const featureAdoption = createFeatureAdoption({ store });
+  const adIntelligence = createAdIntelligence({ store, },);
+  const competitorScraper = createCompetitorScraper({ store, competitorIngestor, },);
+  const metaAdLibrary = createMetaAdLibrary({ config: cfg, adIntelligence, },);
+  const cacTracker = createCacTracker({ store, },);
+  const featureAdoption = createFeatureAdoption({ store, },);
 
   // Layer 3
-  const rulesEngine = createRulesEngine({ store });
-  const personalization = createPersonalizationEngine({ store, recommendationEngine });
+  const rulesEngine = createRulesEngine({ store, },);
+  const personalization = createPersonalizationEngine({ store, recommendationEngine, },);
   const dynamicPricing = createDynamicPricingEngine({
     store,
     competitorIngestor,
     inventoryIntelligence,
     demandForecastEngine,
-  });
-  const segmentation = createSegmentationEngine({ store });
-  const campaignGenerator = createCampaignGenerator({ store, trendIntelligence, seasonalAlerts });
+  },);
+  const segmentation = createSegmentationEngine({ store, },);
+  const campaignGenerator = createCampaignGenerator({ store, trendIntelligence, seasonalAlerts, },);
   // Notification center must exist before campaignLifecycle (for launch notifications).
-  const notificationService = createNotificationService({ store });
-  const ahaMomentService = createAhaMomentService({ store, notificationService });
-  const supportTicketService = createSupportTicketService({ store, notificationService });
-  const orchestrator = createOrchestrator({ store, rulesEngine, churnScoring, brandSentiment, ahaMomentService });
-  const sendTimeOptimizer = createSendTimeOptimizer({ store });
+  const notificationService = createNotificationService({ store, },);
+  const ahaMomentService = createAhaMomentService({ store, notificationService, },);
+  const supportTicketService = createSupportTicketService({ store, notificationService, },);
+  const orchestrator = createOrchestrator({ store, rulesEngine, churnScoring, brandSentiment, ahaMomentService, },);
+  const sendTimeOptimizer = createSendTimeOptimizer({ store, },);
 
   // Layer 4
-  const providerRegistry = overrides.providerRegistry || createProviderRegistry(cfg, store);
-  const websiteBot = createWebsiteBot({ recommendationEngine, competitorIngestor });
+  const providerRegistry = overrides.providerRegistry || createProviderRegistry(cfg, store,);
+  const websiteBot = createWebsiteBot({ recommendationEngine, competitorIngestor, },);
 
   // Billing & Entitlements (Tasks 41-45)
-  const billingService = createBillingService({ store, config: cfg });
+  const billingService = createBillingService({ store, config: cfg, },);
 
   // Referral & Affiliate System
-  const referralService = createReferralService({ store, config: cfg });
+  const referralService = createReferralService({ store, config: cfg, },);
 
   // Trial Management
-  const trialService = createTrialService({ store, config: cfg });
+  const trialService = createTrialService({ store, config: cfg, },);
 
   // Regional Pricing (PPP)
-  const regionalPricing = createRegionalPricingService({ store, config: cfg });
+  const regionalPricing = createRegionalPricingService({ store, config: cfg, },);
 
   // Monitoring & Alerting (Task 65)
-  const monitoringService = createMonitoringService({ store, config: cfg });
+  const monitoringService = createMonitoringService({ store, config: cfg, },);
 
   const executionService = createExecutionService({
     store,
@@ -239,16 +239,16 @@ function createPlatform(overrides = {}) {
     providerRegistry,
     consentService,
     billingService,
-  });
+  },);
 
   // Campaign lifecycle depends on executionService + orchestrator + notificationService.
-  const campaignLifecycle = createCampaignLifecycle({ store, orchestrator, executionService, notificationService });
-  const retargeting = createRetargetingService({ store });
-  const purchaseOrders = createPurchaseOrderGenerator({ store, productInsights });
+  const campaignLifecycle = createCampaignLifecycle({ store, orchestrator, executionService, notificationService, },);
+  const retargeting = createRetargetingService({ store, },);
+  const purchaseOrders = createPurchaseOrderGenerator({ store, productInsights, },);
 
   // Layer 5
-  const attribution = createAttributionEngine({ store });
-  const liveOrders = createLiveOrders({ store });
+  const attribution = createAttributionEngine({ store, },);
+  const liveOrders = createLiveOrders({ store, },);
   const reporting = createReportingService({
     store,
     churnScoring,
@@ -256,13 +256,13 @@ function createPlatform(overrides = {}) {
     channelOptimizer,
     attribution,
     config: cfg,
-  });
+  },);
 
   // Security & Administration
-  const auditLog = createAuditLog({ store });
-  const rbac = createRbac({ store, auditLog });
-  const auth = createAuthService({ store, config: cfg, auditLog });
-  const siteAudit = createStoreAudit({ store, config: cfg });
+  const auditLog = createAuditLog({ store, },);
+  const rbac = createRbac({ store, auditLog, },);
+  const auth = createAuthService({ store, config: cfg, auditLog, },);
+  const siteAudit = createStoreAudit({ store, config: cfg, },);
 
   const platform = {
     config: cfg,
@@ -344,45 +344,45 @@ function createPlatform(overrides = {}) {
      * Real-time pipeline: ingest an event and immediately let the
      * decision layer react to high-priority ones.
      */
-    async trackAndReact(event) {
-      const tracked = await eventTracker.track(event);
+    async trackAndReact(event,) {
+      const tracked = await eventTracker.track(event,);
       if (!tracked.accepted) return tracked;
 
       let decision = null;
       if (tracked.high_priority) {
-        const logged = await store.events.findById(tracked.event_id);
-        decision = await orchestrator.handleEvent(logged);
+        const logged = await store.events.findById(tracked.event_id,);
+        decision = await orchestrator.handleEvent(logged,);
       }
 
-      return { ...tracked, decision };
+      return { ...tracked, decision, };
     },
 
     /**
      * One full automation cycle for a store: scan, execute, attribute.
      * This is the heartbeat of the growth loop.
      */
-    async runGrowthCycle(store_id) {
-      const scan = await orchestrator.scanStore(store_id);
-      const execution = await executionService.processStore(store_id);
-      const attributionReport = await attribution.attributeStore(store_id);
-      const report = await reporting.storeReport(store_id);
+    async runGrowthCycle(store_id,) {
+      const scan = await orchestrator.scanStore(store_id,);
+      const execution = await executionService.processStore(store_id,);
+      const attributionReport = await attribution.attributeStore(store_id,);
+      const report = await reporting.storeReport(store_id,);
 
-      return { scan, execution, attribution: attributionReport, report };
+      return { scan, execution, attribution: attributionReport, report, };
     },
   };
 
   // Demo seeder needs the fully assembled platform.
-  platform.demoSeed = createDemoSeeder(platform);
+  platform.demoSeed = createDemoSeeder(platform,);
   // Store connections (snippet/CSV/webhook/Shopify/Woo) as well.
-  platform.integrations = createIntegrations({ platform });
+  platform.integrations = createIntegrations({ platform, },);
   // One-click platform connect (OAuth handshakes + pending connections).
-  platform.oauth = createOauthConnectors({ platform });
+  platform.oauth = createOauthConnectors({ platform, },);
   // Secret rotation & revocation (Task 27)
-  platform.secretRotation = createSecretRotationService({ store, auditLog });
+  platform.secretRotation = createSecretRotationService({ store, auditLog, },);
   // Task ob9: Pluggable email service (console/resend/smtp).
-  platform.emailService = createEmailService({ config: cfg });
+  platform.emailService = createEmailService({ config: cfg, },);
   // Branded PDF report generator for deep audits.
-  platform.pdfService = createPdfService({ config: cfg });
+  platform.pdfService = createPdfService({ config: cfg, },);
   // Notification center — already created above (needed by campaignLifecycle).
   platform.notificationService = notificationService;
   // Aha moment detection — celebrates first milestones.
@@ -390,7 +390,7 @@ function createPlatform(overrides = {}) {
   // Support ticket system.
   platform.supportTicketService = supportTicketService;
   // Branded email templates for all transactional emails.
-  platform.emailTemplates = createEmailTemplates({ config: cfg });
+  platform.emailTemplates = createEmailTemplates({ config: cfg, },);
   // Weekly email scheduler — automated digest sending.
   platform.weeklyScheduler = createWeeklyScheduler({
     store,
@@ -398,23 +398,23 @@ function createPlatform(overrides = {}) {
     emailService: platform.emailService,
     emailTemplates: platform.emailTemplates,
     notificationService: platform.notificationService,
-  });
+  },);
   // Enhanced activity log — business-level audit trail.
-  platform.activityLog = createActivityLog({ store });
+  platform.activityLog = createActivityLog({ store, },);
   // Two-factor authentication (TOTP).
-  platform.twoFactorAuth = createTwoFactorAuth({ store });
+  platform.twoFactorAuth = createTwoFactorAuth({ store, },);
   // Full store data export (GDPR compliance).
-  platform.dataExport = createDataExportService({ store });
+  platform.dataExport = createDataExportService({ store, },);
   // Onboarding wizard — guided merchant setup.
-  platform.onboarding = createOnboardingService({ store });
+  platform.onboarding = createOnboardingService({ store, },);
   // Webhook retry queue — reliable outbound delivery.
-  platform.webhookQueue = createWebhookRetryQueue({ store, notificationService: platform.notificationService });
+  platform.webhookQueue = createWebhookRetryQueue({ store, notificationService: platform.notificationService, },);
   // Per-plan tiered rate limiter.
-  platform.tieredRateLimiter = createTieredRateLimiter({ platform });
+  platform.tieredRateLimiter = createTieredRateLimiter({ platform, },);
   // Live demo simulator — generates realistic events when no real credentials exist.
-  platform.demoSimulator = createDemoSimulator(platform);
+  platform.demoSimulator = createDemoSimulator(platform,);
   // External signal collectors — fetches trending data from Google Trends, Reddit, etc.
-  platform.signalCollectors = { collectAll: (storeId, keywords) => collectAll(storeId, keywords, externalSignals) };
+  platform.signalCollectors = { collectAll: (storeId, keywords,) => collectAll(storeId, keywords, externalSignals,), };
 
   // Start the weekly scheduler
   platform.weeklyScheduler.start();
@@ -422,4 +422,4 @@ function createPlatform(overrides = {}) {
   return platform;
 }
 
-module.exports = { createPlatform };
+module.exports = { createPlatform, };

@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 /**
  * Layer 2 — Meta Ad Library Integration.
@@ -17,11 +17,11 @@
  *   - Each competitor's Facebook Page ID
  */
 
-const API_VERSION = "v19.0";
-const GRAPH_BASE = "https://graph.facebook.com";
+const API_VERSION = 'v19.0';
+const GRAPH_BASE = 'https://graph.facebook.com';
 const REQUEST_TIMEOUT_MS = 20_000;
 
-function createMetaAdLibrary({ config, adIntelligence }) {
+function createMetaAdLibrary({ config, adIntelligence, },) {
   const accessToken =
     config?.metaAdLibraryToken ||
     process.env.META_AD_LIBRARY_TOKEN ||
@@ -41,53 +41,53 @@ function createMetaAdLibrary({ config, adIntelligence }) {
    * @param {Function} fetchFn — injectable fetch (for testing)
    * @returns {Array} normalized ad records ready for adIntelligence.ingest
    */
-  async function fetchPageAds(pageId, competitorName, fetchFn = globalThis.fetch) {
+  async function fetchPageAds(pageId, competitorName, fetchFn = globalThis.fetch,) {
     if (!accessToken) {
       throw new Error(
-        "META_AD_LIBRARY_TOKEN is not set. Get a token with ads_read permission from Meta Business Manager."
+        'META_AD_LIBRARY_TOKEN is not set. Get a token with ads_read permission from Meta Business Manager.',
       );
     }
     if (!pageId) {
-      throw new Error("pageId is required.");
+      throw new Error('pageId is required.',);
     }
 
-    const url = buildAdLibraryUrl(pageId);
-    const res = await fetchWithTimeout(url, fetchFn);
+    const url = buildAdLibraryUrl(pageId,);
+    const res = await fetchWithTimeout(url, fetchFn,);
 
     if (!res.ok) {
-      const errorBody = await safeJson(res);
+      const errorBody = await safeJson(res,);
       const msg = errorBody?.error?.message || `HTTP ${res.status}`;
-      throw new Error(`Meta Ad Library API error: ${msg}`);
+      throw new Error(`Meta Ad Library API error: ${msg}`,);
     }
 
     const json = await res.json();
     const rawData = json.data || [];
 
-    return rawData.map((ad) => normalizeAd(ad, competitorName, pageId));
+    return rawData.map((ad,) => normalizeAd(ad, competitorName, pageId,),);
   }
 
   /**
    * Fetch ads for ALL competitors that have a meta_page_id configured.
    * Ingests results into the existing adIntelligence module.
    */
-  async function scrapeAllCompetitors(store, fetchFn = globalThis.fetch) {
+  async function scrapeAllCompetitors(store, fetchFn = globalThis.fetch,) {
     if (!accessToken) {
       return {
-        status: "not_configured",
-        message: "META_AD_LIBRARY_TOKEN not set.",
+        status: 'not_configured',
+        message: 'META_AD_LIBRARY_TOKEN not set.',
         ads_scraped: 0,
       };
     }
 
     const tracked = await store.trackedCompetitors.find({
       enabled: true,
-    });
-    const withPageId = tracked.filter((c) => c.meta_page_id);
+    },);
+    const withPageId = tracked.filter((c,) => c.meta_page_id,);
 
     if (withPageId.length === 0) {
       return {
-        status: "no_competitors",
-        message: "No competitors have a Meta Page ID configured.",
+        status: 'no_competitors',
+        message: 'No competitors have a Meta Page ID configured.',
         ads_scraped: 0,
       };
     }
@@ -100,7 +100,7 @@ function createMetaAdLibrary({ config, adIntelligence }) {
         const ads = await fetchPageAds(
           competitor.meta_page_id,
           competitor.competitor,
-          fetchFn
+          fetchFn,
         );
         totalAds += ads.length;
 
@@ -109,28 +109,28 @@ function createMetaAdLibrary({ config, adIntelligence }) {
           await adIntelligence.ingest({
             store_id: competitor.store_id,
             ads,
-          });
+          },);
         }
 
         results.push({
           competitor: competitor.competitor,
           page_id: competitor.meta_page_id,
           ads_found: ads.length,
-          status: "success",
-        });
+          status: 'success',
+        },);
       } catch (error) {
         results.push({
           competitor: competitor.competitor,
           page_id: competitor.meta_page_id,
           ads_found: 0,
-          status: "failed",
+          status: 'failed',
           error: error.message,
-        });
+        },);
       }
     }
 
     return {
-      status: "success",
+      status: 'success',
       competitors_scraped: withPageId.length,
       ads_scraped: totalAds,
       results,
@@ -154,24 +154,24 @@ function createMetaAdLibrary({ config, adIntelligence }) {
  * Uses the ads_archive endpoint with search_page_ids to get all
  * active ads for a specific page.
  */
-function buildAdLibraryUrl(pageId, { accessToken, apiVersion = API_VERSION } = {}) {
-  const token = accessToken || process.env.META_AD_LIBRARY_TOKEN || "";
+function buildAdLibraryUrl(pageId, { accessToken, apiVersion = API_VERSION, } = {},) {
+  const token = accessToken || process.env.META_AD_LIBRARY_TOKEN || '';
   const params = new URLSearchParams({
     access_token: token,
     search_page_ids: pageId,
-    ad_active_status: "ACTIVE",
+    ad_active_status: 'ACTIVE',
     ad_reached_countries: '["US"]',
     fields: [
-      "ad_creative_bodies",
-      "ad_creative_link_captions",
-      "ad_creative_link_titles",
-      "ad_creative_link_descriptions",
-      "ad_delivery_start_time",
-      "ad_snapshot_url",
-      "page_name",
-    ].join(","),
-    limit: "100",
-  });
+      'ad_creative_bodies',
+      'ad_creative_link_captions',
+      'ad_creative_link_titles',
+      'ad_creative_link_descriptions',
+      'ad_delivery_start_time',
+      'ad_snapshot_url',
+      'page_name',
+    ].join(',',),
+    limit: '100',
+  },);
 
   return `${GRAPH_BASE}/${apiVersion}/ads_archive?${params}`;
 }
@@ -180,23 +180,23 @@ function buildAdLibraryUrl(pageId, { accessToken, apiVersion = API_VERSION } = {
  * Normalize a Meta Ad Library ad record into the format the
  * adIntelligence module expects.
  */
-function normalizeAd(metaAd, competitorName, pageId) {
+function normalizeAd(metaAd, competitorName, pageId,) {
   const bodies = metaAd.ad_creative_bodies || [];
   const titles = metaAd.ad_creative_link_titles || [];
   const captions = metaAd.ad_creative_link_captions || [];
 
   // Determine creative type from the snapshot URL or body content
-  const creativeType = detectCreativeType(metaAd);
+  const creativeType = detectCreativeType(metaAd,);
 
   // Extract CTA from captions or body text
-  const cta = extractCta(captions, bodies);
+  const cta = extractCta(captions, bodies,);
 
   // Build a headline from the title or first body text
-  const headline = titles[0] || truncate(bodies[0] || "", 80);
+  const headline = titles[0] || truncate(bodies[0] || '', 80,);
 
   return {
     competitor: competitorName,
-    platform: "meta",
+    platform: 'meta',
     creative_type: creativeType,
     headline,
     body: bodies[0] || null,
@@ -208,20 +208,20 @@ function normalizeAd(metaAd, competitorName, pageId) {
   };
 }
 
-function detectCreativeType(ad) {
-  const snapshot = (ad.ad_snapshot_url || "").toLowerCase();
-  if (snapshot.includes("video") || snapshot.includes(".mp4")) return "video";
-  if (snapshot.includes("carousel")) return "carousel";
+function detectCreativeType(ad,) {
+  const snapshot = (ad.ad_snapshot_url || '').toLowerCase();
+  if (snapshot.includes('video',) || snapshot.includes('.mp4',)) return 'video';
+  if (snapshot.includes('carousel',)) return 'carousel';
 
   // Check if body suggests video content
   const bodies = ad.ad_creative_bodies || [];
-  const bodyText = bodies.join(" ").toLowerCase();
-  if (bodyText.includes("watch") || bodyText.includes("video")) return "video";
+  const bodyText = bodies.join(' ',).toLowerCase();
+  if (bodyText.includes('watch',) || bodyText.includes('video',)) return 'video';
 
-  return "static";
+  return 'static';
 }
 
-function extractCta(captions, bodies) {
+function extractCta(captions, bodies,) {
   const ctaPatterns = [
     /shop now/i,
     /learn more/i,
@@ -239,7 +239,7 @@ function extractCta(captions, bodies) {
   // Check captions first
   for (const caption of captions) {
     for (const pattern of ctaPatterns) {
-      const match = caption.match(pattern);
+      const match = caption.match(pattern,);
       if (match) return match[0];
     }
   }
@@ -247,7 +247,7 @@ function extractCta(captions, bodies) {
   // Then body text
   for (const body of bodies) {
     for (const pattern of ctaPatterns) {
-      const match = body.match(pattern);
+      const match = body.match(pattern,);
       if (match) return match[0];
     }
   }
@@ -255,22 +255,22 @@ function extractCta(captions, bodies) {
   return captions[0] || null;
 }
 
-function truncate(str, maxLen) {
-  if (!str || str.length <= maxLen) return str || "";
-  return str.slice(0, maxLen - 3) + "...";
+function truncate(str, maxLen,) {
+  if (!str || str.length <= maxLen) return str || '';
+  return str.slice(0, maxLen - 3,) + '...';
 }
 
-async function fetchWithTimeout(url, fetchFn = globalThis.fetch) {
+async function fetchWithTimeout(url, fetchFn = globalThis.fetch,) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS,);
   try {
-    return await fetchFn(url, { signal: controller.signal });
+    return await fetchFn(url, { signal: controller.signal, },);
   } finally {
-    clearTimeout(timer);
+    clearTimeout(timer,);
   }
 }
 
-async function safeJson(res) {
+async function safeJson(res,) {
   try {
     return await res.json();
   } catch {
@@ -278,4 +278,4 @@ async function safeJson(res) {
   }
 }
 
-module.exports = { createMetaAdLibrary, buildAdLibraryUrl, normalizeAd };
+module.exports = { createMetaAdLibrary, buildAdLibraryUrl, normalizeAd, };

@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 /**
  * Layer 2 — Competitor Intelligence Engine.
@@ -8,9 +8,9 @@
  * findings into prioritized alerts.
  */
 
-function createCompetitorIntelligence({ store, competitorIngestor }) {
+function createCompetitorIntelligence({ store, competitorIngestor, },) {
   /** Diff two snapshots of the same competitor. */
-  function diffSnapshots(previous, latest) {
+  function diffSnapshots(previous, latest,) {
     const changes = {
       competitor: latest.competitor,
       price_drops: [],
@@ -21,14 +21,14 @@ function createCompetitorIntelligence({ store, competitorIngestor }) {
       possible_promotions: [],
     };
 
-    const prevById = new Map((previous?.products || []).map((p) => [p.id, p]));
-    const latestById = new Map(latest.products.map((p) => [p.id, p]));
+    const prevById = new Map((previous?.products || []).map((p,) => [p.id, p,],),);
+    const latestById = new Map(latest.products.map((p,) => [p.id, p,],),);
 
-    for (const [id, current] of latestById) {
-      const before = prevById.get(id);
+    for (const [id, current,] of latestById) {
+      const before = prevById.get(id,);
 
       if (!before) {
-        changes.new_products.push({ product_id: id, name: current.name, price: current.price });
+        changes.new_products.push({ product_id: id, name: current.name, price: current.price, },);
         continue;
       }
 
@@ -39,16 +39,16 @@ function createCompetitorIntelligence({ store, competitorIngestor }) {
           name: current.name,
           from: before.price,
           to: current.price,
-          change_pct: Number(dropPct.toFixed(1)),
-        });
+          change_pct: Number(dropPct.toFixed(1,),),
+        },);
 
         // A drop of 15%+ is very likely a promotion.
         if (dropPct >= 15) {
           changes.possible_promotions.push({
             product_id: id,
             name: current.name,
-            estimated_discount_pct: Number(dropPct.toFixed(1)),
-          });
+            estimated_discount_pct: Number(dropPct.toFixed(1,),),
+          },);
         }
       } else if (current.price > before.price) {
         changes.price_increases.push({
@@ -56,11 +56,11 @@ function createCompetitorIntelligence({ store, competitorIngestor }) {
           name: current.name,
           from: before.price,
           to: current.price,
-        });
+        },);
       }
 
       if (before.in_stock && !current.in_stock) {
-        changes.stockouts.push({ product_id: id, name: current.name });
+        changes.stockouts.push({ product_id: id, name: current.name, },);
       }
 
       // Explicit promotion/bundle signals captured by the ingestor (4.4).
@@ -69,13 +69,13 @@ function createCompetitorIntelligence({ store, competitorIngestor }) {
           product_id: id,
           name: current.name,
           detected_offer: current.promotion,
-        });
+        },);
       }
     }
 
-    for (const [id, before] of prevById) {
-      if (!latestById.has(id)) {
-        changes.removed_products.push({ product_id: id, name: before.name });
+    for (const [id, before,] of prevById) {
+      if (!latestById.has(id,)) {
+        changes.removed_products.push({ product_id: id, name: before.name, },);
       }
     }
 
@@ -83,58 +83,58 @@ function createCompetitorIntelligence({ store, competitorIngestor }) {
   }
 
   /** Priority: promotions and big price drops demand fastest response. */
-  function prioritize(changes) {
+  function prioritize(changes,) {
     const alerts = [];
 
     for (const promo of changes.possible_promotions) {
       alerts.push({
-        type: "COMPETITOR_PROMOTION",
-        priority: "HIGH",
+        type: 'COMPETITOR_PROMOTION',
+        priority: 'HIGH',
         message: promo.detected_offer
           ? `${changes.competitor} is running "${promo.detected_offer}" on ${promo.name}`
           : `${changes.competitor} is likely running a promotion (${promo.estimated_discount_pct}% off ${promo.name})`,
         detail: promo,
-      });
+      },);
     }
 
     for (const drop of changes.price_drops) {
       alerts.push({
-        type: "PRICE_DROP",
-        priority: drop.change_pct >= 10 ? "HIGH" : "MEDIUM",
+        type: 'PRICE_DROP',
+        priority: drop.change_pct >= 10 ? 'HIGH' : 'MEDIUM',
         message: `${changes.competitor} cut ${drop.name} price by ${drop.change_pct}%`,
         detail: drop,
-      });
+      },);
     }
 
     for (const stockout of changes.stockouts) {
       alerts.push({
-        type: "COMPETITOR_STOCKOUT",
-        priority: "MEDIUM",
+        type: 'COMPETITOR_STOCKOUT',
+        priority: 'MEDIUM',
         message: `${stockout.name} is out of stock at ${changes.competitor} — capture their demand`,
         detail: stockout,
-      });
+      },);
     }
 
     for (const added of changes.new_products) {
       alerts.push({
-        type: "CATALOG_ADDITION",
-        priority: "LOW",
+        type: 'CATALOG_ADDITION',
+        priority: 'LOW',
         message: `${changes.competitor} added ${added.name}`,
         detail: added,
-      });
+      },);
     }
 
     for (const removed of changes.removed_products) {
       alerts.push({
-        type: "CATALOG_REMOVAL",
-        priority: "LOW",
+        type: 'CATALOG_REMOVAL',
+        priority: 'LOW',
         message: `${changes.competitor} removed ${removed.name}`,
         detail: removed,
-      });
+      },);
     }
 
-    const order = { HIGH: 0, MEDIUM: 1, LOW: 2 };
-    return alerts.sort((a, b) => order[a.priority] - order[b.priority]);
+    const order = { HIGH: 0, MEDIUM: 1, LOW: 2, };
+    return alerts.sort((a, b,) => order[a.priority] - order[b.priority],);
   }
 
   return {
@@ -142,40 +142,40 @@ function createCompetitorIntelligence({ store, competitorIngestor }) {
     prioritize,
 
     /** Analyze one competitor using the last two stored snapshots. */
-    async analyzeCompetitor(store_id, competitor) {
-      const { previous, latest } = await competitorIngestor.snapshotPair(store_id, competitor);
+    async analyzeCompetitor(store_id, competitor,) {
+      const { previous, latest, } = await competitorIngestor.snapshotPair(store_id, competitor,);
 
       if (!latest) {
-        return { competitor, status: "NO_DATA", changes: null, alerts: [] };
+        return { competitor, status: 'NO_DATA', changes: null, alerts: [], };
       }
       if (!previous || previous._id === latest._id) {
-        return { competitor, status: "BASELINE_ONLY", changes: null, alerts: [] };
+        return { competitor, status: 'BASELINE_ONLY', changes: null, alerts: [], };
       }
 
-      const changes = diffSnapshots(previous, latest);
+      const changes = diffSnapshots(previous, latest,);
       return {
         competitor,
-        status: "ANALYZED",
+        status: 'ANALYZED',
         changes,
-        alerts: prioritize(changes),
-        compared: { from: previous.captured_at, to: latest.captured_at },
+        alerts: prioritize(changes,),
+        compared: { from: previous.captured_at, to: latest.captured_at, },
       };
     },
 
     /** Full competitive landscape for a store. */
-    async analyzeStore(store_id) {
-      const snapshots = await competitorIngestor.latestSnapshots(store_id);
+    async analyzeStore(store_id,) {
+      const snapshots = await competitorIngestor.latestSnapshots(store_id,);
       const results = [];
 
       for (const snapshot of snapshots) {
-        results.push(await this.analyzeCompetitor(store_id, snapshot.competitor));
+        results.push(await this.analyzeCompetitor(store_id, snapshot.competitor,),);
       }
 
       return {
         store_id,
         analyzed_at: new Date().toISOString(),
         competitors: results,
-        high_priority_alerts: results.flatMap((r) => r.alerts).filter((a) => a.priority === "HIGH"),
+        high_priority_alerts: results.flatMap((r,) => r.alerts,).filter((a,) => a.priority === 'HIGH',),
       };
     },
 
@@ -183,17 +183,17 @@ function createCompetitorIntelligence({ store, competitorIngestor }) {
      * Monthly competitive landscape report (9.7): positioning, price
      * posture and activity summary per competitor.
      */
-    async landscapeReport(store_id) {
-      const snapshots = await competitorIngestor.latestSnapshots(store_id);
-      const analysis = await this.analyzeStore(store_id);
+    async landscapeReport(store_id,) {
+      const snapshots = await competitorIngestor.latestSnapshots(store_id,);
+      const analysis = await this.analyzeStore(store_id,);
 
-      const competitors = snapshots.map((snapshot) => {
-        const prices = snapshot.products.map((p) => p.price).filter((p) => Number.isFinite(p));
+      const competitors = snapshots.map((snapshot,) => {
+        const prices = snapshot.products.map((p,) => p.price,).filter((p,) => Number.isFinite(p,),);
         const avgPrice = prices.length
-          ? Number((prices.reduce((a, b) => a + b, 0) / prices.length).toFixed(2))
+          ? Number((prices.reduce((a, b,) => a + b, 0,) / prices.length).toFixed(2,),)
           : null;
         const competitorAnalysis = analysis.competitors.find(
-          (c) => c.competitor === snapshot.competitor
+          (c,) => c.competitor === snapshot.competitor,
         );
 
         return {
@@ -202,31 +202,31 @@ function createCompetitorIntelligence({ store, competitorIngestor }) {
           avg_price: avgPrice,
           in_stock_rate: snapshot.products.length
             ? Number(
-                (
-                  snapshot.products.filter((p) => p.in_stock).length / snapshot.products.length
-                ).toFixed(2)
-              )
+              (
+                snapshot.products.filter((p,) => p.in_stock,).length / snapshot.products.length
+              ).toFixed(2,),
+            )
             : null,
-          active_promotions: snapshot.products.filter((p) => p.promotion).length,
+          active_promotions: snapshot.products.filter((p,) => p.promotion,).length,
           recent_alerts: competitorAnalysis?.alerts?.length ?? 0,
           last_seen: snapshot.captured_at,
         };
-      });
+      },);
 
       // Simple attention-share estimate: alerts are a proxy for activity.
-      const totalAlerts = competitors.reduce((sum, c) => sum + c.recent_alerts, 0) || 1;
+      const totalAlerts = competitors.reduce((sum, c,) => sum + c.recent_alerts, 0,) || 1;
       for (const competitor of competitors) {
-        competitor.activity_share_pct = Math.round((competitor.recent_alerts / totalAlerts) * 100);
+        competitor.activity_share_pct = Math.round((competitor.recent_alerts / totalAlerts) * 100,);
       }
 
       return {
         store_id,
-        period: "monthly",
-        competitors: competitors.sort((a, b) => b.recent_alerts - a.recent_alerts),
+        period: 'monthly',
+        competitors: competitors.sort((a, b,) => b.recent_alerts - a.recent_alerts,),
         total_high_priority_alerts: analysis.high_priority_alerts.length,
         positioning_summary:
           competitors.length === 0
-            ? "No competitors tracked yet."
+            ? 'No competitors tracked yet.'
             : `Tracking ${competitors.length} competitor(s); most active: ${competitors[0].competitor}.`,
         generated_at: new Date().toISOString(),
       };
@@ -234,4 +234,4 @@ function createCompetitorIntelligence({ store, competitorIngestor }) {
   };
 }
 
-module.exports = { createCompetitorIntelligence };
+module.exports = { createCompetitorIntelligence, };

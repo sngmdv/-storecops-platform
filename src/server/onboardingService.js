@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 /**
  * Onboarding Wizard — guided setup flow for new merchants.
@@ -17,15 +17,15 @@
  */
 
 const STEPS = [
-  { id: "welcome", title: "Welcome to Storecops", description: "Let's get your store connected." },
-  { id: "connect_store", title: "Connect Your Store", description: "Link your Shopify, WooCommerce, or custom store." },
-  { id: "activate_tracking", title: "Activate Tracking", description: "Install the tracking snippet to start collecting data." },
-  { id: "first_audit", title: "Run Your First Audit", description: "Get a comprehensive health score for your store." },
-  { id: "choose_plan", title: "Choose Your Plan", description: "Select the plan that fits your growth goals." },
-  { id: "add_competitors", title: "Add Competitors", description: "Track competitor pricing and strategies." },
-  { id: "brand_keywords", title: "Set Brand Keywords", description: "Add keywords to monitor your brand mentions and sentiment." },
-  { id: "first_automation", title: "Set Up Automation", description: "Configure your first automated campaign." },
-  { id: "complete", title: "You're All Set!", description: "Your store is fully configured for growth." },
+  { id: 'welcome', title: 'Welcome to Storecops', description: 'Let\'s get your store connected.', },
+  { id: 'connect_store', title: 'Connect Your Store', description: 'Link your Shopify, WooCommerce, or custom store.', },
+  { id: 'activate_tracking', title: 'Activate Tracking', description: 'Install the tracking snippet to start collecting data.', },
+  { id: 'first_audit', title: 'Run Your First Audit', description: 'Get a comprehensive health score for your store.', },
+  { id: 'choose_plan', title: 'Choose Your Plan', description: 'Select the plan that fits your growth goals.', },
+  { id: 'add_competitors', title: 'Add Competitors', description: 'Track competitor pricing and strategies.', },
+  { id: 'brand_keywords', title: 'Set Brand Keywords', description: 'Add keywords to monitor your brand mentions and sentiment.', },
+  { id: 'first_automation', title: 'Set Up Automation', description: 'Configure your first automated campaign.', },
+  { id: 'complete', title: 'You\'re All Set!', description: 'Your store is fully configured for growth.', },
 ];
 
 const STEP_WEIGHTS = {
@@ -40,33 +40,33 @@ const STEP_WEIGHTS = {
   complete: 5,
 };
 
-function createOnboardingService({ store }) {
+function createOnboardingService({ store, },) {
   const service = {
     STEPS,
 
     /**
      * Persist an onboarding state to storage.
      */
-    async _persist(state) {
+    async _persist(state,) {
       if (!store.onboardingStates) return;
-      const existing = await store.onboardingStates.findOne({ store_id: state.store_id });
+      const existing = await store.onboardingStates.findOne({ store_id: state.store_id, },);
       if (existing) {
-        await store.onboardingStates.update(existing._id, state);
+        await store.onboardingStates.update(existing._id, state,);
       } else {
-        await store.onboardingStates.insert(state);
+        await store.onboardingStates.insert(state,);
       }
     },
 
     /**
      * Advance current_step and recalculate completion.
      */
-    _advance(state) {
+    _advance(state,) {
       const nextIncomplete = STEPS.find(
-        (s) => !state.steps[s.id].completed && !state.steps[s.id].skipped,
+        (s,) => !state.steps[s.id].completed && !state.steps[s.id].skipped,
       );
-      state.current_step = nextIncomplete?.id || "complete";
-      const completedSteps = STEPS.filter((s) => state.steps[s.id].completed).length;
-      state.completion_pct = Math.round((completedSteps / STEPS.length) * 100);
+      state.current_step = nextIncomplete?.id || 'complete';
+      const completedSteps = STEPS.filter((s,) => state.steps[s.id].completed,).length;
+      state.completion_pct = Math.round((completedSteps / STEPS.length) * 100,);
       if (completedSteps === STEPS.length) {
         state.completed = true;
         state.completed_at = new Date().toISOString();
@@ -77,16 +77,16 @@ function createOnboardingService({ store }) {
      * Get the onboarding state for a store.
      * Creates a fresh state if none exists.
      */
-    async getState(store_id) {
-      if (!store_id) throw new Error("store_id is required");
+    async getState(store_id,) {
+      if (!store_id) throw new Error('store_id is required',);
 
-      const existing = await store.onboardingStates?.findOne({ store_id });
+      const existing = await store.onboardingStates?.findOne({ store_id, },);
       if (existing) return existing;
 
       // Initialize fresh onboarding state.
       const state = {
         store_id,
-        current_step: "welcome",
+        current_step: 'welcome',
         steps: {},
         started_at: new Date().toISOString(),
         completed: false,
@@ -103,7 +103,7 @@ function createOnboardingService({ store }) {
       }
 
       if (store.onboardingStates) {
-        await store.onboardingStates.insert(state);
+        await store.onboardingStates.insert(state,);
       }
       return state;
     },
@@ -111,19 +111,19 @@ function createOnboardingService({ store }) {
     /**
      * Mark a step as completed.
      */
-    async completeStep(store_id, step_id, data = {}) {
-      if (!store_id) throw new Error("store_id is required");
-      if (!STEPS.find((s) => s.id === step_id)) throw new Error(`Unknown step: ${step_id}`);
+    async completeStep(store_id, step_id, data = {},) {
+      if (!store_id) throw new Error('store_id is required',);
+      if (!STEPS.find((s,) => s.id === step_id,)) throw new Error(`Unknown step: ${step_id}`,);
 
-      const state = await service.getState(store_id);
-      if (!state.steps[step_id]) throw new Error(`Step not found: ${step_id}`);
+      const state = await service.getState(store_id,);
+      if (!state.steps[step_id]) throw new Error(`Step not found: ${step_id}`,);
 
       state.steps[step_id].completed = true;
       state.steps[step_id].completed_at = new Date().toISOString();
-      state.steps[step_id].data = { ...state.steps[step_id].data, ...data };
+      state.steps[step_id].data = { ...state.steps[step_id].data, ...data, };
 
-      service._advance(state);
-      await service._persist(state);
+      service._advance(state,);
+      await service._persist(state,);
 
       return state;
     },
@@ -131,13 +131,13 @@ function createOnboardingService({ store }) {
     /**
      * Skip a step (merchant doesn't want to do it now).
      */
-    async skipStep(store_id, step_id) {
-      const state = await service.getState(store_id);
-      if (!state.steps[step_id]) throw new Error(`Step not found: ${step_id}`);
+    async skipStep(store_id, step_id,) {
+      const state = await service.getState(store_id,);
+      if (!state.steps[step_id]) throw new Error(`Step not found: ${step_id}`,);
 
       state.steps[step_id].skipped = true;
-      service._advance(state);
-      await service._persist(state);
+      service._advance(state,);
+      await service._persist(state,);
 
       return state;
     },
@@ -146,55 +146,55 @@ function createOnboardingService({ store }) {
      * Auto-detect completed steps based on actual store state.
      * Call this on dashboard load, after integrations, after sync, etc.
      */
-    async autoCheck(store_id) {
-      const state = await service.getState(store_id);
+    async autoCheck(store_id,) {
+      const state = await service.getState(store_id,);
       const updates = [];
 
       // welcome — mark when user first accesses dashboard
       if (!state.steps.welcome.completed) {
-        updates.push("welcome");
+        updates.push('welcome',);
       }
 
       // connect_store — any integration with status "connected"
-      const integrations = await store.integrations?.find({ store_id }) || [];
-      if (integrations.some((i) => i.status === "connected")) {
-        updates.push("connect_store");
+      const integrations = await store.integrations?.find({ store_id, },) || [];
+      if (integrations.some((i,) => i.status === 'connected',)) {
+        updates.push('connect_store',);
       }
 
       // activate_tracking — events have been tracked
-      const tracker = await store.events?.find({ store_id }) || [];
+      const tracker = await store.events?.find({ store_id, },) || [];
       if (tracker.length > 0) {
-        updates.push("activate_tracking");
+        updates.push('activate_tracking',);
       }
 
       // first_audit — SEO data exists
-      const seo = await store.seoAuditResults?.findOne({ store_id });
+      const seo = await store.seoAuditResults?.findOne({ store_id, },);
       if (seo) {
-        updates.push("first_audit");
+        updates.push('first_audit',);
       }
 
       // choose_plan — billing is active
-      const billing = await store.billing?.findOne({ store_id });
-      if (billing && billing.status === "active") {
-        updates.push("choose_plan");
+      const billing = await store.billing?.findOne({ store_id, },);
+      if (billing && billing.status === 'active') {
+        updates.push('choose_plan',);
       }
 
       // add_competitors — competitors are tracked
-      const competitors = await store.trackedCompetitors?.find({ store_id }) || [];
+      const competitors = await store.trackedCompetitors?.find({ store_id, },) || [];
       if (competitors.length > 0) {
-        updates.push("add_competitors");
+        updates.push('add_competitors',);
       }
 
       // brand_keywords — brand keywords are configured
-      const customer = await store.customers?.findOne({ store_id });
+      const customer = await store.customers?.findOne({ store_id, },);
       if (customer?.brand_keywords && customer.brand_keywords.length > 0) {
-        updates.push("brand_keywords");
+        updates.push('brand_keywords',);
       }
 
       // first_automation — automation rules exist
-      const automations = await store.automationRules?.find({ store_id }) || [];
+      const automations = await store.automationRules?.find({ store_id, },) || [];
       if (automations.length > 0) {
-        updates.push("first_automation");
+        updates.push('first_automation',);
       }
 
       // Apply all updates
@@ -208,8 +208,8 @@ function createOnboardingService({ store }) {
       }
 
       if (changed) {
-        service._advance(state);
-        await service._persist(state);
+        service._advance(state,);
+        await service._persist(state,);
       }
 
       return state;
@@ -218,18 +218,18 @@ function createOnboardingService({ store }) {
     /**
      * Get the next recommended action for the merchant.
      */
-    async getNextAction(store_id) {
-      const state = await service.getState(store_id);
-      if (state.completed) return { action: "complete", message: "Onboarding is complete!" };
+    async getNextAction(store_id,) {
+      const state = await service.getState(store_id,);
+      if (state.completed) return { action: 'complete', message: 'Onboarding is complete!', };
 
-      const currentStep = STEPS.find((s) => s.id === state.current_step);
-      if (!currentStep) return { action: "complete", message: "Onboarding is complete!" };
+      const currentStep = STEPS.find((s,) => s.id === state.current_step,);
+      if (!currentStep) return { action: 'complete', message: 'Onboarding is complete!', };
 
       return {
         action: currentStep.id,
         title: currentStep.title,
         description: currentStep.description,
-        step_number: STEPS.indexOf(currentStep) + 1,
+        step_number: STEPS.indexOf(currentStep,) + 1,
         total_steps: STEPS.length,
         completion_pct: state.completion_pct,
       };
@@ -239,17 +239,17 @@ function createOnboardingService({ store }) {
      * Detect stalled onboarding (merchant hasn't progressed in N hours).
      * Returns stores that need a nudge email.
      */
-    async detectStalled(hoursThreshold = 24) {
+    async detectStalled(hoursThreshold = 24,) {
       if (!store.onboardingStates) return [];
 
-      const cutoff = new Date(Date.now() - hoursThreshold * 3600000).toISOString();
-      const allStates = await store.onboardingStates.find({});
+      const cutoff = new Date(Date.now() - hoursThreshold * 3600000,).toISOString();
+      const allStates = await store.onboardingStates.find({},);
 
-      return allStates.filter((state) => {
+      return allStates.filter((state,) => {
         if (state.completed) return false;
         const lastActivity = state.updatedAt || state.started_at;
         return lastActivity < cutoff;
-      });
+      },);
     },
 
     /**
@@ -257,10 +257,10 @@ function createOnboardingService({ store }) {
      */
     async getAnalytics() {
       if (!store.onboardingStates) {
-        return { total_stores: 0, completed: 0, in_progress: 0, step_completion: {} };
+        return { total_stores: 0, completed: 0, in_progress: 0, step_completion: {}, };
       }
 
-      const allStates = await store.onboardingStates.find({});
+      const allStates = await store.onboardingStates.find({},);
       const stepCompletion = {};
 
       for (const step of STEPS) {
@@ -291,7 +291,7 @@ function createOnboardingService({ store }) {
         total_stores: allStates.length,
         completed,
         in_progress: inProgress,
-        completion_rate: allStates.length ? Math.round((completed / allStates.length) * 100) : 0,
+        completion_rate: allStates.length ? Math.round((completed / allStates.length) * 100,) : 0,
         step_completion: stepCompletion,
       };
     },
@@ -300,4 +300,4 @@ function createOnboardingService({ store }) {
   return service;
 }
 
-module.exports = { createOnboardingService, STEPS };
+module.exports = { createOnboardingService, STEPS, };

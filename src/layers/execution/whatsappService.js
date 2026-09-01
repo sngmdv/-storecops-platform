@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 /**
  * WhatsApp Business API — Meta Cloud Adapter
@@ -28,17 +28,17 @@
  * resolves to a phone number via the customer profile store.
  */
 
-const crypto = require("crypto");
+const crypto = require('crypto',);
 
-const DEFAULT_API_VERSION = "v19.0";
-const GRAPH_API_BASE = "https://graph.facebook.com";
+const DEFAULT_API_VERSION = 'v19.0';
+const GRAPH_API_BASE = 'https://graph.facebook.com';
 
 /** Mask a phone number for safe logging: show last 4 digits. */
-function maskPhone(phone) {
-  if (!phone || typeof phone !== "string") return "***";
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length <= 4) return "***";
-  return `***${digits.slice(-4)}`;
+function maskPhone(phone,) {
+  if (!phone || typeof phone !== 'string') return '***';
+  const digits = phone.replace(/\D/g, '',);
+  if (digits.length <= 4) return '***';
+  return `***${digits.slice(-4,)}`;
 }
 
 /**
@@ -48,16 +48,16 @@ function maskPhone(phone) {
  * override via WHATSAPP_TEMPLATE_<TYPE> env vars.
  */
 const DEFAULT_TEMPLATE_MAP = {
-  recovery_message: "cart_recovery",
-  checkout_nudge: "checkout_reminder",
-  winback_offer: "winback_discount",
-  browse_abandonment: "browse_reminder",
-  vip_surprise: "vip_thankyou",
+  recovery_message: 'cart_recovery',
+  checkout_nudge: 'checkout_reminder',
+  winback_offer: 'winback_discount',
+  browse_abandonment: 'browse_reminder',
+  vip_surprise: 'vip_thankyou',
 };
 
-function getTemplateName(actionType) {
+function getTemplateName(actionType,) {
   const envKey = `WHATSAPP_TEMPLATE_${actionType.toUpperCase()}`;
-  return process.env[envKey] || DEFAULT_TEMPLATE_MAP[actionType] || "generic_message";
+  return process.env[envKey] || DEFAULT_TEMPLATE_MAP[actionType] || 'generic_message';
 }
 
 /**
@@ -70,31 +70,31 @@ function getTemplateName(actionType) {
  * We use the "utility" category for transactional messages (cart
  * recovery, checkout reminders) which don't need marketing approval.
  */
-function buildTemplatePayload(to, actionType, body, params = {}) {
-  const templateName = getTemplateName(actionType);
+function buildTemplatePayload(to, actionType, body, params = {},) {
+  const templateName = getTemplateName(actionType,);
 
   const components = [];
 
   // Body component — pass dynamic parameters the template expects.
   const bodyParams = [];
-  if (params.name) bodyParams.push({ type: "text", text: params.name });
-  if (params.discount) bodyParams.push({ type: "text", text: String(params.discount) });
-  if (params.code) bodyParams.push({ type: "text", text: params.code });
+  if (params.name) bodyParams.push({ type: 'text', text: params.name, },);
+  if (params.discount) bodyParams.push({ type: 'text', text: String(params.discount,), },);
+  if (params.code) bodyParams.push({ type: 'text', text: params.code, },);
 
   if (bodyParams.length > 0) {
     components.push({
-      type: "body",
+      type: 'body',
       parameters: bodyParams,
-    });
+    },);
   }
 
   return {
-    messaging_product: "whatsapp",
+    messaging_product: 'whatsapp',
     to,
-    type: "template",
+    type: 'template',
     template: {
       name: templateName,
-      language: { code: "en_US" },
+      language: { code: 'en_US', },
       components,
     },
   };
@@ -104,12 +104,12 @@ function buildTemplatePayload(to, actionType, body, params = {}) {
  * Build the Meta Cloud API request body for a free-form text message.
  * Used within the 24-hour customer service window.
  */
-function buildTextPayload(to, body) {
+function buildTextPayload(to, body,) {
   return {
-    messaging_product: "whatsapp",
+    messaging_product: 'whatsapp',
     to,
-    type: "text",
-    text: { body: body || "" },
+    type: 'text',
+    text: { body: body || '', },
   };
 }
 
@@ -129,9 +129,9 @@ function createMetaWhatsAppProvider({
   businessAccountId,
   apiVersion = DEFAULT_API_VERSION,
   store,
-}) {
-  if (!accessToken) throw new Error("WHATSAPP_ACCESS_TOKEN is required for the Meta WhatsApp provider.");
-  if (!phoneNumberId) throw new Error("WHATSAPP_PHONE_NUMBER_ID is required for the Meta WhatsApp provider.");
+},) {
+  if (!accessToken) throw new Error('WHATSAPP_ACCESS_TOKEN is required for the Meta WhatsApp provider.',);
+  if (!phoneNumberId) throw new Error('WHATSAPP_PHONE_NUMBER_ID is required for the Meta WhatsApp provider.',);
 
   const baseUrl = `${GRAPH_API_BASE}/${apiVersion}/${phoneNumberId}/messages`;
 
@@ -145,12 +145,12 @@ function createMetaWhatsAppProvider({
    * If `to` already looks like a phone number (starts with +), use it
    * directly.
    */
-  async function resolvePhone(to, meta) {
+  async function resolvePhone(to, meta,) {
     if (!to) return null;
 
     // Already a phone number.
-    if (/^\+?\d{8,}$/.test(to.replace(/[\s-]/g, ""))) {
-      return to.replace(/[\s-]/g, "");
+    if (/^\+?\d{8,}$/.test(to.replace(/[\s-]/g, '',),)) {
+      return to.replace(/[\s-]/g, '',);
     }
 
     // Check meta for an explicit phone override.
@@ -158,7 +158,7 @@ function createMetaWhatsAppProvider({
 
     // Look up from customer profile.
     if (store) {
-      const profile = await store.customers.findOne({ identity: to });
+      const profile = await store.customers.findOne({ identity: to, },);
       if (profile?.phone) return profile.phone;
     }
 
@@ -166,7 +166,7 @@ function createMetaWhatsAppProvider({
   }
 
   return {
-    provider: "meta:whatsapp",
+    provider: 'meta:whatsapp',
 
     /**
      * Send a WhatsApp message via the Meta Cloud API.
@@ -181,14 +181,14 @@ function createMetaWhatsAppProvider({
      * @param {boolean} [message.meta.use_text] - Force text mode (within 24h window)
      * @param {string} [message.meta.phone] - Explicit phone override
      */
-    async send({ to, subject, body, meta }) {
-      const phone = await resolvePhone(to, meta);
+    async send({ to, subject, body, meta, },) {
+      const phone = await resolvePhone(to, meta,);
       if (!phone) {
-        console.log(`[WHATSAPP] no phone number for ${maskPhone(to) || to} — skipping send`);
+        console.log(`[WHATSAPP] no phone number for ${maskPhone(to,) || to} — skipping send`,);
         return {
           delivered: false,
-          provider: "meta:whatsapp",
-          error: "no_phone_number",
+          provider: 'meta:whatsapp',
+          error: 'no_phone_number',
           to,
         };
       }
@@ -197,30 +197,30 @@ function createMetaWhatsAppProvider({
       const actionType = meta?.action_type;
       const useText = meta?.use_text || !actionType;
       const payload = useText
-        ? buildTextPayload(phone, body)
-        : buildTemplatePayload(phone, actionType, body, meta?.params || {});
+        ? buildTextPayload(phone, body,)
+        : buildTemplatePayload(phone, actionType, body, meta?.params || {},);
 
       console.log(
-        `[WHATSAPP] to=${maskPhone(phone)} type=${useText ? "text" : `template:${getTemplateName(actionType)}`} body="${(body || "").slice(0, 60)}"`
+        `[WHATSAPP] to=${maskPhone(phone,)} type=${useText ? 'text' : `template:${getTemplateName(actionType,)}`} body="${(body || '').slice(0, 60,)}"`,
       );
 
       const res = await fetch(baseUrl, {
-        method: "POST",
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(15000),
-      });
+        body: JSON.stringify(payload,),
+        signal: AbortSignal.timeout(15000,),
+      },);
 
       if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
+        const errBody = await res.json().catch(() => ({}),);
         const errMsg = errBody?.error?.message || `HTTP ${res.status}`;
-        console.error(`[WHATSAPP] send failed: ${errMsg}`);
+        console.error(`[WHATSAPP] send failed: ${errMsg}`,);
         return {
           delivered: false,
-          provider: "meta:whatsapp",
+          provider: 'meta:whatsapp',
           error: errMsg,
           error_code: errBody?.error?.code,
           to,
@@ -232,7 +232,7 @@ function createMetaWhatsAppProvider({
 
       return {
         delivered: true,
-        provider: "meta:whatsapp",
+        provider: 'meta:whatsapp',
         message_id: messageId,
         to: phone,
       };
@@ -252,10 +252,10 @@ function createMetaWhatsAppProvider({
  * @param {string} appSecret - Meta app secret
  * @returns {boolean}
  */
-function verifyWebhookSignature(rawBody, signature, appSecret) {
+function verifyWebhookSignature(rawBody, signature, appSecret,) {
   if (!rawBody || !signature || !appSecret) return false;
-  const expected = "sha256=" + crypto.createHmac("sha256", appSecret).update(rawBody).digest("hex");
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  const expected = 'sha256=' + crypto.createHmac('sha256', appSecret,).update(rawBody,).digest('hex',);
+  return crypto.timingSafeEqual(Buffer.from(signature,), Buffer.from(expected,),);
 }
 
 /**
@@ -269,14 +269,14 @@ function verifyWebhookSignature(rawBody, signature, appSecret) {
  * @param {object} webhookBody - Parsed webhook request body
  * @returns {Array<{message_id, phone, status, timestamp}>}
  */
-function parseStatusUpdates(webhookBody) {
+function parseStatusUpdates(webhookBody,) {
   const statuses = [];
 
   const entries = webhookBody?.entry || [];
   for (const entry of entries) {
     const changes = entry?.changes || [];
     for (const change of changes) {
-      if (change.field !== "messages") continue;
+      if (change.field !== 'messages') continue;
       const value = change.value || {};
       const phone = value?.metadata?.display_phone_number || null;
 
@@ -288,7 +288,7 @@ function parseStatusUpdates(webhookBody) {
           status: status.status, // sent, delivered, read, failed
           timestamp: status.timestamp,
           errors: status.errors || [],
-        });
+        },);
       }
     }
   }
@@ -305,24 +305,24 @@ function parseStatusUpdates(webhookBody) {
  * @param {object} webhookBody - Parsed webhook request body
  * @returns {Array<{message_id, from, text, timestamp}>}
  */
-function parseIncomingMessages(webhookBody) {
+function parseIncomingMessages(webhookBody,) {
   const messages = [];
 
   const entries = webhookBody?.entry || [];
   for (const entry of entries) {
     const changes = entry?.changes || [];
     for (const change of changes) {
-      if (change.field !== "messages") continue;
+      if (change.field !== 'messages') continue;
       const value = change.value || {};
 
       for (const msg of value?.messages || []) {
-        if (msg.type !== "text") continue;
+        if (msg.type !== 'text') continue;
         messages.push({
           message_id: msg.id,
           from: msg.from,
-          text: msg.text?.body || "",
+          text: msg.text?.body || '',
           timestamp: msg.timestamp,
-        });
+        },);
       }
     }
   }

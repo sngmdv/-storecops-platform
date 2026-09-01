@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 /**
  * Layer 2 — Channel/Response Optimization Engine.
@@ -10,19 +10,19 @@
  */
 
 const CHANNEL_EVENTS = {
-  email: { sent: "email_sent", responded: ["email_opened", "email_clicked"] },
-  whatsapp: { sent: "whatsapp_sent", responded: ["whatsapp_read", "whatsapp_replied"] },
+  email: { sent: 'email_sent', responded: ['email_opened', 'email_clicked',], },
+  whatsapp: { sent: 'whatsapp_sent', responded: ['whatsapp_read', 'whatsapp_replied',], },
 };
 
-function createChannelOptimizer({ store }) {
+function createChannelOptimizer({ store, },) {
   /** Store-wide response rate per channel. */
-  async function storeRates(store_id) {
-    const events = await store.events.find({ store_id });
+  async function storeRates(store_id,) {
+    const events = await store.events.find({ store_id, },);
     const rates = {};
 
-    for (const [channel, def] of Object.entries(CHANNEL_EVENTS)) {
-      const sent = events.filter((e) => e.event_type === def.sent).length;
-      const responded = events.filter((e) => def.responded.includes(e.event_type)).length;
+    for (const [channel, def,] of Object.entries(CHANNEL_EVENTS,)) {
+      const sent = events.filter((e,) => e.event_type === def.sent,).length;
+      const responded = events.filter((e,) => def.responded.includes(e.event_type,),).length;
 
       rates[channel] = {
         sent,
@@ -45,47 +45,47 @@ function createChannelOptimizer({ store }) {
      * 2. Otherwise use the store-wide best response rate.
      * 3. Tie/no data falls back to email.
      */
-    async bestChannel(store_id, customer_id) {
-      const profile = await store.customers.findOne({ store_id, identity: customer_id });
+    async bestChannel(store_id, customer_id,) {
+      const profile = await store.customers.findOne({ store_id, identity: customer_id, },);
       const respondedBefore = profile?.channels_responded || [];
 
       if (respondedBefore.length === 1) {
-        return { channel: respondedBefore[0], reason: "customer_history" };
+        return { channel: respondedBefore[0], reason: 'customer_history', };
       }
       if (respondedBefore.length > 1) {
         // Multiple history: break the tie with store-level rates.
-        const rates = await storeRates(store_id);
+        const rates = await storeRates(store_id,);
         const ranked = respondedBefore.sort(
-          (a, b) => rates[b].response_rate - rates[a].response_rate
+          (a, b,) => rates[b].response_rate - rates[a].response_rate,
         );
-        return { channel: ranked[0], reason: "customer_history+store_rate" };
+        return { channel: ranked[0], reason: 'customer_history+store_rate', };
       }
 
-      const rates = await storeRates(store_id);
-      const entries = Object.entries(rates).filter(([, r]) => r.sent > 0);
+      const rates = await storeRates(store_id,);
+      const entries = Object.entries(rates,).filter(([, r,],) => r.sent > 0,);
 
       if (entries.length === 0) {
-        return { channel: "email", reason: "default" };
+        return { channel: 'email', reason: 'default', };
       }
 
-      entries.sort((a, b) => b[1].response_rate - a[1].response_rate);
-      return { channel: entries[0][0], reason: "store_rate" };
+      entries.sort((a, b,) => b[1].response_rate - a[1].response_rate,);
+      return { channel: entries[0][0], reason: 'store_rate', };
     },
 
     /**
      * Record an execution outcome so rates keep learning
      * (Layer 6 growth loop feedback).
      */
-    async recordOutcome({ store_id, customer_id, channel, event_type }) {
+    async recordOutcome({ store_id, customer_id, channel, event_type, },) {
       return store.events.insert({
         store_id,
         customer_id,
         event_type,
-        origin: "channel_optimizer_feedback",
+        origin: 'channel_optimizer_feedback',
         timestamp: new Date().toISOString(),
-      });
+      },);
     },
   };
 }
 
-module.exports = { createChannelOptimizer };
+module.exports = { createChannelOptimizer, };

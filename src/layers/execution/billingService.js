@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 /**
  * Billing & Entitlements Service
@@ -14,7 +14,7 @@
  *   - scale:    $149/mo — multi-store, team roles, priority support
  */
 
-const crypto = require("crypto");
+const crypto = require('crypto',);
 
 /**
  * Plan definitions. Each plan lists the features/entitlements it
@@ -22,11 +22,11 @@ const crypto = require("crypto");
  */
 const PLANS = {
   starter: {
-    id: "starter",
-    name: "Starter",
+    id: 'starter',
+    name: 'Starter',
     priceMonthly: 0,
     priceAnnual: 0,
-    currency: "USD",
+    currency: 'USD',
     features: {
       live_orders: true,
       stock_monitoring: true,
@@ -50,11 +50,11 @@ const PLANS = {
   },
 
   growth: {
-    id: "growth",
-    name: "Growth",
+    id: 'growth',
+    name: 'Growth',
     priceMonthly: 49,
     priceAnnual: 39,
-    currency: "USD",
+    currency: 'USD',
     features: {
       live_orders: true,
       stock_monitoring: true,
@@ -78,11 +78,11 @@ const PLANS = {
   },
 
   scale: {
-    id: "scale",
-    name: "Scale",
+    id: 'scale',
+    name: 'Scale',
     priceMonthly: 149,
     priceAnnual: 119,
-    currency: "USD",
+    currency: 'USD',
     features: {
       live_orders: true,
       stock_monitoring: true,
@@ -111,15 +111,15 @@ const PLANS = {
  * frontend must never be trusted for currency decisions.
  */
 const REGIONAL_PRICING = {
-  USD: { growth: 49, scale: 149 },
-  EUR: { growth: 45, scale: 139 },
-  GBP: { growth: 39, scale: 119 },
-  INR: { growth: 3999, scale: 11999 },
-  CAD: { growth: 65, scale: 199 },
-  AUD: { growth: 75, scale: 229 },
+  USD: { growth: 49, scale: 149, },
+  EUR: { growth: 45, scale: 139, },
+  GBP: { growth: 39, scale: 119, },
+  INR: { growth: 3999, scale: 11999, },
+  CAD: { growth: 65, scale: 199, },
+  AUD: { growth: 75, scale: 229, },
 };
 
-function createBillingService({ store, config }) {
+function createBillingService({ store, config, },) {
   return {
     PLANS,
     REGIONAL_PRICING,
@@ -137,17 +137,17 @@ function createBillingService({ store, config }) {
      * @param {string} planId       "growth" | "scale"
      * @param {object} opts         { return_url, currency, test }
      */
-    async createShopifyCharge(shopDomain, accessToken, planId, opts = {}) {
+    async createShopifyCharge(shopDomain, accessToken, planId, opts = {},) {
       const plan = PLANS[planId];
-      if (!plan) throw new Error(`Unknown plan: ${planId}`);
-      if (plan.priceMonthly === 0) throw new Error("Cannot create a charge for a free plan.");
+      if (!plan) throw new Error(`Unknown plan: ${planId}`,);
+      if (plan.priceMonthly === 0) throw new Error('Cannot create a charge for a free plan.',);
 
-      const domain = String(shopDomain || "").replace(/^https?:\/\//, "").replace(/\/$/, "");
-      const base = `https://${domain.endsWith(".myshopify.com") ? domain : domain + ".myshopify.com"}/admin/api/${config.shopifyApiVersion || "2025-01"}`;
-      const currency = opts.currency || "USD";
-      const price = this.getRegionalPrice(planId, currency).monthly;
+      const domain = String(shopDomain || '',).replace(/^https?:\/\//, '',).replace(/\/$/, '',);
+      const base = `https://${domain.endsWith('.myshopify.com',) ? domain : domain + '.myshopify.com'}/admin/api/${config.shopifyApiVersion || '2025-01'}`;
+      const currency = opts.currency || 'USD';
+      const price = this.getRegionalPrice(planId, currency,).monthly;
 
-      const returnUrl = opts.return_url || config.publicUrl || "https://storecops.com/app";
+      const returnUrl = opts.return_url || config.publicUrl || 'https://storecops.com/app';
 
       const payload = {
         recurring_application_charge: {
@@ -162,33 +162,33 @@ function createBillingService({ store, config }) {
       };
 
       const res = await fetch(`${base}/recurring_application_charges.json`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "X-Shopify-Access-Token": accessToken,
-          "Content-Type": "application/json",
+          'X-Shopify-Access-Token': accessToken,
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(15000),
-      });
+        body: JSON.stringify(payload,),
+        signal: AbortSignal.timeout(15000,),
+      },);
 
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(`Shopify charge creation failed (${res.status}): ${JSON.stringify(body.errors || body)}`);
+        const body = await res.json().catch(() => ({}),);
+        throw new Error(`Shopify charge creation failed (${res.status}): ${JSON.stringify(body.errors || body,)}`,);
       }
 
-      const { recurring_application_charge: charge } = await res.json();
+      const { recurring_application_charge: charge, } = await res.json();
 
       // Persist the pending charge so we can reconcile after approval.
       await store.subscriptions.insert({
         shopInstallationId: opts.shopInstallationId || shopDomain,
         planId,
-        status: "pending_approval",
-        shopifyChargeId: String(charge.id),
+        status: 'pending_approval',
+        shopifyChargeId: String(charge.id,),
         currency,
         price_monthly: price,
         started_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      });
+      },);
 
       return {
         charge_id: charge.id,
@@ -207,7 +207,7 @@ function createBillingService({ store, config }) {
      * or cancelled. We look up the charge by ID and update the local
      * subscription record accordingly.
      */
-    async handleShopifySubscriptionWebhook(payload) {
+    async handleShopifySubscriptionWebhook(payload,) {
       const {
         id: charge_id,
         status, // accepted, declined, expired, cancelled, pending
@@ -215,50 +215,50 @@ function createBillingService({ store, config }) {
         shopInstallationId,
       } = payload || {};
 
-      if (!charge_id) throw new Error("charge id is required in webhook payload.");
+      if (!charge_id) throw new Error('charge id is required in webhook payload.',);
 
       // Find the subscription by Shopify charge ID.
-      const all = await store.subscriptions.find({});
+      const all = await store.subscriptions.find({},);
       const sub = all.find(
-        (s) => s.shopifyChargeId === String(charge_id)
+        (s,) => s.shopifyChargeId === String(charge_id,),
       );
 
       if (!sub) {
         // Charge not tracked locally — could be from a previous install.
         // Create a minimal record so we don't lose the event.
         return store.subscriptions.insert({
-          shopInstallationId: shopInstallationId || "unknown",
-          planId: "growth",
-          status: status === "accepted" ? "active" : status,
-          shopifyChargeId: String(charge_id),
+          shopInstallationId: shopInstallationId || 'unknown',
+          planId: 'growth',
+          status: status === 'accepted' ? 'active' : status,
+          shopifyChargeId: String(charge_id,),
           started_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          cancelled_at: status === "cancelled" ? new Date().toISOString() : null,
-        });
+          cancelled_at: status === 'cancelled' ? new Date().toISOString() : null,
+        },);
       }
 
       const update = {
-        status: status === "accepted" ? "active" : status,
-        cancelled_at: status === "cancelled" ? new Date().toISOString() : sub.cancelled_at,
+        status: status === 'accepted' ? 'active' : status,
+        cancelled_at: status === 'cancelled' ? new Date().toISOString() : sub.cancelled_at,
         updated_at: new Date().toISOString(),
       };
 
-      return store.subscriptions.update(sub._id, { ...sub, ...update });
+      return store.subscriptions.update(sub._id, { ...sub, ...update, },);
     },
 
     /**
      * Get the current plan/entitlement for a shop installation.
      * Defaults to "starter" if no subscription exists.
      */
-    async getEntitlement(shopInstallationId) {
+    async getEntitlement(shopInstallationId,) {
       if (!shopInstallationId) return PLANS.starter;
 
       const subscription = await store.subscriptions.findOne({
         shopInstallationId,
-        status: "active",
-      });
+        status: 'active',
+      },);
 
-      if (!subscription) return { ...PLANS.starter, subscription: null };
+      if (!subscription) return { ...PLANS.starter, subscription: null, };
 
       const plan = PLANS[subscription.planId] || PLANS.starter;
       return {
@@ -277,15 +277,15 @@ function createBillingService({ store, config }) {
      * Server-side feature gate. Call before executing any premium action.
      * Throws if the feature is not available on the current plan.
      */
-    async requireFeature(shopInstallationId, featureName) {
-      const entitlement = await this.getEntitlement(shopInstallationId);
+    async requireFeature(shopInstallationId, featureName,) {
+      const entitlement = await this.getEntitlement(shopInstallationId,);
       if (!entitlement.features[featureName]) {
         const err = new Error(
-          `Feature "${featureName}" requires a plan upgrade. Current plan: ${entitlement.id}.`
+          `Feature "${featureName}" requires a plan upgrade. Current plan: ${entitlement.id}.`,
         );
-        err.code = "FEATURE_LOCKED";
-        err.requiredPlan = Object.entries(PLANS).find(
-          ([, p]) => p.features[featureName]
+        err.code = 'FEATURE_LOCKED';
+        err.requiredPlan = Object.entries(PLANS,).find(
+          ([, p,],) => p.features[featureName],
         )?.[0];
         throw err;
       }
@@ -295,24 +295,24 @@ function createBillingService({ store, config }) {
     /**
      * Express middleware: checks entitlement before route handler.
      */
-    requireFeatureMiddleware(featureName) {
-      return async (req, res, next) => {
+    requireFeatureMiddleware(featureName,) {
+      return async (req, res, next,) => {
         try {
           const shopInstallationId = req.shopInstallationId || req.body?.shopInstallationId;
           if (!shopInstallationId) {
-            return res.status(400).json({ error: "shopInstallationId is required." });
+            return res.status(400,).json({ error: 'shopInstallationId is required.', },);
           }
-          await this.requireFeature(shopInstallationId, featureName);
-          next();
+          await this.requireFeature(shopInstallationId, featureName,);
+          return next();
         } catch (err) {
-          if (err.code === "FEATURE_LOCKED") {
-            return res.status(402).json({
+          if (err.code === 'FEATURE_LOCKED') {
+            return res.status(402,).json({
               error: err.message,
-              code: "FEATURE_LOCKED",
+              code: 'FEATURE_LOCKED',
               required_plan: err.requiredPlan,
-            });
+            },);
           }
-          next(err);
+          return next(err,);
         }
       };
     },
@@ -321,17 +321,17 @@ function createBillingService({ store, config }) {
      * Record or update a Shopify Billing subscription.
      * Called after Shopify confirms a charge/subscription via webhook or API.
      */
-    async upsertSubscription(shopInstallationId, subscriptionData) {
-      const existing = await store.subscriptions.findOne({ shopInstallationId });
+    async upsertSubscription(shopInstallationId, subscriptionData,) {
+      const existing = await store.subscriptions.findOne({ shopInstallationId, },);
 
       const record = {
         shopInstallationId,
-        planId: subscriptionData.planId || "growth",
-        status: subscriptionData.status || "active", // active, cancelled, expired, past_due
+        planId: subscriptionData.planId || 'growth',
+        status: subscriptionData.status || 'active', // active, cancelled, expired, past_due
         shopifyChargeId: subscriptionData.shopifyChargeId || null,
         shopifySubscriptionId: subscriptionData.shopifySubscriptionId || null,
-        currency: subscriptionData.currency || "USD",
-        price_monthly: subscriptionData.price_monthly || PLANS[subscriptionData.planId || "growth"]?.priceMonthly || 0,
+        currency: subscriptionData.currency || 'USD',
+        price_monthly: subscriptionData.price_monthly || PLANS[subscriptionData.planId || 'growth']?.priceMonthly || 0,
         started_at: subscriptionData.started_at || new Date().toISOString(),
         current_period_end: subscriptionData.current_period_end || null,
         cancelled_at: subscriptionData.cancelled_at || null,
@@ -339,44 +339,44 @@ function createBillingService({ store, config }) {
       };
 
       if (existing) {
-        return store.subscriptions.update(existing._id, record);
+        return store.subscriptions.update(existing._id, record,);
       }
-      return store.subscriptions.insert(record);
+      return store.subscriptions.insert(record,);
     },
 
     /**
      * Handle subscription lifecycle events from internal systems
      * or non-Shopify billing webhooks.
      */
-    async handleSubscriptionEvent(event) {
-      const { shopInstallationId, action, charge_id, status } = event;
+    async handleSubscriptionEvent(event,) {
+      const { shopInstallationId, action, charge_id, status, } = event;
 
-      if (!shopInstallationId) throw new Error("shopInstallationId is required.");
+      if (!shopInstallationId) throw new Error('shopInstallationId is required.',);
 
       switch (action) {
-        case "accepted":
-        case "activated":
-          return this.upsertSubscription(shopInstallationId, {
-            shopifyChargeId: charge_id,
-            status: "active",
-          });
+      case 'accepted':
+      case 'activated':
+        return this.upsertSubscription(shopInstallationId, {
+          shopifyChargeId: charge_id,
+          status: 'active',
+        },);
 
-        case "declined":
-        case "expired":
-          return this.upsertSubscription(shopInstallationId, {
-            shopifyChargeId: charge_id,
-            status: action === "declined" ? "past_due" : "expired",
-          });
+      case 'declined':
+      case 'expired':
+        return this.upsertSubscription(shopInstallationId, {
+          shopifyChargeId: charge_id,
+          status: action === 'declined' ? 'past_due' : 'expired',
+        },);
 
-        case "cancelled":
-          return this.upsertSubscription(shopInstallationId, {
-            shopifyChargeId: charge_id,
-            status: "cancelled",
-            cancelled_at: new Date().toISOString(),
-          });
+      case 'cancelled':
+        return this.upsertSubscription(shopInstallationId, {
+          shopifyChargeId: charge_id,
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+        },);
 
-        default:
-          return { handled: false, action };
+      default:
+        return { handled: false, action, };
       }
     },
 
@@ -384,7 +384,7 @@ function createBillingService({ store, config }) {
      * Get the regional price for a plan in a given currency.
      * Server-side only — frontend must not determine pricing.
      */
-    getRegionalPrice(planId, currency = "USD") {
+    getRegionalPrice(planId, currency = 'USD',) {
       const region = REGIONAL_PRICING[currency] || REGIONAL_PRICING.USD;
       return {
         plan: planId,
@@ -396,19 +396,19 @@ function createBillingService({ store, config }) {
     /**
      * Check if a shop has an active paid subscription.
      */
-    async isPaid(shopInstallationId) {
-      const entitlement = await this.getEntitlement(shopInstallationId);
-      return entitlement.id !== "starter" && entitlement.subscription?.status === "active";
+    async isPaid(shopInstallationId,) {
+      const entitlement = await this.getEntitlement(shopInstallationId,);
+      return entitlement.id !== 'starter' && entitlement.subscription?.status === 'active';
     },
 
     /**
      * List all subscriptions for admin/reporting.
      */
-    async listSubscriptions({ status } = {}) {
-      const filter = status ? { status } : {};
-      return store.subscriptions.find(filter);
+    async listSubscriptions({ status, } = {},) {
+      const filter = status ? { status, } : {};
+      return store.subscriptions.find(filter,);
     },
   };
 }
 
-module.exports = { createBillingService, PLANS, REGIONAL_PRICING };
+module.exports = { createBillingService, PLANS, REGIONAL_PRICING, };

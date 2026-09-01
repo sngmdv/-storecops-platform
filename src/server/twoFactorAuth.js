@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 /**
  * Two-Factor Authentication (TOTP) for admin login.
@@ -14,7 +14,7 @@
  * - Rate-limited verification (max 5 attempts per 5 minutes)
  */
 
-const crypto = require("crypto");
+const crypto = require('crypto',);
 
 const TIME_STEP = 30;
 const CODE_DIGITS = 6;
@@ -23,12 +23,12 @@ const MAX_ATTEMPTS = 5;
 const LOCKOUT_WINDOW_MS = 5 * 60 * 1000;
 
 // Base32 alphabet (RFC 4648)
-const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
-function base32Encode(buffer) {
+function base32Encode(buffer,) {
   let bits = 0;
   let value = 0;
-  let output = "";
+  let output = '';
   for (const byte of buffer) {
     value = (value << 8) | byte;
     bits += 8;
@@ -43,50 +43,50 @@ function base32Encode(buffer) {
   return output;
 }
 
-function base32Decode(encoded) {
-  const cleaned = encoded.toUpperCase().replace(/[^A-Z2-7]/g, "");
+function base32Decode(encoded,) {
+  const cleaned = encoded.toUpperCase().replace(/[^A-Z2-7]/g, '',);
   let bits = 0;
   let value = 0;
   const output = [];
   for (const char of cleaned) {
-    value = (value << 5) | BASE32_ALPHABET.indexOf(char);
+    value = (value << 5) | BASE32_ALPHABET.indexOf(char,);
     bits += 5;
     if (bits >= 8) {
-      output.push((value >>> (bits - 8)) & 0xff);
+      output.push((value >>> (bits - 8)) & 0xff,);
       bits -= 8;
     }
   }
-  return Buffer.from(output);
+  return Buffer.from(output,);
 }
 
-function generateTOTP(secret, counter) {
-  const buffer = Buffer.alloc(8);
+function generateTOTP(secret, counter,) {
+  const buffer = Buffer.alloc(8,);
   let tmp = counter;
   for (let i = 7; i >= 0; i--) {
     buffer[i] = tmp & 0xff;
-    tmp = Math.floor(tmp / 256);
+    tmp = Math.floor(tmp / 256,);
   }
-  const hmac = crypto.createHmac("sha1", secret).update(buffer).digest();
+  const hmac = crypto.createHmac('sha1', secret,).update(buffer,).digest();
   const offset = hmac[hmac.length - 1] & 0x0f;
   const code = (
     ((hmac[offset] & 0x7f) << 24) |
     ((hmac[offset + 1] & 0xff) << 16) |
     ((hmac[offset + 2] & 0xff) << 8) |
     (hmac[offset + 3] & 0xff)
-  ) % Math.pow(10, CODE_DIGITS);
-  return code.toString().padStart(CODE_DIGITS, "0");
+  ) % Math.pow(10, CODE_DIGITS,);
+  return code.toString().padStart(CODE_DIGITS, '0',);
 }
 
-function createTwoFactorAuth({ store }) {
+function createTwoFactorAuth({ store, },) {
   // In-memory attempt tracker (resets on restart — acceptable for rate limiting).
   const attempts = new Map();
 
   function cleanupAttempts() {
     const cutoff = Date.now() - LOCKOUT_WINDOW_MS;
-    for (const [key, timestamps] of attempts) {
-      const fresh = timestamps.filter((t) => t > cutoff);
-      if (fresh.length === 0) attempts.delete(key);
-      else attempts.set(key, fresh);
+    for (const [key, timestamps,] of attempts) {
+      const fresh = timestamps.filter((t,) => t > cutoff,);
+      if (fresh.length === 0) attempts.delete(key,);
+      else attempts.set(key, fresh,);
     }
   }
 
@@ -95,17 +95,17 @@ function createTwoFactorAuth({ store }) {
      * Generate a new TOTP secret and provisioning URI for a user.
      * Returns the secret (to store encrypted) and a URI for QR code generation.
      */
-    async enable(user_id, { email, issuer = "Storecops" } = {}) {
-      if (!user_id) throw new Error("user_id is required");
+    async enable(user_id, { email, issuer = 'Storecops', } = {},) {
+      if (!user_id) throw new Error('user_id is required',);
 
       // Check if already enabled.
-      const existing = await store.twoFactorSecrets.findOne({ user_id });
-      if (existing?.enabled) throw new Error("2FA is already enabled for this user.");
+      const existing = await store.twoFactorSecrets.findOne({ user_id, },);
+      if (existing?.enabled) throw new Error('2FA is already enabled for this user.',);
 
-      const secretBytes = crypto.randomBytes(20);
-      const secret = base32Encode(secretBytes);
+      const secretBytes = crypto.randomBytes(20,);
+      const secret = base32Encode(secretBytes,);
       const period = TIME_STEP;
-      const uri = `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(email || user_id)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=${CODE_DIGITS}&period=${period}`;
+      const uri = `otpauth://totp/${encodeURIComponent(issuer,)}:${encodeURIComponent(email || user_id,)}?secret=${secret}&issuer=${encodeURIComponent(issuer,)}&algorithm=SHA1&digits=${CODE_DIGITS}&period=${period}`;
 
       // Store the secret (encrypted at rest in production).
       if (existing) {
@@ -114,7 +114,7 @@ function createTwoFactorAuth({ store }) {
           enabled: true,
           enabled_at: new Date().toISOString(),
           uri,
-        });
+        },);
       } else {
         await store.twoFactorSecrets.insert({
           user_id,
@@ -123,72 +123,72 @@ function createTwoFactorAuth({ store }) {
           enabled_at: new Date().toISOString(),
           uri,
           backup_codes: generateBackupCodes(),
-        });
+        },);
       }
 
-      return { secret, uri, qr_uri: uri };
+      return { secret, uri, qr_uri: uri, };
     },
 
     /**
      * Verify a TOTP code against the user's stored secret.
      * Returns { valid: true/false, reason? }.
      */
-    async verify(user_id, code) {
-      if (!user_id || !code) return { valid: false, reason: "user_id and code are required" };
+    async verify(user_id, code,) {
+      if (!user_id || !code) return { valid: false, reason: 'user_id and code are required', };
 
       cleanupAttempts();
 
       // Rate limit check.
       const attemptKey = `${user_id}:${code}`;
-      const userAttempts = attempts.get(user_id) || [];
+      const userAttempts = attempts.get(user_id,) || [];
       if (userAttempts.length >= MAX_ATTEMPTS) {
-        return { valid: false, reason: "Too many attempts. Try again in 5 minutes." };
+        return { valid: false, reason: 'Too many attempts. Try again in 5 minutes.', };
       }
 
-      const record = await store.twoFactorSecrets.findOne({ user_id, enabled: true });
-      if (!record) return { valid: false, reason: "2FA is not enabled for this user." };
+      const record = await store.twoFactorSecrets.findOne({ user_id, enabled: true, },);
+      if (!record) return { valid: false, reason: '2FA is not enabled for this user.', };
 
-      const secretBuffer = base32Decode(record.secret);
-      const now = Math.floor(Date.now() / 1000);
-      const counter = Math.floor(now / TIME_STEP);
+      const secretBuffer = base32Decode(record.secret,);
+      const now = Math.floor(Date.now() / 1000,);
+      const counter = Math.floor(now / TIME_STEP,);
 
       // Check within the time window (±1 step).
       for (let i = -WINDOW_STEPS; i <= WINDOW_STEPS; i++) {
-        const expected = generateTOTP(secretBuffer, counter + i);
+        const expected = generateTOTP(secretBuffer, counter + i,);
         if (code === expected) {
-          attempts.delete(user_id); // Reset on success.
-          return { valid: true };
+          attempts.delete(user_id,); // Reset on success.
+          return { valid: true, };
         }
       }
 
       // Check backup codes.
       if (record.backup_codes?.length) {
-        const backupIdx = record.backup_codes.indexOf(code);
+        const backupIdx = record.backup_codes.indexOf(code,);
         if (backupIdx !== -1) {
-          const updated = [...record.backup_codes];
-          updated.splice(backupIdx, 1);
-          await store.twoFactorSecrets.update(record._id, { backup_codes: updated });
-          attempts.delete(user_id);
-          return { valid: true, used_backup: true };
+          const updated = [...record.backup_codes,];
+          updated.splice(backupIdx, 1,);
+          await store.twoFactorSecrets.update(record._id, { backup_codes: updated, },);
+          attempts.delete(user_id,);
+          return { valid: true, used_backup: true, };
         }
       }
 
       // Record failed attempt.
-      userAttempts.push(Date.now());
-      attempts.set(user_id, userAttempts);
+      userAttempts.push(Date.now(),);
+      attempts.set(user_id, userAttempts,);
 
-      return { valid: false, reason: "Invalid code." };
+      return { valid: false, reason: 'Invalid code.', };
     },
 
     /** Disable 2FA for a user (requires current valid code or admin override). */
-    async disable(user_id, code = null) {
-      if (!user_id) throw new Error("user_id is required");
-      const record = await store.twoFactorSecrets.findOne({ user_id });
-      if (!record?.enabled) return { ok: true, message: "2FA was not enabled." };
+    async disable(user_id, code = null,) {
+      if (!user_id) throw new Error('user_id is required',);
+      const record = await store.twoFactorSecrets.findOne({ user_id, },);
+      if (!record?.enabled) return { ok: true, message: '2FA was not enabled.', };
 
       if (code) {
-        const result = await this.verify(user_id, code);
-        if (!result.valid) throw new Error("Invalid verification code.");
+        const result = await this.verify(user_id, code,);
+        if (!result.valid) throw new Error('Invalid verification code.',);
       }
 
       await store.twoFactorSecrets.update(record._id, {
@@ -196,20 +196,20 @@ function createTwoFactorAuth({ store }) {
         disabled_at: new Date().toISOString(),
         secret: null,
         backup_codes: [],
-      });
+      },);
 
-      return { ok: true, message: "2FA disabled successfully." };
+      return { ok: true, message: '2FA disabled successfully.', };
     },
 
     /** Check if 2FA is enabled for a user. */
-    async isEnabled(user_id) {
-      const record = await store.twoFactorSecrets.findOne({ user_id, enabled: true });
+    async isEnabled(user_id,) {
+      const record = await store.twoFactorSecrets.findOne({ user_id, enabled: true, },);
       return !!record;
     },
 
     /** Get status details (for settings page). */
-    async status(user_id) {
-      const record = await store.twoFactorSecrets.findOne({ user_id });
+    async status(user_id,) {
+      const record = await store.twoFactorSecrets.findOne({ user_id, },);
       return {
         enabled: !!record?.enabled,
         enabled_at: record?.enabled_at || null,
@@ -219,13 +219,13 @@ function createTwoFactorAuth({ store }) {
   };
 }
 
-function generateBackupCodes(count = 8) {
+function generateBackupCodes(count = 8,) {
   const codes = [];
   for (let i = 0; i < count; i++) {
-    const code = crypto.randomInt(10000000, 99999999).toString();
-    codes.push(code);
+    const code = crypto.randomInt(10000000, 99999999,).toString();
+    codes.push(code,);
   }
   return codes;
 }
 
-module.exports = { createTwoFactorAuth, generateTOTP, base32Encode, base32Decode };
+module.exports = { createTwoFactorAuth, generateTOTP, base32Encode, base32Decode, };
