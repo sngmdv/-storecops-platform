@@ -2,10 +2,6 @@ FROM node:24-alpine
 
 WORKDIR /app
 
-# Bust cache: build timestamp
-ARG BUILD_TIME
-ENV BUILD_TIME=${BUILD_TIME}
-
 # Copy dependency manifests first for layer caching
 COPY package.json package-lock.json ./
 
