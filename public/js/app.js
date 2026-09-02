@@ -1023,139 +1023,142 @@
     const trendDown = (val) => `<span class="orders-stat-trend down">↘ ${val}%</span>`;
 
     view.innerHTML = `
-      <div class="orders-page">
-        <div class="orders-header">
+      <div class="b-header">
+        <div>
+          <h2>Live Orders</h2>
+          <p>Your buying and selling transactions</p>
+        </div>
+        <div class="b-header-filters">
+          <button class="b-report-btn">${icon("download")} Export</button>
+        </div>
+      </div>
+
+      <div class="b-grid-4" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle purple">${icon("shopping-cart")}</div>
+          </div>
+          <div class="b-stat-value">${Number(totalOrders).toLocaleString()}</div>
+          <div class="b-stat-label">Total Orders</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            +5.4%
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.1s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle amber">${icon("clock")}</div>
+          </div>
+          <div class="b-stat-value">${Number(pendingOrders).toLocaleString()}</div>
+          <div class="b-stat-label">Pending Orders</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            +3%
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.15s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle green">${icon("package")}</div>
+          </div>
+          <div class="b-stat-value">${Number(dispatchedOrders).toLocaleString()}</div>
+          <div class="b-stat-label">Dispatched</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            +7.8%
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.2s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle blue">${icon("dollar-sign")}</div>
+          </div>
+          <div class="b-stat-value">${money(revenue)}</div>
+          <div class="b-stat-label">Revenue</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            +2.7%
+          </div>
+        </div>
+      </div>
+
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-chart-card" style="animation-delay:0.25s">
+          <h3>Product Inventory</h3>
+          <p>Overall sales target and inventory report</p>
+          <div class="chart-wrap"><canvas id="orders-inventory-chart"></canvas></div>
+        </div>
+        <div class="b-card" style="animation-delay:0.3s">
+          <h3 style="margin-bottom:12px">Order Summary</h3>
           <div>
-            <h2>Orders</h2>
-            <p>Your buying and selling transactions</p>
-          </div>
-          <div class="orders-filters">
-            <button class="orders-date-btn">${icon("calendar")} Jan 23 - Jan 27 ▾</button>
-            <button class="orders-source-btn">Google Analytic ▾</button>
-          </div>
-        </div>
-
-        <div class="grid grid-2" style="gap:16px;margin-bottom:20px">
-          <div class="orders-stat-card">
-            <div class="orders-stat-top">
-              <div class="orders-stat-icon purple">${icon("shopping-cart")}</div>
-              <button class="orders-report-btn">Report ↓</button>
-            </div>
-            <div class="orders-stat-label">Total Orders</div>
-            <div><span class="orders-stat-value">${Number(totalOrders).toLocaleString()}</span>${trendUp(5.4)}</div>
-          </div>
-          <div class="orders-stat-card">
-            <div class="orders-stat-top">
-              <div class="orders-stat-icon amber">${icon("clock")}</div>
-              <button class="orders-report-btn">Report ↓</button>
-            </div>
-            <div class="orders-stat-label">Pending Orders</div>
-            <div><span class="orders-stat-value">${Number(pendingOrders).toLocaleString()}</span>${trendUp(3)}</div>
-          </div>
-          <div class="orders-stat-card">
-            <div class="orders-stat-top">
-              <div class="orders-stat-icon green">${icon("package")}</div>
-              <button class="orders-report-btn">Report ↓</button>
-            </div>
-            <div class="orders-stat-label">Dispatched</div>
-            <div><span class="orders-stat-value">${Number(dispatchedOrders).toLocaleString()}</span>${trendUp(7.8)}</div>
-          </div>
-          <div class="orders-stat-card">
-            <div class="orders-stat-top">
-              <div class="orders-stat-icon blue">${icon("dollar")}</div>
-              <button class="orders-report-btn">Report ↓</button>
-            </div>
-            <div class="orders-stat-label">Revenue</div>
-            <div><span class="orders-stat-value">${money(revenue)}</span>${trendUp(2.7)}</div>
+            ${[
+              { label: "Total Orders", value: totalOrders },
+              { label: "Total Revenue", value: money(orders.reduce((sum, o) => sum + (o.total || o.amount || 0), 0)) },
+              { label: "Avg Order Value", value: totalOrders > 0 ? money(orders.reduce((sum, o) => sum + (o.total || o.amount || 0), 0) / totalOrders) : "$0" },
+              { label: "Unique Customers", value: new Set(orders.map(o => o.customer_id || o.email)).size },
+            ].map(c => `
+              <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-border)">
+                <span style="color:var(--text-muted);font-size:13px">${c.label}</span>
+                <span style="font-weight:600;font-size:13px">${c.value}</span>
+              </div>
+            `).join("")}
           </div>
         </div>
+      </div>
 
-        <div class="grid grid-2 section-gap" style="gap:16px">
-          <div class="orders-chart-card">
-            <h3>Product Inventory</h3>
-            <p>Overall sales target and inventory report</p>
-            <div class="chart-wrap"><canvas id="orders-inventory-chart"></canvas></div>
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.35s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <h3>${icon("package")} Best Selling Products</h3>
           </div>
-          <div class="orders-chart-card">
-            <h3>Order Summary</h3>
-            <p style="margin-bottom:12px">Key metrics from recent orders</p>
-            <div>
-              ${[
-                { label: "Total Orders", value: totalOrders },
-                { label: "Total Revenue", value: money(orders.reduce((sum, o) => sum + (o.total || o.amount || 0), 0)) },
-                { label: "Avg Order Value", value: totalOrders > 0 ? money(orders.reduce((sum, o) => sum + (o.total || o.amount || 0), 0) / totalOrders) : "$0" },
-                { label: "Unique Customers", value: new Set(orders.map(o => o.customer_id || o.email)).size },
-              ].map(c => `
-                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-border)">
-                  <span style="color:var(--text-muted);font-size:13px">${c.label}</span>
-                  <span style="font-weight:600;font-size:13px">${c.value}</span>
+          <div>
+            ${topProducts.length ? topProducts.map((p, i) => `
+              <div class="b-list-item" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--card-border)">
+                <div style="width:36px;height:36px;border-radius:8px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:18px">${['📱','🎧','💻','⌚','📷'][i % 5]}</div>
+                <div style="flex:1">
+                  <div style="font-weight:600;font-size:13px">${esc(p.name)}</div>
+                  <div style="font-size:12px;color:var(--muted)">${money(p.price || 0)} × ${p.quantity || 1}</div>
                 </div>
-              `).join("")}
-            </div>
-          </div>
-        </div>
-
-        <div class="grid grid-2 section-gap" style="gap:16px">
-          <div class="orders-list-card">
-            <div class="orders-list-header">
-              <h3>${icon("package")} Best Selling Products</h3>
-              <button class="btn btn-sm btn-ghost-sm">Filter</button>
-            </div>
-            <div>
-              ${topProducts.length ? topProducts.map((p, i) => `
-                <div class="orders-product-item">
-                  <div class="orders-product-img">${['📱','🎧','💻','⌚','📷'][i % 5]}</div>
-                  <div class="orders-product-info">
-                    <div class="orders-product-name">${esc(p.name)}</div>
-                    <div class="orders-product-meta">${money(p.price || 0)} × ${p.quantity || 1}</div>
-                  </div>
-                  <div class="orders-product-badges">
-                    <span class="orders-badge stock">In Stock</span>
-                    <span class="orders-badge pending">Pending</span>
-                  </div>
+                <div style="display:flex;gap:6px">
+                  <span class="b-badge green">In Stock</span>
                 </div>
-              `).join("") : `
-                <div class="orders-product-item">
-                  <div class="orders-product-img">📦</div>
-                  <div class="orders-product-info">
-                    <div class="orders-product-name">No product data yet</div>
-                    <div class="orders-product-meta">Start tracking to see best sellers</div>
-                  </div>
-                </div>`}
-            </div>
-          </div>
-
-          <div class="orders-chart-card">
-            <h3>${icon("bar-chart")} Hourly Orders (24h)</h3>
-            <p>Order distribution across the day</p>
-            <div class="hour-chart" style="display:flex;gap:3px;height:120px;align-items:flex-end">${hourBars}</div>
+              </div>
+            `).join("") : `
+              <div style="text-align:center;padding:24px;color:var(--muted)">
+                <div style="font-size:14px;margin-bottom:4px">No product data yet</div>
+                <div style="font-size:12px">Start tracking to see best sellers</div>
+              </div>`}
           </div>
         </div>
 
-        <div class="card section-gap" style="animation:cardSlideIn 0.5s ease 0.4s backwards">
-          <div class="card-title-row">
-            <h3>${icon("radio")} Recent Orders — ${data.count || 0} orders</h3>
-            <span class="live-status"><span class="live-dot"></span> live</span>
-          </div>
-          <div class="orders-table-wrap" style="margin-top:12px">
-            <table class="orders-table">
-              <thead><tr><th>Customer</th><th>Items</th><th>Total</th><th>Segment</th><th>Insight</th><th>Time</th></tr></thead>
-              <tbody id="orders-tbody"></tbody>
-            </table>
-          </div>
+        <div class="b-chart-card" style="animation-delay:0.4s">
+          <h3>${icon("bar-chart")} Hourly Orders (24h)</h3>
+          <p>Order distribution across the day</p>
+          <div class="hour-chart" style="display:flex;gap:3px;height:120px;align-items:flex-end">${hourBars}</div>
         </div>
+      </div>
 
-        <div class="card section-gap" style="animation:cardSlideIn 0.5s ease 0.5s backwards">
-          <div class="card-title-row"><h3>${icon("users")} Customer Intelligence</h3></div>
-          <div class="grid grid-3" style="gap:12px;align-items:end;margin-top:12px">
-            <div>
-              <label class="muted" style="font-size:11px;display:block;margin-bottom:4px;font-weight:700">CUSTOMER ID OR EMAIL</label>
-              <input id="cust-lookup" placeholder="e.g. buyer-01 or email@example.com" style="width:100%;padding:11px;border-radius:10px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px;font-family:var(--font-body)" />
-            </div>
-            <div><button id="cust-btn" class="btn btn-primary" style="width:100%">${icon("search", "icon-sm")} Look up</button></div>
-          </div>
-          <div id="cust-result" style="margin-top:16px"></div>
+      <div class="b-card" style="animation-delay:0.45s;margin-bottom:24px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h3>${icon("radio")} Recent Orders — ${data.count || 0} orders</h3>
+          <span class="live-status"><span class="live-dot"></span> live</span>
         </div>
+        <div style="overflow-x:auto">
+          <table class="b-table">
+            <thead><tr><th>Customer</th><th>Items</th><th>Total</th><th>Segment</th><th>Insight</th><th>Time</th></tr></thead>
+            <tbody id="orders-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="b-card" style="animation-delay:0.5s">
+        <h3 style="margin-bottom:16px">${icon("users")} Customer Intelligence</h3>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end">
+          <div>
+            <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;font-weight:700">CUSTOMER ID OR EMAIL</label>
+            <input id="cust-lookup" placeholder="e.g. buyer-01 or email@example.com" style="width:100%;padding:11px;border-radius:10px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px;font-family:var(--font-body)" />
+          </div>
+          <div><button id="cust-btn" class="btn btn-primary" style="padding:11px 24px">${icon("search", "icon-sm")} Look up</button></div>
+        </div>
+        <div id="cust-result" style="margin-top:16px"></div>
       </div>`;
 
     // Render orders table
@@ -1168,11 +1171,11 @@
         const ins = o.insight || {};
         const initials = (o.customer || "?").slice(0, 2).toUpperCase();
         return `<tr style="animation-delay:${0.05 * i}s">
-          <td><div class="orders-customer-cell"><div class="orders-avatar">${initials}</div><div class="orders-customer-info"><div class="orders-customer-name">${esc(o.customer || "Unknown")}</div><div class="orders-customer-email">${esc(o.email || "—")}</div></div></div></td>
-          <td>${(o.items || []).map(i => `${i.quantity || 1}× ${esc(i.name || i.product_id || "item")}`).join(", ") || "—"}</td>
+          <td><div style="display:flex;align-items:center;gap:8px"><div class="b-icon-circle purple" style="width:28px;height:28px;min-width:28px;font-size:11px">${initials}</div><div><div style="font-weight:600;font-size:13px">${esc(o.customer || "Unknown")}</div><div style="font-size:11px;color:var(--muted)">${esc(o.email || "—")}</div></div></div></td>
+          <td style="font-size:12px">${(o.items || []).map(i => `${i.quantity || 1}× ${esc(i.name || i.product_id || "item")}`).join(", ") || "—"}</td>
           <td><b style="color:var(--green)">${money(o.total)}</b></td>
-          <td><span class="pill ${segColors[o.customer_profile?.segment] || "pill-gray"}">${esc(o.customer_profile?.segment || "NEW")}</span></td>
-          <td><span style="font-size:12px;color:var(--${insightColors[ins.type] || "muted"})">${esc(ins.text || "—")}</span></td>
+          <td><span class="b-badge ${segColors[o.customer_profile?.segment] || "gray"}">${esc(o.customer_profile?.segment || "NEW")}</span></td>
+          <td style="font-size:12px;color:var(--${insightColors[ins.type] || "muted"})">${esc(ins.text || "—")}</td>
           <td style="font-size:12px;color:var(--muted)">${esc(o.time_ago || "—")}</td>
         </tr>`;
       }).join("");
@@ -1223,7 +1226,7 @@
       if (purchase && tbody) {
         const initials = (purchase.customer || "?").slice(0, 2).toUpperCase();
         const row = document.createElement("tr");
-        row.innerHTML = `<td><div class="orders-customer-cell"><div class="orders-avatar">${initials}</div><div class="orders-customer-info"><div class="orders-customer-name">${esc(purchase.customer || "Unknown")}</div><div class="orders-customer-email">${esc(purchase.email || "—")}</div></div></div></td><td>${(purchase.items || []).map(i => `${i.quantity || 1}× ${esc(i.name || i.product_id || "item")}`).join(", ") || "—"}</td><td><b style="color:var(--green)">${money(purchase.total)}</b></td><td><span class="pill pill-gray">NEW</span></td><td><span style="font-size:12px">New order</span></td><td style="font-size:12px;color:var(--muted)">just now</td>`;
+        row.innerHTML = `<td><div style="display:flex;align-items:center;gap:8px"><div class="b-icon-circle purple" style="width:28px;height:28px;min-width:28px;font-size:11px">${initials}</div><div><div style="font-weight:600;font-size:13px">${esc(purchase.customer || "Unknown")}</div><div style="font-size:11px;color:var(--muted)">${esc(purchase.email || "—")}</div></div></div></td><td style="font-size:12px">${(purchase.items || []).map(i => `${i.quantity || 1}× ${esc(i.name || i.product_id || "item")}`).join(", ") || "—"}</td><td><b style="color:var(--green)">${money(purchase.total)}</b></td><td><span class="b-badge gray">NEW</span></td><td style="font-size:12px">New order</td><td style="font-size:12px;color:var(--muted)">just now</td>`;
         row.style.animation = "flash 1.2s ease";
         tbody.prepend(row);
       }
@@ -1246,8 +1249,8 @@
 
         $("#cust-result").innerHTML = `
           <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius-sm);animation:fadeSlideUp 0.3s ease">
-            <div class="grid grid-4" style="gap:12px">
-              <div style="text-align:center"><span class="pill ${segColors[p?.segment] || "pill-gray"}" style="font-size:13px;padding:4px 14px">${p?.segment || "UNKNOWN"}</span><div style="font-size:11px;color:var(--muted);margin-top:4px">Segment</div></div>
+            <div class="b-grid-4" style="gap:12px">
+              <div style="text-align:center"><span class="b-badge ${segColors[p?.segment] || "gray"}" style="font-size:13px;padding:4px 14px">${p?.segment || "UNKNOWN"}</span><div style="font-size:11px;color:var(--muted);margin-top:4px">Segment</div></div>
               <div style="text-align:center"><div style="font-size:20px;font-weight:700">${money(result.total_spent)}</div><div style="font-size:11px;color:var(--muted)">Lifetime value</div></div>
               <div style="text-align:center"><div style="font-size:20px;font-weight:700">${p?.purchases || 0}</div><div style="font-size:11px;color:var(--muted)">Purchases</div></div>
               <div style="text-align:center"><div style="font-size:20px;font-weight:700;color:var(--${ins?.color || "muted"})">${esc(ins?.icon || "—")}</div><div style="font-size:11px;color:var(--muted)">${esc(ins?.text || "No insight")}</div></div>
@@ -1493,34 +1496,40 @@
     const actionList = Array.isArray(pending) ? pending : pending.actions || [];
 
     view.innerHTML = `
-      <div class="grid grid-2">
-        <div class="card">
-          <h3>Automation rules</h3>
-          <div class="scroll-y">
-            <table><thead><tr><th>Rule</th><th>Trigger</th><th>Action</th><th>Priority</th></tr></thead>
+      <div class="b-header">
+        <div>
+          <h2>Automations</h2>
+          <p>Automation rules and queued actions</p>
+        </div>
+        <div class="b-header-filters">
+          <button class="btn btn-sm btn-primary" id="scan-btn">${icon("search", "icon-sm")} Scan store</button>
+          <button class="btn btn-sm btn-grad" id="exec-btn">${icon("send", "icon-sm")} Execute now</button>
+        </div>
+      </div>
+
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s">
+          <h3 style="margin-bottom:16px">Automation Rules</h3>
+          <div style="overflow-x:auto">
+            <table class="b-table"><thead><tr><th>Rule</th><th>Trigger</th><th>Action</th><th>Priority</th></tr></thead>
             <tbody>${ruleList.map((r) => `<tr>
               <td><b>${esc(r.name || r.rule_id)}</b></td>
-              <td><span class="pill pill-cyan">${esc(r.trigger)}</span></td>
-              <td>${esc(r.action?.type || "—")} <span class="muted">via ${esc(r.action?.channel || "auto")}</span></td>
+              <td><span class="b-badge cyan">${esc(r.trigger)}</span></td>
+              <td style="font-size:13px">${esc(r.action?.type || "—")} <span style="color:var(--muted)">via ${esc(r.action?.channel || "auto")}</span></td>
               <td>${r.priority ?? "—"}</td>
-            </tr>`).join("") || '<tr><td colspan="4" class="empty">No rules configured.</td></tr>'}</tbody></table>
+            </tr>`).join("") || '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--muted)">No rules configured.</td></tr>'}</tbody></table>
           </div>
         </div>
-        <div class="card">
-          <div class="card-title-row"><h3>Queued actions</h3>
-            <div class="row-actions">
-              <button class="btn btn-sm btn-primary" id="scan-btn">${icon("search", "icon-sm")} Scan store</button>
-              <button class="btn btn-sm btn-grad" id="exec-btn">${icon("send", "icon-sm")} Execute now</button>
-            </div>
-          </div>
-          <div class="scroll-y" id="action-list"></div>
+        <div class="b-card" style="animation-delay:0.1s">
+          <h3 style="margin-bottom:16px">Queued Actions</h3>
+          <div id="action-list"></div>
         </div>
       </div>`;
 
     const drawActions = () => {
       $("#action-list").innerHTML = actionList.length
-        ? actionList.map((a) => `<div class="alert-item amber">${icon("zap")} <div><b>${esc(a.rule_id || a.action_type)}</b> → ${esc(a.customer_id || "all")} <span class="muted">(${esc(a.status || "queued")}, ${esc(a.channel || "auto")})</span></div></div>`).join("")
-        : '<div class="empty">No actions queued. Run a scan to find opportunities.</div>';
+        ? actionList.map((a) => `<div class="b-list-item" style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--card-border)">${icon("zap")} <div><b>${esc(a.rule_id || a.action_type)}</b> → ${esc(a.customer_id || "all")} <span style="color:var(--muted);font-size:12px">(${esc(a.status || "queued")}, ${esc(a.channel || "auto")})</span></div></div>`).join("")
+        : '<div style="text-align:center;padding:24px;color:var(--muted)">No actions queued. Run a scan to find opportunities.</div>';
     };
     drawActions();
 
@@ -1552,8 +1561,8 @@
     const ruleList = Array.isArray(rules) ? rules : rules.rules || [];
 
     const channelBadge = (configured, provider) => {
-      if (configured) return `<span class="pill pill-green">● Connected</span> <span class="muted">${esc(provider)}</span>`;
-      return `<span class="pill pill-amber">○ Console mode</span> <span class="muted">${esc(provider)} — set credentials to go live</span>`;
+      if (configured) return `<span class="b-badge green">● Connected</span> <span style="color:var(--muted);font-size:12px">${esc(provider)}</span>`;
+      return `<span class="b-badge amber">○ Console mode</span> <span style="color:var(--muted);font-size:12px">${esc(provider)} — set credentials to go live</span>`;
     };
 
     const fmtTime = (iso) => {
@@ -1569,85 +1578,91 @@
     };
 
     const statusPill = (st) => {
-      if (st === "delivered") return '<span class="pill pill-green">delivered</span>';
-      if (st === "sent") return '<span class="pill pill-cyan">sent</span>';
-      if (st === "failed") return '<span class="pill pill-red">failed</span>';
-      if (st === "suppressed") return '<span class="pill pill-amber">suppressed</span>';
-      if (st === "blocked") return '<span class="pill pill-amber">blocked</span>';
-      return `<span class="pill pill-violet">${esc(st || "unknown")}</span>`;
+      if (st === "delivered") return '<span class="b-badge green">delivered</span>';
+      if (st === "sent") return '<span class="b-badge cyan">sent</span>';
+      if (st === "failed") return '<span class="b-badge red">failed</span>';
+      if (st === "suppressed") return '<span class="b-badge amber">suppressed</span>';
+      if (st === "blocked") return '<span class="b-badge amber">blocked</span>';
+      return `<span class="b-badge violet">${esc(st || "unknown")}</span>`;
     };
 
     view.innerHTML = `
-      <div class="grid grid-2">
-        <div class="card">
-          <h3>💬 WhatsApp Business API</h3>
-          <p style="margin-bottom:8px">${channelBadge(wa.configured, wa.provider || "console")}</p>
-          <p class="muted" style="margin-bottom:6px">Webhook: <span class="mono">${esc(wa.webhook_url || "/webhooks/whatsapp")}</span></p>
-          ${!wa.configured ? `<div class="alert-item amber" style="margin-top:8px">${icon("alert-triangle")} <div><b>Not connected</b><br><small class="muted">Set WHATSAPP_PROVIDER=meta, WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID in your .env to enable live delivery via Meta Cloud API.</small></div></div>` : ""}
+      <div class="b-header">
+        <div>
+          <h2>Messages & Delivery</h2>
+          <p>Channel status, deliveries, and automation rules</p>
         </div>
-        <div class="card">
-          <h3>📧 Email Service</h3>
-          <p style="margin-bottom:8px">${channelBadge(em.configured, em.provider || "console")}</p>
-          <p class="muted" style="margin-bottom:6px">From: <span class="mono">${esc(em.from_address || "noreply@storecops.app")}</span></p>
-          ${!em.configured ? `<div class="alert-item amber" style="margin-top:8px">${icon("alert-triangle")} <div><b>Not connected</b><br><small class="muted">Set EMAIL_PROVIDER=resend and RESEND_API_KEY in your .env to enable live email delivery.</small></div></div>` : ""}
+        <div class="b-header-filters">
+          <button class="btn btn-sm btn-primary" id="msg-scan">${icon("search", "icon-sm")} Scan store</button>
+          <button class="btn btn-sm btn-grad" id="msg-exec">${icon("zap", "icon-sm")} Execute now</button>
         </div>
       </div>
 
-      <div class="grid grid-3 section-gap">
-        <div class="card" style="text-align:center">
-          <p class="muted">Total sent</p>
-          <h2 style="font-size:2rem;margin:4px 0">${stats.total || 0}</h2>
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s">
+          <h3 style="margin-bottom:8px">${icon("message-circle")} WhatsApp Business API</h3>
+          <div style="margin-bottom:8px">${channelBadge(wa.configured, wa.provider || "console")}</div>
+          <div style="font-size:12px;color:var(--muted)">Webhook: <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">${esc(wa.webhook_url || "/webhooks/whatsapp")}</code></div>
+          ${!wa.configured ? `<div style="margin-top:12px;padding:10px;background:rgba(251,191,36,0.1);border-radius:8px;display:flex;align-items:center;gap:8px">${icon("alert-triangle")} <div style="font-size:12px"><b>Not connected</b><br><span style="color:var(--muted)">Set WHATSAPP_PROVIDER=meta in .env to enable live delivery.</span></div></div>` : ""}
         </div>
-        <div class="card" style="text-align:center">
-          <p class="muted">By channel</p>
-          <div style="margin-top:6px">${Object.entries(stats.by_channel || {}).map(([ch, n]) => `<span class="pill pill-violet">${channelIcon(ch)} ${esc(ch)}: ${n}</span> `).join("") || '<span class="muted">No deliveries yet</span>'}</div>
-        </div>
-        <div class="card" style="text-align:center">
-          <p class="muted">By status</p>
-          <div style="margin-top:6px">${Object.entries(stats.by_status || {}).map(([st, n]) => `<span class="pill ${st === "delivered" ? "pill-green" : st === "failed" ? "pill-red" : "pill-cyan"}">${esc(st)}: ${n}</span> `).join("") || '<span class="muted">No deliveries yet</span>'}</div>
+        <div class="b-card" style="animation-delay:0.1s">
+          <h3 style="margin-bottom:8px">${icon("mail")} Email Service</h3>
+          <div style="margin-bottom:8px">${channelBadge(em.configured, em.provider || "console")}</div>
+          <div style="font-size:12px;color:var(--muted)">From: <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">${esc(em.from_address || "noreply@storecops.app")}</code></div>
+          ${!em.configured ? `<div style="margin-top:12px;padding:10px;background:rgba(251,191,36,0.1);border-radius:8px;display:flex;align-items:center;gap:8px">${icon("alert-triangle")} <div style="font-size:12px"><b>Not connected</b><br><span style="color:var(--muted)">Set EMAIL_PROVIDER=resend and RESEND_API_KEY in .env.</span></div></div>` : ""}
         </div>
       </div>
 
-      <div class="card section-gap">
-        <div class="card-title-row"><h3>${icon("send")} Recent deliveries</h3>
-          <div class="row-actions">
-            <button class="btn btn-sm btn-primary" id="msg-scan">${icon("search", "icon-sm")} Scan store</button>
-            <button class="btn btn-sm btn-grad" id="msg-exec">${icon("zap", "icon-sm")} Execute now</button>
-          </div>
+      <div class="b-grid-3" style="margin-bottom:24px">
+        <div class="b-card" style="text-align:center;animation-delay:0.15s">
+          <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px">Total Sent</div>
+          <div class="b-stat-value">${stats.total || 0}</div>
         </div>
-        <div class="scroll-y">
-          <table><thead><tr><th>Channel</th><th>Customer</th><th>Action</th><th>Status</th><th>Time</th></tr></thead>
+        <div class="b-card" style="text-align:center;animation-delay:0.2s">
+          <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px">By Channel</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:6px">${Object.entries(stats.by_channel || {}).map(([ch, n]) => `<span class="b-badge violet">${channelIcon(ch)} ${esc(ch)}: ${n}</span>`).join("") || '<span style="color:var(--muted);font-size:12px">No deliveries yet</span>'}</div>
+        </div>
+        <div class="b-card" style="text-align:center;animation-delay:0.25s">
+          <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px">By Status</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:6px">${Object.entries(stats.by_status || {}).map(([st, n]) => `<span class="b-badge ${st === "delivered" ? "green" : st === "failed" ? "red" : "cyan"}">${esc(st)}: ${n}</span>`).join("") || '<span style="color:var(--muted);font-size:12px">No deliveries yet</span>'}</div>
+        </div>
+      </div>
+
+      <div class="b-card" style="animation-delay:0.3s;margin-bottom:24px">
+        <h3 style="margin-bottom:16px">${icon("send")} Recent Deliveries</h3>
+        <div style="overflow-x:auto">
+          <table class="b-table"><thead><tr><th>Channel</th><th>Customer</th><th>Action</th><th>Status</th><th>Time</th></tr></thead>
           <tbody>${deliveries.length
             ? deliveries.map((d) => `<tr>
               <td>${channelIcon(d.channel)} ${esc(d.channel || "—")}</td>
-              <td class="mono">${esc((d.customer_id || "—").slice(0, 20))}</td>
-              <td>${esc(d.action_type || "—")}</td>
+              <td style="font-family:monospace;font-size:12px">${esc((d.customer_id || "—").slice(0, 20))}</td>
+              <td style="font-size:13px">${esc(d.action_type || "—")}</td>
               <td>${statusPill(d.status)}</td>
-              <td class="muted">${fmtTime(d.createdAt)}</td>
+              <td style="color:var(--muted);font-size:12px">${fmtTime(d.createdAt)}</td>
             </tr>`).join("")
-            : '<tr><td colspan="5" class="empty">No deliveries yet. Scan your store and execute to send messages.</td></tr>'}</tbody></table>
+            : '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--muted)">No deliveries yet. Scan your store and execute to send messages.</td></tr>'}</tbody></table>
         </div>
       </div>
 
-      <div class="grid grid-2 section-gap">
-        <div class="card">
-          <h3>🔧 Automation rules → messages</h3>
-          <div class="scroll-y">
-            <table><thead><tr><th>Rule</th><th>Trigger</th><th>Channel</th></tr></thead>
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.35s">
+          <h3 style="margin-bottom:16px">${icon("settings")} Automation Rules → Messages</h3>
+          <div style="overflow-x:auto">
+            <table class="b-table"><thead><tr><th>Rule</th><th>Trigger</th><th>Channel</th></tr></thead>
             <tbody>${ruleList.length
               ? ruleList.map((r) => `<tr>
                 <td><b>${esc(r.name || r.rule_id)}</b></td>
-                <td><span class="pill pill-cyan">${esc(r.trigger)}</span></td>
-                <td>${esc(r.action?.channel || "auto")}</td>
+                <td><span class="b-badge cyan">${esc(r.trigger)}</span></td>
+                <td style="font-size:13px">${esc(r.action?.channel || "auto")}</td>
               </tr>`).join("")
-              : '<tr><td colspan="3" class="empty">No automation rules configured.</td></tr>'}</tbody></table>
+              : '<tr><td colspan="3" style="text-align:center;padding:24px;color:var(--muted)">No automation rules configured.</td></tr>'}</tbody></table>
           </div>
         </div>
-        <div class="card">
-          <h3>📋 WhatsApp message templates</h3>
-          <p class="muted" style="margin-bottom:8px">Pre-approved templates for business-initiated conversations:</p>
-          <div class="scroll-y">
-            ${Object.entries(wa.templates || {}).map(([key, name]) => `<div class="alert-item">${icon("file-text")} <div><b>${esc(name)}</b> <span class="muted">— ${esc(key.replace(/_/g, " "))}</span></div></div>`).join("") || '<div class="empty">No templates configured.</div>'}
+        <div class="b-card" style="animation-delay:0.4s">
+          <h3 style="margin-bottom:8px">${icon("file-text")} WhatsApp Message Templates</h3>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Pre-approved templates for business-initiated conversations:</div>
+          <div>
+            ${Object.entries(wa.templates || {}).map(([key, name]) => `<div class="b-list-item" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--card-border)">${icon("file-text")} <div><b style="font-size:13px">${esc(name)}</b> <span style="color:var(--muted);font-size:12px">— ${esc(key.replace(/_/g, " "))}</span></div></div>`).join("") || '<div style="text-align:center;padding:24px;color:var(--muted)">No templates configured.</div>'}
           </div>
         </div>
       </div>`;
@@ -2193,31 +2208,33 @@
     const keywords = existing.keywords || [];
 
     view.innerHTML = `
-      <div class="card">
-        <h3>${icon("tag")} Brand Keywords Setup</h3>
-        <p class="muted" style="margin-bottom:16px">Add keywords to monitor your brand mentions, sentiment, and search visibility. These keywords will be used for sentiment monitoring and SEO tracking.</p>
-        
-        <div style="margin-bottom:16px">
-          <label class="muted" style="font-size:0.85rem;display:block;margin-bottom:4px">Add a keyword</label>
-          <div style="display:flex;gap:8px">
-            <input id="bk-input" placeholder="e.g. your brand name, product name" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)" />
-            <button class="btn btn-primary" id="bk-add">${icon("plus", "icon-sm")} Add</button>
-          </div>
+      <div class="b-header">
+        <div>
+          <h2>${icon("tag")} Brand Keywords</h2>
+          <p>Monitor brand mentions, sentiment, and search visibility</p>
+        </div>
+      </div>
+
+      <div class="b-card" style="animation-delay:0.05s;margin-bottom:24px">
+        <h3 style="margin-bottom:16px">Add Keywords</h3>
+        <div style="display:flex;gap:8px;margin-bottom:16px">
+          <input id="bk-input" placeholder="e.g. your brand name, product name" style="flex:1;padding:11px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px;font-family:var(--font-body)" />
+          <button class="btn btn-primary" id="bk-add">${icon("plus", "icon-sm")} Add</button>
         </div>
 
         <div id="bk-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
           ${keywords.length ? keywords.map((k) => `
-            <span class="pill pill-cyan" style="display:flex;align-items:center;gap:6px">
+            <span class="b-badge cyan" style="display:flex;align-items:center;gap:6px;padding:6px 12px">
               ${esc(k)}
               <button class="bk-remove" data-keyword="${esc(k)}" style="background:none;border:none;color:var(--text-dim);cursor:pointer;padding:0;font-size:14px">×</button>
             </span>
-          `).join("") : '<span class="muted">No keywords added yet</span>'}
+          `).join("") : '<span style="color:var(--muted);font-size:13px">No keywords added yet</span>'}
         </div>
 
         <div id="bk-msg"></div>
 
-        <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
-          <h4 style="margin-bottom:8px">Why add brand keywords?</h4>
+        <div style="padding:16px;background:var(--surface-2);border-radius:12px;margin-top:16px">
+          <h4 style="margin-bottom:8px;font-size:14px">Why add brand keywords?</h4>
           <ul style="margin:0;padding-left:20px;font-size:13px;color:var(--muted)">
             <li>Monitor brand mentions across the web</li>
             <li>Track sentiment changes in real-time</li>
@@ -2560,22 +2577,48 @@
     const byRule = attribution?.by_rule || attribution?.report?.by_rule || [];
 
     view.innerHTML = `
-      <div class="grid grid-4">
-        <div class="card"><h3>ROI</h3><div class="kpi-value ${roi?.verdict === "PROFITABLE" ? "kpi-up" : "kpi-warn"}">${roi ? roi.roi_percent + "%" : "—"}</div><div class="kpi-sub">${esc(roi?.verdict || "")} · ${money(roi?.net_gain)} net</div></div>
-        <div class="card"><h3>Attributed revenue</h3><div class="kpi-value">${money(roi?.attributed_revenue)}</div><div class="kpi-sub">vs ${money(roi?.subscription_cost)} subscription</div></div>
-        <div class="card"><h3>Maturity</h3><div class="kpi-value">${maturity?.score ?? "—"}</div><div class="kpi-sub">${esc(maturity?.stage || "")}</div></div>
-        <div class="card"><h3>Sentiment</h3><div class="kpi-value">${digest?.sentiment_trend?.current ?? "—"}</div><div class="kpi-sub">${esc(digest?.sentiment_trend?.direction || "")}</div></div>
+      <div class="b-header">
+        <div>
+          <h2>Reports & Analytics</h2>
+          <p>ROI, attribution, maturity, and weekly digest</p>
+        </div>
       </div>
 
-      <div class="grid grid-2 section-gap">
-        <div class="card"><h3>${icon("dollar")} Revenue by automation rule</h3>
-          <div class="chart-wrap"><canvas id="attr-chart"></canvas></div></div>
-        <div class="card"><h3>${icon("clipboard")} Weekly digest</h3>
-          <div class="scroll-y">${digest ? `
-            <div class="alert-item green">${icon("banknote")} <div>Revenue ${money(digest.headline?.revenue)} · attributed ${money(digest.headline?.attributed_revenue)} (${digest.headline?.roi_percent}%)</div></div>
-            <div class="alert-item">${icon("send")} <div>${digest.headline?.actions_delivered || 0} automated messages delivered</div></div>
-            <div class="alert-item">${icon("cpu")} <div>Platform stage: <b>${esc(digest.headline?.maturity_stage || "—")}</b></div></div>
-            <div class="alert-item">${icon("heart")} <div>${(digest.churn?.top_at_risk || []).length} customer(s) flagged at-risk</div></div>` : '<div class="empty">Digest unavailable.</div>'}</div>
+      <div class="b-grid-4" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s">
+          <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px">ROI</div>
+          <div class="b-stat-value" style="color:${roi?.verdict === "PROFITABLE" ? 'var(--green)' : 'var(--amber)'}">${roi ? roi.roi_percent + "%" : "—"}</div>
+          <div class="b-stat-label">${esc(roi?.verdict || "")} · ${money(roi?.net_gain)} net</div>
+        </div>
+        <div class="b-card" style="animation-delay:0.1s">
+          <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px">Attributed Revenue</div>
+          <div class="b-stat-value">${money(roi?.attributed_revenue)}</div>
+          <div class="b-stat-label">vs ${money(roi?.subscription_cost)} subscription</div>
+        </div>
+        <div class="b-card" style="animation-delay:0.15s">
+          <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px">Maturity</div>
+          <div class="b-stat-value">${maturity?.score ?? "—"}</div>
+          <div class="b-stat-label">${esc(maturity?.stage || "")}</div>
+        </div>
+        <div class="b-card" style="animation-delay:0.2s">
+          <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:4px">Sentiment</div>
+          <div class="b-stat-value">${digest?.sentiment_trend?.current ?? "—"}</div>
+          <div class="b-stat-label">${esc(digest?.sentiment_trend?.direction || "")}</div>
+        </div>
+      </div>
+
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-chart-card" style="animation-delay:0.25s">
+          <h3>${icon("dollar")} Revenue by Automation Rule</h3>
+          <div class="chart-wrap"><canvas id="attr-chart"></canvas></div>
+        </div>
+        <div class="b-card" style="animation-delay:0.3s">
+          <h3 style="margin-bottom:16px">${icon("clipboard")} Weekly Digest</h3>
+          <div>${digest ? `
+            <div class="b-list-item" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--card-border)">${icon("banknote")} <div style="font-size:13px">Revenue ${money(digest.headline?.revenue)} · attributed ${money(digest.headline?.attributed_revenue)} (${digest.headline?.roi_percent}%)</div></div>
+            <div class="b-list-item" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--card-border)">${icon("send")} <div style="font-size:13px">${digest.headline?.actions_delivered || 0} automated messages delivered</div></div>
+            <div class="b-list-item" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--card-border)">${icon("cpu")} <div style="font-size:13px">Platform stage: <b>${esc(digest.headline?.maturity_stage || "—")}</b></div></div>
+            <div class="b-list-item" style="display:flex;align-items:center;gap:10px;padding:10px 0">${icon("heart")} <div style="font-size:13px">${(digest.churn?.top_at_risk || []).length} customer(s) flagged at-risk</div></div>` : '<div style="text-align:center;padding:24px;color:var(--muted)">Digest unavailable.</div>'}</div>
         </div>
       </div>`;
 
@@ -2600,41 +2643,54 @@
         : '<span style="color:var(--amber)">○ Not configured</span>';
 
     view.innerHTML = `
-      <div class="grid grid-2">
-        <div class="card"><h3>Connection</h3>
-          <p class="muted" style="margin-bottom:8px">Store: <b style="color:var(--text)">${esc(sess.storeId || "")}</b></p>
-          <p class="muted" style="margin-bottom:8px">API key: <span class="mono">${esc((sess.apiKey || "").slice(0, 3))}•••••</span></p>
-        </div>
-        <div class="card"><h3>GDPR — customer data</h3>
-          <input id="gdpr-id" placeholder="customer id or email" style="width:100%;padding:11px;border-radius:10px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);margin-bottom:10px" />
-          <div class="row-actions">
-            <button class="btn btn-sm btn-primary" id="gdpr-export">${icon("upload", "icon-sm")} Export data</button>
-            <button class="btn btn-sm btn-grad" id="gdpr-delete" style="background:var(--red);color:#fff">${icon("trash", "icon-sm")} Right to be forgotten</button>
-          </div>
-          <div id="gdpr-result" class="section-gap"></div>
+      <div class="b-header">
+        <div>
+          <h2>Settings</h2>
+          <p>Connection, GDPR, connectors, and platform info</p>
         </div>
       </div>
-      <div class="card section-gap"><h3>${icon("plug")} Platform connectors</h3>
-        <p class="muted" style="margin-bottom:12px">One-click connect on the login page needs your own OAuth app credentials. Create a (free) app on each platform, paste the credentials here, and merchants can authorize with a single click. Secrets stay on this server.</p>
-        <div class="grid grid-2">
+
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s">
+          <h3 style="margin-bottom:12px">Connection</h3>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:6px">Store: <b style="color:var(--text)">${esc(sess.storeId || "")}</b></div>
+          <div style="font-size:13px;color:var(--muted)">API key: <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">${esc((sess.apiKey || "").slice(0, 3))}•••••</code></div>
+        </div>
+        <div class="b-card" style="animation-delay:0.1s">
+          <h3 style="margin-bottom:12px">GDPR — Customer Data</h3>
+          <input id="gdpr-id" placeholder="customer id or email" style="width:100%;padding:11px;border-radius:10px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);margin-bottom:10px;font-size:13px;font-family:var(--font-body)" />
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm btn-primary" id="gdpr-export">${icon("upload", "icon-sm")} Export data</button>
+            <button class="btn btn-sm" id="gdpr-delete" style="background:var(--red);color:#fff">${icon("trash", "icon-sm")} Right to be forgotten</button>
+          </div>
+          <div id="gdpr-result" style="margin-top:12px"></div>
+        </div>
+      </div>
+
+      <div class="b-card" style="animation-delay:0.15s;margin-bottom:24px">
+        <h3 style="margin-bottom:8px">${icon("plug")} Platform Connectors</h3>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:16px">One-click connect needs your own OAuth app credentials. Create a free app on each platform, paste the credentials here, and merchants can authorize with a single click.</div>
+        <div class="b-grid-2">
           <div>
-            <p style="margin-bottom:6px"><b>Shopify</b> — ${readyBadge("shopify")} <span class="muted">(a custom app on partners.shopify.com or in-store; redirect URI: <span class="mono">${esc(location.origin)}/connect/shopify/callback</span>)</span></p>
+            <div style="margin-bottom:8px"><b>Shopify</b> — ${readyBadge("shopify")} <span style="color:var(--muted);font-size:12px">(redirect: <code style="background:var(--surface-2);padding:2px 4px;border-radius:3px">${esc(location.origin)}/connect/shopify/callback</code>)</span></div>
             <input id="cf-shp-id" placeholder="Client ID (API key)" style="${INPUT_STYLE}" />
             <input id="cf-shp-secret" placeholder="Client secret" type="password" style="${INPUT_STYLE}" />
             <button class="btn btn-sm btn-primary" id="save-shp">Save Shopify connector</button>
           </div>
           <div>
-            <p style="margin-bottom:6px"><b>BigCommerce</b> — ${readyBadge("bigcommerce")} <span class="muted">(a draft app on devtools.bigcommerce.com; callback URL: <span class="mono">${esc(location.origin)}/connect/bigcommerce/callback</span>)</span></p>
+            <div style="margin-bottom:8px"><b>BigCommerce</b> — ${readyBadge("bigcommerce")} <span style="color:var(--muted);font-size:12px">(callback: <code style="background:var(--surface-2);padding:2px 4px;border-radius:3px">${esc(location.origin)}/connect/bigcommerce/callback</code>)</span></div>
             <input id="cf-bc-id" placeholder="Client ID" style="${INPUT_STYLE}" />
             <input id="cf-bc-secret" placeholder="Client secret" type="password" style="${INPUT_STYLE}" />
             <button class="btn btn-sm btn-primary" id="save-bc">Save BigCommerce connector</button>
           </div>
         </div>
         <div id="connector-result" style="margin-top:10px"></div>
-        <p class="muted" style="margin-top:10px">WooCommerce and custom stores need no credentials here — they connect via REST keys / public catalog.</p>
+        <div style="font-size:12px;color:var(--muted);margin-top:10px">WooCommerce and custom stores need no credentials — they connect via REST keys / public catalog.</div>
       </div>
-      <div class="card section-gap"><h3>Platform architecture</h3>
-        <p class="muted">How it works: Data → Intelligence → Decision → Execution → Reporting → Growth Loop. Every sale updates stock and analytics in real time.</p>
+
+      <div class="b-card" style="animation-delay:0.2s">
+        <h3 style="margin-bottom:8px">Platform Architecture</h3>
+        <div style="font-size:13px;color:var(--muted)">Data → Intelligence → Decision → Execution → Reporting → Growth Loop. Every sale updates stock and analytics in real time.</div>
       </div>`;
 
     $("#gdpr-export").addEventListener("click", async () => {
@@ -2722,48 +2778,64 @@
         : "";
 
     view.innerHTML = `
-      <div class="card"><h3>Connection status</h3>
-        <div id="connect-status">${statusHtml()}</div>
-        <div id="connect-result" class="section-gap"></div>
+      <div class="b-header">
+        <div>
+          <h2>Connect Store</h2>
+          <p>Connect your e-commerce platform or import data</p>
+        </div>
       </div>
-      <div class="grid grid-2 section-gap">
-        <div class="card"><h3>${icon("bag")} Shopify</h3>
-          <p class="muted">One-click OAuth: approve access on Shopify, and your products, stock and order history sync automatically. New orders keep flowing via webhook.</p>
+
+      <div class="b-card" style="animation-delay:0.05s;margin-bottom:24px">
+        <h3 style="margin-bottom:12px">Connection Status</h3>
+        <div id="connect-status">${statusHtml()}</div>
+        <div id="connect-result" style="margin-top:12px"></div>
+      </div>
+
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.1s">
+          <h3 style="margin-bottom:8px">${icon("bag")} Shopify</h3>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px">One-click OAuth: approve access, products/stock/orders sync automatically.</div>
           ${oauthNote("shopify", "Shopify")}
           <input id="cf-shop" placeholder="your-store.myshopify.com" style="${INPUT_STYLE}" />
           <button class="btn btn-sm btn-primary" id="cf-shopify">Connect Shopify →</button>
         </div>
-        <div class="card"><h3>${icon("store")} BigCommerce</h3>
-          <p class="muted">One-click OAuth: approve access on BigCommerce, and your catalog + orders sync straight in.</p>
+        <div class="b-card" style="animation-delay:0.15s">
+          <h3 style="margin-bottom:8px">${icon("store")} BigCommerce</h3>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px">One-click OAuth: approve access, catalog + orders sync straight in.</div>
           ${oauthNote("bigcommerce", "BigCommerce")}
           <input id="cf-bc" placeholder="store hash (from your admin URL)" style="${INPUT_STYLE}" />
           <button class="btn btn-sm btn-primary" id="cf-bigcommerce">Connect BigCommerce →</button>
         </div>
       </div>
-      <div class="grid grid-2 section-gap">
-        <div class="card"><h3>${icon("puzzle")} WooCommerce</h3>
-          <p class="muted">Enter your store URL + read-only REST keys (WooCommerce → Settings → Advanced → REST API). Products and orders sync instantly.</p>
+
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.2s">
+          <h3 style="margin-bottom:8px">${icon("puzzle")} WooCommerce</h3>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Enter store URL + read-only REST keys. Products and orders sync instantly.</div>
           <input id="cf-woo-url" placeholder="https://your-store.com" style="${INPUT_STYLE}" />
           <input id="cf-woo-key" placeholder="Consumer key (ck_…)" style="${INPUT_STYLE}" />
           <input id="cf-woo-secret" type="password" placeholder="Consumer secret (cs_…)" style="${INPUT_STYLE}" />
           <button class="btn btn-sm btn-primary" id="cf-woo">Connect WooCommerce →</button>
         </div>
-        <div class="card"><h3>${icon("globe")} Custom store</h3>
-          <p class="muted">We read your store's public catalog and import it as your starting inventory — then you prove ownership with a meta tag, verification file, or DNS record.</p>
+        <div class="b-card" style="animation-delay:0.25s">
+          <h3 style="margin-bottom:8px">${icon("globe")} Custom Store</h3>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Import public catalog, then prove ownership with meta tag, file, or DNS.</div>
           <input id="cf-custom-url" placeholder="https://your-store.com" style="${INPUT_STYLE}" />
           <button class="btn btn-sm btn-primary" id="cf-custom">Scan my store →</button>
-          <div id="cf-custom-verify" class="hidden" style="margin-top:10px">
-            <p id="cf-custom-found" style="color:var(--green,#34d399);font-weight:600"></p>
-            <p class="muted">Prove you own the site — add <b>any one</b> of these:</p>
-            <div class="alert-item"><span class="step-num">1</span> <div><b>Meta tag</b> in the homepage <code>&lt;head&gt;</code>:<br><code id="cfv-meta" style="word-break:break-all"></code></div></div>
-            <div class="alert-item"><span class="step-num">2</span> <div><b>File</b> at <code id="cfv-file-url" style="word-break:break-all"></code> containing: <code id="cfv-file"></code></div></div>
-            <div class="alert-item"><span class="step-num">3</span> <div><b>DNS TXT record</b> — value: <code id="cfv-dns" style="word-break:break-all"></code></div></div>
-            <button class="btn btn-sm btn-primary" id="cf-custom-verify-btn" style="margin-top:8px">${icon("lock", "icon-sm")} Verify ownership &amp; sync</button>
+          <div id="cf-custom-verify" class="hidden" style="margin-top:12px">
+            <p id="cf-custom-found" style="color:var(--green);font-weight:600"></p>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Prove you own the site — add <b>any one</b> of these:</div>
+            <div class="b-list-item" style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--card-border)"><span class="b-badge cyan" style="min-width:24px;text-align:center">1</span> <div style="font-size:12px"><b>Meta tag</b> in homepage <code>&lt;head&gt;</code>:<br><code id="cfv-meta" style="word-break:break-all"></code></div></div>
+            <div class="b-list-item" style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--card-border)"><span class="b-badge cyan" style="min-width:24px;text-align:center">2</span> <div style="font-size:12px"><b>File</b> at <code id="cfv-file-url" style="word-break:break-all"></code> containing: <code id="cfv-file"></code></div></div>
+            <div class="b-list-item" style="display:flex;align-items:flex-start;gap:10px;padding:10px 0"><span class="b-badge cyan" style="min-width:24px;text-align:center">3</span> <div style="font-size:12px"><b>DNS TXT record</b> — value: <code id="cfv-dns" style="word-break:break-all"></code></div></div>
+            <button class="btn btn-sm btn-primary" id="cf-custom-verify-btn" style="margin-top:12px">${icon("lock", "icon-sm")} Verify ownership &amp; sync</button>
           </div>
         </div>
       </div>
-      <div class="grid grid-2 section-gap">
-        <div class="card"><h3>${icon("arrow-up")} CSV import <span class="muted">— products or order history</span></h3>
+
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.3s">
+          <h3 style="margin-bottom:8px">${icon("arrow-up")} CSV Import <span style="color:var(--muted);font-weight:400;font-size:13px">— products or orders</span></h3>
           <select id="csv-type" style="${INPUT_STYLE}">
             <option value="products">Products — product_id,name,stock,lead_time_days,price</option>
             <option value="orders">Orders — customer_id,email,total,product_id,quantity,timestamp</option>
@@ -2771,9 +2843,10 @@
           <textarea id="csv-text" rows="4" placeholder="Paste CSV rows here (header row optional)…" style="${INPUT_STYLE}resize:vertical;font-family:inherit"></textarea>
           <button class="btn btn-sm btn-primary" id="csv-import">${icon("upload", "icon-sm")} Import CSV</button>
         </div>
-        <div class="card"><h3>${icon("sliders")} Advanced <span class="muted">— webhook &amp; snippet</span></h3>
-          <p class="muted">For live order push from any platform, point an <span class="mono">orders/create</span> webhook at:</p>
-          <div class="mono" style="word-break:break-all;background:var(--code-bg);padding:10px;border-radius:10px;margin:8px 0">${esc(info.webhook_url)}</div>
+        <div class="b-card" style="animation-delay:0.35s">
+          <h3 style="margin-bottom:8px">${icon("sliders")} Advanced <span style="color:var(--muted);font-weight:400;font-size:13px">— webhook &amp; snippet</span></h3>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px">For live order push, point an <code>orders/create</code> webhook at:</div>
+          <div style="word-break:break-all;background:var(--surface-2);padding:10px;border-radius:8px;margin:8px 0;font-family:monospace;font-size:12px">${esc(info.webhook_url)}</div>
           <button class="btn btn-sm btn-primary" id="copy-webhook">${icon("copy", "icon-sm")} Copy webhook URL</button>
           <details style="margin-top:12px"><summary style="cursor:pointer;color:var(--text-dim);font-size:13px">Browser tracking snippet</summary>
             <pre class="mono" style="max-height:180px;overflow:auto;font-size:11px;background:var(--code-bg);padding:10px;border-radius:10px;margin:8px 0">${esc(info.snippet)}</pre>
@@ -2904,29 +2977,36 @@
     const currentIdx = steps.findIndex(step => next?.action === step.id) || 0;
 
     view.innerHTML = `
-      <div class="grid grid-3 section-gap" style="margin-bottom:24px">
-        <div class="card" style="text-align:center;padding:24px">
-          <div style="font-size:48px;margin-bottom:8px">🚀</div>
-          <div class="kpi-value">${completionPct}%</div>
-          <div class="kpi-sub">Setup Complete</div>
-        </div>
-        <div class="card" style="text-align:center;padding:24px">
-          <div style="font-size:48px;margin-bottom:8px">⚡</div>
-          <div class="kpi-value">${steps.filter((step, i) => i < currentIdx).length}/${steps.length}</div>
-          <div class="kpi-sub">Steps Completed</div>
-        </div>
-        <div class="card" style="text-align:center;padding:24px">
-          <div style="font-size:48px;margin-bottom:8px">💰</div>
-          <div class="kpi-value" style="color:var(--green)">${completionPct >= 50 ? "Ready" : "Almost"}</div>
-          <div class="kpi-sub">Revenue Recovery</div>
+      <div class="b-header">
+        <div>
+          <h2>Onboarding</h2>
+          <p>Follow these steps to unlock the full power of Storecops</p>
         </div>
       </div>
 
-      <div class="card">
+      <div class="b-grid-3" style="margin-bottom:24px">
+        <div class="b-card" style="text-align:center;padding:24px;animation-delay:0.05s">
+          <div style="font-size:48px;margin-bottom:8px">🚀</div>
+          <div class="b-stat-value">${completionPct}%</div>
+          <div class="b-stat-label">Setup Complete</div>
+        </div>
+        <div class="b-card" style="text-align:center;padding:24px;animation-delay:0.1s">
+          <div style="font-size:48px;margin-bottom:8px">⚡</div>
+          <div class="b-stat-value">${steps.filter((step, i) => i < currentIdx).length}/${steps.length}</div>
+          <div class="b-stat-label">Steps Completed</div>
+        </div>
+        <div class="b-card" style="text-align:center;padding:24px;animation-delay:0.15s">
+          <div style="font-size:48px;margin-bottom:8px">💰</div>
+          <div class="b-stat-value" style="color:var(--green)">${completionPct >= 50 ? "Ready" : "Almost"}</div>
+          <div class="b-stat-label">Revenue Recovery</div>
+        </div>
+      </div>
+
+      <div class="b-card" style="animation-delay:0.2s;margin-bottom:24px">
         <h2 style="margin-bottom:4px">Setup Wizard</h2>
-        <p class="muted" style="margin-bottom:16px">Follow these steps to unlock the full power of Storecops.</p>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Follow these steps to unlock the full power of Storecops.</div>
         
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:24px;padding:12px;background:var(--surface-2);border-radius:var(--radius-sm)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:24px;padding:12px;background:var(--surface-2);border-radius:10px">
           <div style="flex:1;height:8px;background:var(--card-border);border-radius:4px;overflow:hidden">
             <div style="height:100%;width:${completionPct}%;background:linear-gradient(90deg, var(--primary), var(--green));border-radius:4px;transition:width 0.3s"></div>
           </div>
@@ -2939,10 +3019,9 @@
             const isCompleted = stepState?.completed;
             const isCurrent = next?.action === step.id;
             const isPast = i < currentIdx;
-            const cls = isCompleted || isPast ? "completed" : isCurrent ? "current" : "pending";
             
             return `
-              <div style="display:flex;align-items:center;gap:16px;padding:16px;background:${isCurrent ? 'var(--primary-light)' : 'var(--surface-2)'};border-radius:var(--radius-sm);border:1px solid ${isCurrent ? 'var(--primary)' : 'var(--card-border)'};transition:all 0.2s">
+              <div style="display:flex;align-items:center;gap:16px;padding:16px;background:${isCurrent ? 'rgba(8,144,108,0.08)' : 'var(--surface-2)'};border-radius:10px;border:1px solid ${isCurrent ? 'var(--primary)' : 'var(--card-border)'};transition:all 0.2s">
                 <div style="width:48px;height:48px;border-radius:50%;background:${isCompleted || isPast ? 'var(--green)' : isCurrent ? 'var(--primary)' : 'var(--card-border)'};color:${isCompleted || isPast || isCurrent ? 'white' : 'var(--muted)'};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;flex-shrink:0">
                   ${isCompleted || isPast ? "✓" : step.icon}
                 </div>
@@ -2951,19 +3030,19 @@
                   <div style="font-size:13px;color:var(--muted);margin-top:2px">${step.desc}</div>
                 </div>
                 <div>
-                  ${isCompleted || isPast ? '<span class="pill pill-green">Done</span>' : 
+                  ${isCompleted || isPast ? '<span class="b-badge green">Done</span>' : 
                     isCurrent && step.action ? `<a href="#/${step.action}" class="btn btn-primary btn-sm">Start →</a>` :
-                    isCurrent ? '<span class="pill pill-green">In Progress</span>' :
-                    '<span class="pill pill-gray">Pending</span>'}
+                    isCurrent ? '<span class="b-badge green">In Progress</span>' :
+                    '<span class="b-badge gray">Pending</span>'}
                 </div>
               </div>`;
           }).join("")}
         </div>
 
         ${next?.action === 'add_competitors' && !state?.steps?.add_competitors?.completed ? `
-        <div class="card" style="margin-top:24px" id="comp-guided">
+        <div class="b-card" style="margin-top:24px" id="comp-guided">
           <h3 style="margin-bottom:4px">🎯 Quick Setup: Add Your Top 5 Competitors</h3>
-          <p class="muted" style="margin-bottom:16px">Track competitor pricing, stock levels, and ad strategies. Add at least 3 to unlock the full Competitor Radar.</p>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:16px">Track competitor pricing, stock levels, and ad strategies. Add at least 3 to unlock the full Competitor Radar.</div>
           <div id="comp-guided-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
             ${[1,2,3,4,5].map(i => `
               <div style="display:flex;gap:8px;align-items:center" id="comp-row-${i}">
@@ -3397,13 +3476,14 @@
     const prods = (products.products || []).slice(0, 20);
 
     view.innerHTML = `
-      <div class="grid grid-3">
-        <div class="card"><h3>Products tracked</h3><div class="kpi-value">${prods.length}</div><div class="kpi-sub">in your catalog</div></div>
-        <div class="card"><h3>Recommendation clicks</h3><div class="kpi-value" style="color:var(--green)">${products.length || 0}</div><div class="kpi-sub">products tracked</div></div>
-        <div class="card"><h3>Products analyzed</h3><div class="kpi-value" style="color:var(--green)">${products.length || 0}</div><div class="kpi-sub">in catalog</div></div>
+      <div class="b-header"><div><h2>Recommendations</h2><p>Product recommendation placements and analytics</p></div></div>
+      <div class="b-grid-3" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s"><h3>Products tracked</h3><div class="b-stat-value">${prods.length}</div><div class="b-stat-label">in your catalog</div></div>
+        <div class="b-card" style="animation-delay:0.1s"><h3>Recommendation clicks</h3><div class="b-stat-value" style="color:var(--green)">${products.length || 0}</div><div class="b-stat-label">products tracked</div></div>
+        <div class="b-card" style="animation-delay:0.15s"><h3>Products analyzed</h3><div class="b-stat-value" style="color:var(--green)">${products.length || 0}</div><div class="b-stat-label">in catalog</div></div>
       </div>
-      <div class="card section-gap">
-        <div class="card-title-row"><h3>${icon("sparkles")} Recommendation placements</h3></div>
+      <div class="b-card" style="margin-bottom:24px;animation-delay:0.2s">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3>${icon("sparkles")} Recommendation placements</h3></div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">
           ${[
             { name: "Product page", desc: "Show related products on each product page", active: products.length > 0 },
@@ -3413,7 +3493,7 @@
             <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
                 <span style="font-weight:600">${p.name}</span>
-                <span class="pill ${p.active ? 'pill-green' : 'pill-gray'}">${p.active ? 'Active' : 'Inactive'}</span>
+                <span class="b-badge ${p.active ? 'green' : 'gray'}">${p.active ? 'Active' : 'Inactive'}</span>
               </div>
               <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${p.desc}</div>
               <button class="btn btn-sm ${p.active ? 'btn-ghost-sm' : 'btn-primary'}" onclick="toast('${p.name} ${p.active ? 'deactivated' : 'activated'}')">${p.active ? 'Deactivate' : 'Activate'}</button>
@@ -3421,10 +3501,10 @@
           `).join("")}
         </div>
       </div>
-      <div class="card section-gap">
+      <div class="b-card" style="margin-bottom:24px;animation-delay:0.25s">
         <h3>${icon("package")} Top products for recommendations</h3>
         <div style="overflow-x:auto;margin-top:12px">
-          <table class="a-table">
+          <table class="b-table">
             <thead><tr><th>Product</th><th>Views</th><th>Cart adds</th><th>Conversion</th><th>Action</th></tr></thead>
             <tbody>
               ${prods.slice(0, 10).map(p => `
@@ -3564,15 +3644,16 @@
     const alerts = defections.defections || [];
 
     view.innerHTML = `
-      <div class="grid grid-3">
-        <div class="card"><h3>Defection alerts</h3><div class="kpi-value" style="color:var(--red)">${alerts.length}</div><div class="kpi-sub">high-value customers lost</div></div>
-        <div class="card"><h3>Revenue at risk</h3><div class="kpi-value" style="color:var(--red)">${money(alerts.reduce((sum, a) => sum + (a.ltv || 0), 0))}</div><div class="kpi-sub">combined LTV</div></div>
-        <div class="card"><h3>Recovery attempts</h3><div class="kpi-value">${alerts.filter(a => a.recovery_sent).length}</div><div class="kpi-sub">win-backs sent</div></div>
+      <div class="b-header"><div><h2>Defection Alerts</h2><p>High-value customers lost and recovery attempts</p></div></div>
+      <div class="b-grid-3" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s"><h3>Defection alerts</h3><div class="b-stat-value" style="color:var(--red)">${alerts.length}</div><div class="b-stat-label">high-value customers lost</div></div>
+        <div class="b-card" style="animation-delay:0.1s"><h3>Revenue at risk</h3><div class="b-stat-value" style="color:var(--red)">${money(alerts.reduce((sum, a) => sum + (a.ltv || 0), 0))}</div><div class="b-stat-label">combined LTV</div></div>
+        <div class="b-card" style="animation-delay:0.15s"><h3>Recovery attempts</h3><div class="b-stat-value">${alerts.filter(a => a.recovery_sent).length}</div><div class="b-stat-label">win-backs sent</div></div>
       </div>
-      <div class="card section-gap">
-        <div class="card-title-row"><h3>${icon("alert-triangle")} Defection alerts</h3></div>
-        <div class="scroll-y" style="margin-top:12px">
-          ${alerts.length === 0 ? '<div class="empty">No defection alerts detected. This means your high-value customers are staying loyal!</div>' :
+      <div class="b-card" style="margin-bottom:24px;animation-delay:0.2s">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3>${icon("alert-triangle")} Defection alerts</h3></div>
+        <div style="overflow-x:auto;margin-top:12px">
+          ${alerts.length === 0 ? '<div class="empty">No defection alerts detected. This means your high-value customers are staying loyal!' :
             alerts.map(a => `
               <div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--card-border)">
                 <div style="width:40px;height:40px;border-radius:50%;background:rgba(239,68,68,0.1);display:flex;align-items:center;justify-content:center;color:var(--red)">${icon("frown")}</div>
@@ -3595,16 +3676,17 @@
     const pending = moments.filter(m => !m.achieved);
 
     view.innerHTML = `
-      <div class="grid grid-3">
-        <div class="card"><h3>Milestones achieved</h3><div class="kpi-value" style="color:var(--green)">${achieved.length}</div><div class="kpi-sub">of ${moments.length} total</div></div>
-        <div class="card"><h3>Progress</h3><div class="kpi-value">${Math.round((achieved.length / Math.max(moments.length, 1)) * 100)}%</div><div class="kpi-sub">completion rate</div></div>
-        <div class="card"><h3>Next milestone</h3><div class="kpi-value" style="font-size:24px">${pending.length > 0 ? pending[0].icon : "🎉"}</div><div class="kpi-sub">${pending.length > 0 ? pending[0].title : "All done!"}</div></div>
+      <div class="b-header"><div><h2>Milestones</h2><p>Achievements and platform milestones</p></div></div>
+      <div class="b-grid-3" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s"><h3>Milestones achieved</h3><div class="b-stat-value" style="color:var(--green)">${achieved.length}</div><div class="b-stat-label">of ${moments.length} total</div></div>
+        <div class="b-card" style="animation-delay:0.1s"><h3>Progress</h3><div class="b-stat-value">${Math.round((achieved.length / Math.max(moments.length, 1)) * 100)}%</div><div class="b-stat-label">completion rate</div></div>
+        <div class="b-card" style="animation-delay:0.15s"><h3>Next milestone</h3><div class="b-stat-value" style="font-size:24px">${pending.length > 0 ? pending[0].icon : "🎉"}</div><div class="b-stat-label">${pending.length > 0 ? pending[0].title : "All done!"}</div></div>
       </div>
 
-      <div class="card section-gap">
-        <div class="card-title-row"><h3>${icon("trophy")} Achieved milestones</h3></div>
-        <div class="scroll-y" style="margin-top:12px">
-          ${achieved.length === 0 ? '<div class="empty">No milestones achieved yet. Start using the platform to unlock achievements!</div>' :
+      <div class="b-card" style="margin-bottom:24px;animation-delay:0.2s">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3>${icon("trophy")} Achieved milestones</h3></div>
+        <div style="overflow-x:auto;margin-top:12px">
+          ${achieved.length === 0 ? '<div class="empty">No milestones achieved yet. Start using the platform to unlock achievements!' :
             achieved.map(m => `
               <div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--card-border)">
                 <div style="width:48px;height:48px;border-radius:50%;background:rgba(8,144,108,0.1);display:flex;align-items:center;justify-content:center;font-size:24px">${m.icon}</div>
@@ -3612,16 +3694,16 @@
                   <div style="font-weight:600;color:var(--green)">${esc(m.title)}</div>
                   <div style="font-size:13px;color:var(--muted);margin-top:2px">${esc(m.description)}</div>
                 </div>
-                <span class="pill pill-green">Achieved</span>
+                <span class="b-badge green">Achieved</span>
               </div>
             `).join("")}
         </div>
       </div>
 
-      <div class="card section-gap">
-        <div class="card-title-row"><h3>${icon("target")} Upcoming milestones</h3></div>
-        <div class="scroll-y" style="margin-top:12px">
-          ${pending.length === 0 ? '<div class="empty">Congratulations! You\'ve achieved all milestones!</div>' :
+      <div class="b-card" style="margin-bottom:24px;animation-delay:0.25s">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3>${icon("target")} Upcoming milestones</h3></div>
+        <div style="overflow-x:auto;margin-top:12px">
+          ${pending.length === 0 ? '<div class="empty">Congratulations! You\'ve achieved all milestones!' :
             pending.map(m => `
               <div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--card-border);opacity:0.7">
                 <div style="width:48px;height:48px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:24px">${m.icon}</div>
@@ -3629,7 +3711,7 @@
                   <div style="font-weight:600">${esc(m.title)}</div>
                   <div style="font-size:13px;color:var(--muted);margin-top:2px">${esc(m.description)}</div>
                 </div>
-                <span class="pill pill-gray">Pending</span>
+                <span class="b-badge gray">Pending</span>
               </div>
             `).join("")}
         </div>
@@ -3668,15 +3750,16 @@
     const pricePosition = history.filter(h => h.change < 0).length > history.filter(h => h.change > 0).length ? "Competitive" : "Above average";
 
     view.innerHTML = `
-      <div class="grid grid-3">
-        <div class="card"><h3>Tracked competitors</h3><div class="kpi-value">${compList.length}</div><div class="kpi-sub">monitoring prices</div></div>
-        <div class="card"><h3>Price changes detected</h3><div class="kpi-value" style="color:var(--amber)">${recentChanges}</div><div class="kpi-sub">last 30 days</div></div>
-        <div class="card"><h3>Your price position</h3><div class="kpi-value" style="color:${pricePosition === 'Competitive' ? 'var(--green)' : 'var(--amber)'}">${pricePosition}</div><div class="kpi-sub">vs. market average</div></div>
+      <div class="b-header"><div><h2>Price History</h2><p>Track competitor price changes and your price position</p></div></div>
+      <div class="b-grid-3" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s"><h3>Tracked competitors</h3><div class="b-stat-value">${compList.length}</div><div class="b-stat-label">monitoring prices</div></div>
+        <div class="b-card" style="animation-delay:0.1s"><h3>Price changes detected</h3><div class="b-stat-value" style="color:var(--amber)">${recentChanges}</div><div class="b-stat-label">last 30 days</div></div>
+        <div class="b-card" style="animation-delay:0.15s"><h3>Your price position</h3><div class="b-stat-value" style="color:${pricePosition === 'Competitive' ? 'var(--green)' : 'var(--amber)'}">${pricePosition}</div><div class="b-stat-label">vs. market average</div></div>
       </div>
-      <div class="card section-gap">
-        <div class="card-title-row"><h3>${icon("trending-up")} Recent price changes</h3><button class="btn btn-sm btn-primary" onclick="scrapeAll()">${icon("refresh-cw")} Scrape all</button></div>
+      <div class="b-card" style="margin-bottom:24px;animation-delay:0.2s">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3>${icon("trending-up")} Recent price changes</h3><button class="btn btn-sm btn-primary" onclick="scrapeAll()">${icon("refresh-cw")} Scrape all</button></div>
         <div style="overflow-x:auto;margin-top:12px">
-          <table class="a-table">
+          <table class="b-table">
             <thead><tr><th>Date</th><th>Competitor</th><th>Product</th><th>Old price</th><th>New price</th><th>Change</th></tr></thead>
             <tbody>
               ${history.length === 0 ? '<tr><td colspan="6" class="a-empty">No price changes detected yet. Add competitors to start monitoring.</td></tr>' :
@@ -3694,9 +3777,9 @@
           </table>
         </div>
       </div>
-      <div class="card section-gap">
-        <div class="card-title-row"><h3>${icon("users")} Competitors</h3></div>
-        <div class="scroll-y" style="margin-top:12px">
+      <div class="b-card" style="margin-bottom:24px;animation-delay:0.25s">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3>${icon("users")} Competitors</h3></div>
+        <div style="overflow-x:auto;margin-top:12px">
           ${compList.length === 0 ? '<div class="empty">No competitors tracked yet. <a href="#/competitors">Add competitors</a> to start monitoring prices.</div>' :
             compList.map(c => `
               <div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--card-border)">
@@ -3731,22 +3814,23 @@
     const slowMoving = (insights.products || []).filter(p => p.velocity === "slow" || p.velocity === "dead").slice(0, 10);
 
     view.innerHTML = `
-      <div class="grid grid-3">
-        <div class="card"><h3>Slow-moving products</h3><div class="kpi-value" style="color:var(--amber)">${slowMoving.length}</div><div class="kpi-sub">need markdown</div></div>
-        <div class="card"><h3>Slow-moving products</h3><div class="kpi-value" style="color:var(--amber)">${slowMoving.length}</div><div class="kpi-sub">need attention</div></div>
-        <div class="card"><h3>Recommended markdown</h3><div class="kpi-value">15-25%</div><div class="kpi-sub">avg. discount</div></div>
+      <div class="b-header"><div><h2>Markdowns</h2><p>Slow-moving inventory and markdown suggestions</p></div></div>
+      <div class="b-grid-3" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s"><h3>Slow-moving products</h3><div class="b-stat-value" style="color:var(--amber)">${slowMoving.length}</div><div class="b-stat-label">need markdown</div></div>
+        <div class="b-card" style="animation-delay:0.1s"><h3>Slow-moving products</h3><div class="b-stat-value" style="color:var(--amber)">${slowMoving.length}</div><div class="b-stat-label">need attention</div></div>
+        <div class="b-card" style="animation-delay:0.15s"><h3>Recommended markdown</h3><div class="b-stat-value">15-25%</div><div class="b-stat-label">avg. discount</div></div>
       </div>
-      <div class="card section-gap">
-        <div class="card-title-row"><h3>${icon("tag")} Markdown suggestions</h3></div>
+      <div class="b-card" style="margin-bottom:24px;animation-delay:0.2s">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3>${icon("tag")} Markdown suggestions</h3></div>
         <div style="overflow-x:auto;margin-top:12px">
-          <table class="a-table">
+          <table class="b-table">
             <thead><tr><th>Product</th><th>Velocity</th><th>Stock</th><th>Suggested markdown</th><th>Action</th></tr></thead>
             <tbody>
               ${slowMoving.length === 0 ? '<tr><td colspan="5" class="a-empty">No slow-moving products detected. All inventory is performing well!</td></tr>' :
                 slowMoving.map(p => `
                   <tr>
                     <td><b>${esc(p.name || p.product_id || "Product")}</b></td>
-                    <td><span class="pill pill-amber">${p.velocity || "slow"}</span></td>
+                    <td><span class="b-badge amber">${p.velocity || "slow"}</span></td>
                     <td>${p.stock || 0}</td>
                     <td><span style="color:var(--amber);font-weight:600">-${Math.min(30, 10 + (p.stock || 0))}%</span></td>
                     <td><button class="btn btn-sm btn-primary" onclick="toast('Markdown applied to ${esc(p.name || p.product_id)}')">Apply markdown</button></td>
@@ -3765,19 +3849,20 @@
     const templates = data.templates || [];
 
     view.innerHTML = `
-      <div class="grid grid-3">
-        <div class="card"><h3>Total templates</h3><div class="kpi-value">${templates.length}</div><div class="kpi-sub">email & WhatsApp</div></div>
-        <div class="card"><h3>Active templates</h3><div class="kpi-value" style="color:var(--green)">${templates.filter(t => t.active).length}</div><div class="kpi-sub">sending messages</div></div>
-        <div class="card"><h3>Total sent</h3><div class="kpi-value">${templates.reduce((sum, t) => sum + (t.stats?.sent || 0), 0).toLocaleString()}</div><div class="kpi-sub">across all templates</div></div>
+      <div class="b-header"><div><h2>Templates</h2><p>Email and WhatsApp message templates</p></div></div>
+      <div class="b-grid-3" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s"><h3>Total templates</h3><div class="b-stat-value">${templates.length}</div><div class="b-stat-label">email & WhatsApp</div></div>
+        <div class="b-card" style="animation-delay:0.1s"><h3>Active templates</h3><div class="b-stat-value" style="color:var(--green)">${templates.filter(t => t.active).length}</div><div class="b-stat-label">sending messages</div></div>
+        <div class="b-card" style="animation-delay:0.15s"><h3>Total sent</h3><div class="b-stat-value">${templates.reduce((sum, t) => sum + (t.stats?.sent || 0), 0).toLocaleString()}</div><div class="b-stat-label">across all templates</div></div>
       </div>
-      <div class="card section-gap">
-        <div class="card-title-row"><h3>${icon("file-text")} Templates</h3><button class="btn btn-sm btn-primary" onclick="createTemplate()">${icon("plus")} New template</button></div>
+      <div class="b-card" style="margin-bottom:24px;animation-delay:0.2s">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3>${icon("file-text")} Templates</h3><button class="btn btn-sm btn-primary" onclick="createTemplate()">${icon("plus")} New template</button></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
           ${templates.map(t => `
             <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
                 <span style="font-weight:600">${esc(t.name)}</span>
-                <span class="pill ${t.active ? 'pill-green' : 'pill-gray'}">${t.active ? 'Active' : 'Inactive'}</span>
+                <span class="b-badge ${t.active ? 'green' : 'gray'}">${t.active ? 'Active' : 'Inactive'}</span>
               </div>
               <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Channel: ${esc(t.channel)}</div>
               <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Subject: "${esc(t.subject)}"</div>
@@ -3978,13 +4063,14 @@
     const status = await api.get(`/channels/${s}/status`).catch(() => ({}));
 
     view.innerHTML = `
-      <div class="grid grid-3">
-        <div class="card"><h3>Email channel</h3><div class="kpi-value" style="color:${status.email?.connected ? 'var(--green)' : 'var(--red)'}">${status.email?.connected ? 'Connected' : 'Not set'}</div><div class="kpi-sub">${status.email?.provider || 'SendGrid'}</div></div>
-        <div class="card"><h3>WhatsApp channel</h3><div class="kpi-value" style="color:${status.whatsapp?.connected ? 'var(--green)' : 'var(--red)'}">${status.whatsapp?.connected ? 'Connected' : 'Not set'}</div><div class="kpi-sub">${status.whatsapp?.provider || 'Twilio'}</div></div>
-        <div class="card"><h3>Push notifications</h3><div class="kpi-value" style="color:var(--amber)">Configured</div><div class="kpi-sub">Web push</div></div>
+      <div class="b-header"><div><h2>Channels</h2><p>Email, WhatsApp, and push notification configuration</p></div></div>
+      <div class="b-grid-3" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s"><h3>Email channel</h3><div class="b-stat-value" style="color:${status.email?.connected ? 'var(--green)' : 'var(--red)'}">${status.email?.connected ? 'Connected' : 'Not set'}</div><div class="b-stat-label">${status.email?.provider || 'SendGrid'}</div></div>
+        <div class="b-card" style="animation-delay:0.1s"><h3>WhatsApp channel</h3><div class="b-stat-value" style="color:${status.whatsapp?.connected ? 'var(--green)' : 'var(--red)'}">${status.whatsapp?.connected ? 'Connected' : 'Not set'}</div><div class="b-stat-label">${status.whatsapp?.provider || 'Twilio'}</div></div>
+        <div class="b-card" style="animation-delay:0.15s"><h3>Push notifications</h3><div class="b-stat-value" style="color:var(--amber)">Configured</div><div class="b-stat-label">Web push</div></div>
       </div>
-      <div class="grid grid-2 section-gap">
-        <div class="card">
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card">
           <h3>${icon("mail")} Email configuration</h3>
           <div style="margin-top:12px">
             <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Provider</label>
@@ -4002,7 +4088,7 @@
             </div>
           </div>
         </div>
-        <div class="card">
+        <div class="b-card">
           <h3>${icon("message-circle")} WhatsApp configuration</h3>
           <div style="margin-top:12px">
             <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Provider</label>
@@ -4022,7 +4108,7 @@
           </div>
         </div>
       </div>
-      <div class="card section-gap">
+      <div class="b-card" style="margin-bottom:24px">
         <h3>${icon("test-tube")} Send test message</h3>
         <div style="display:flex;gap:8px;margin-top:12px;align-items:end">
           <div style="flex:1">
@@ -4335,15 +4421,16 @@
     const ratioColor = ratioVerdict === "EXCELLENT" ? "var(--green)" : ratioVerdict === "GOOD" ? "var(--primary)" : ratioVerdict === "BREAKING_EVEN" ? "var(--amber)" : "var(--red)";
 
     view.innerHTML = `
-      <div class="grid grid-4">
-        <div class="card"><h3>Overall CAC</h3><div class="kpi-value" style="color:var(--primary)">${cacData.overall_cac ? "$" + cacData.overall_cac.toFixed(2) : "N/A"}</div><div class="kpi-sub">per customer</div></div>
-        <div class="card"><h3>Total Spend</h3><div class="kpi-value">${cacData.total_spend ? "$" + cacData.total_spend.toFixed(2) : "$0"}</div><div class="kpi-sub">last 30 days</div></div>
-        <div class="card"><h3>Customers Acquired</h3><div class="kpi-value" style="color:var(--green)">${cacData.total_customers || 0}</div><div class="kpi-sub">new customers</div></div>
-        <div class="card"><h3>LTV:CAC Ratio</h3><div class="kpi-value" style="color:${ratioColor}">${ltvRatio.ltv_cac_ratio ? ltvRatio.ltv_cac_ratio.toFixed(1) + "x" : "N/A"}</div><div class="kpi-sub">${ratioVerdict}</div></div>
+      <div class="b-header"><div><h2>Customer Acquisition Cost</h2><p>Track marketing spend, CAC, and LTV ratios</p></div></div>
+      <div class="b-grid-4" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s"><h3>Overall CAC</h3><div class="b-stat-value" style="color:var(--primary)">${cacData.overall_cac ? "$" + cacData.overall_cac.toFixed(2) : "N/A"}</div><div class="b-stat-label">per customer</div></div>
+        <div class="b-card" style="animation-delay:0.1s"><h3>Total Spend</h3><div class="b-stat-value">${cacData.total_spend ? "$" + cacData.total_spend.toFixed(2) : "$0"}</div><div class="b-stat-label">last 30 days</div></div>
+        <div class="b-card" style="animation-delay:0.15s"><h3>Customers Acquired</h3><div class="b-stat-value" style="color:var(--green)">${cacData.total_customers || 0}</div><div class="b-stat-label">new customers</div></div>
+        <div class="b-card" style="animation-delay:0.2s"><h3>LTV:CAC Ratio</h3><div class="b-stat-value" style="color:${ratioColor}">${ltvRatio.ltv_cac_ratio ? ltvRatio.ltv_cac_ratio.toFixed(1) + "x" : "N/A"}</div><div class="b-stat-label">${ratioVerdict}</div></div>
       </div>
 
-      <div class="grid grid-2 section-gap">
-        <div class="card">
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card">
           <h3>${icon("pie-chart")} CAC by channel</h3>
           <div style="margin-top:12px">
             ${Object.entries(cacData.by_channel || {}).map(([channel, data]) => `
@@ -4364,7 +4451,7 @@
             `).join("") || '<div class="empty">No channel data yet. Record marketing spend to see CAC by channel.</div>'}
           </div>
         </div>
-        <div class="card">
+        <div class="b-card">
           <h3>${icon("dollar-sign")} Record marketing spend</h3>
           <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
             <div>
@@ -4394,9 +4481,9 @@
         </div>
       </div>
 
-      <div class="card section-gap">
-        <div class="card-title-row"><h3>${icon("history")} Recent spend</h3></div>
-        <div class="scroll-y" style="margin-top:12px">
+      <div class="b-card" style="margin-bottom:24px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3>${icon("history")} Recent spend</h3></div>
+        <div style="overflow-x:auto;margin-top:12px">
           ${spendList.length === 0 ? '<div class="empty">No spend recorded yet. Add your marketing spend above.</div>' :
             spendList.slice(0, 10).map(r => `
               <div style="display:flex;align-items:center;gap:12px;padding:10px;border-bottom:1px solid var(--card-border)">
@@ -4446,19 +4533,20 @@
     const compList = Array.isArray(competitors) ? competitors : competitors.competitors || [];
 
     view.innerHTML = `
-      <div class="grid grid-4">
-        <div class="card"><h3>Products analyzed</h3><div class="kpi-value">${recs.length}</div><div class="kpi-sub">price recommendations</div></div>
-        <div class="card"><h3>Price increases</h3><div class="kpi-value" style="color:var(--green)">${recs.filter(r => r.direction === 'increase').length}</div><div class="kpi-sub">margin opportunities</div></div>
-        <div class="card"><h3>Price decreases</h3><div class="kpi-value" style="color:var(--amber)">${recs.filter(r => r.direction === 'decrease').length}</div><div class="kpi-sub">competitive adjustments</div></div>
-        <div class="card"><h3>Hold price</h3><div class="kpi-value">${recs.filter(r => r.direction === 'hold').length}</div><div class="kpi-sub">optimal as-is</div></div>
+      <div class="b-header"><div><h2>Dynamic Pricing</h2><p>AI-powered pricing recommendations and guardrails</p></div></div>
+      <div class="b-grid-4" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s"><h3>Products analyzed</h3><div class="b-stat-value">${recs.length}</div><div class="b-stat-label">price recommendations</div></div>
+        <div class="b-card" style="animation-delay:0.1s"><h3>Price increases</h3><div class="b-stat-value" style="color:var(--green)">${recs.filter(r => r.direction === 'increase').length}</div><div class="b-stat-label">margin opportunities</div></div>
+        <div class="b-card" style="animation-delay:0.15s"><h3>Price decreases</h3><div class="b-stat-value" style="color:var(--amber)">${recs.filter(r => r.direction === 'decrease').length}</div><div class="b-stat-label">competitive adjustments</div></div>
+        <div class="b-card" style="animation-delay:0.2s"><h3>Hold price</h3><div class="b-stat-value">${recs.filter(r => r.direction === 'hold').length}</div><div class="b-stat-label">optimal as-is</div></div>
       </div>
 
-      <div class="card section-gap">
-        <div class="card-title-row">
+      <div class="b-card" style="margin-bottom:24px;animation-delay:0.25s">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
           <h3>${icon("trending-up")} Price Recommendations</h3>
           <button class="btn btn-primary btn-sm" onclick="getRecommendations()">${icon("refresh-cw")} Analyze Products</button>
         </div>
-        <div class="scroll-y" style="margin-top:12px">
+        <div style="overflow-x:auto;margin-top:12px">
           ${recs.length === 0 ? `
             <div class="empty" style="text-align:center;padding:32px">
               <div style="font-size:48px;margin-bottom:12px">${icon("tag")}</div>
@@ -4467,38 +4555,38 @@
               <a href="#/competitors" class="btn btn-primary">Add Competitors →</a>
             </div>
           ` : `
-            <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <table class="b-table">
               <thead>
                 <tr>
-                  <th style="text-align:left;padding:10px;border-bottom:2px solid var(--card-border)">Product</th>
-                  <th style="text-align:right;padding:10px;border-bottom:2px solid var(--card-border)">Current</th>
-                  <th style="text-align:right;padding:10px;border-bottom:2px solid var(--card-border)">Recommended</th>
-                  <th style="text-align:center;padding:10px;border-bottom:2px solid var(--card-border)">Change</th>
-                  <th style="text-align:left;padding:10px;border-bottom:2px solid var(--card-border)">Signals</th>
-                  <th style="text-align:center;padding:10px;border-bottom:2px solid var(--card-border)">Action</th>
+                  <th>Product</th>
+                  <th>Current</th>
+                  <th>Recommended</th>
+                  <th>Change</th>
+                  <th>Signals</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
                 ${recs.map(r => `
                   <tr>
-                    <td style="padding:10px;border-bottom:1px solid var(--card-border);font-weight:500">${esc(r.product_id)}</td>
-                    <td style="text-align:right;padding:10px;border-bottom:1px solid var(--card-border)">$${r.current_price?.toFixed(2) || "—"}</td>
-                    <td style="text-align:right;padding:10px;border-bottom:1px solid var(--card-border);font-weight:600;color:${r.direction === 'increase' ? 'var(--green)' : r.direction === 'decrease' ? 'var(--amber)' : 'var(--text)'}">$${r.recommended_price?.toFixed(2) || "—"}</td>
-                    <td style="text-align:center;padding:10px;border-bottom:1px solid var(--card-border)">
-                      <span class="pill pill-${r.direction === 'increase' ? 'green' : r.direction === 'decrease' ? 'amber' : 'gray'}">
+                    <td style="font-weight:500">${esc(r.product_id)}</td>
+                    <td>$${r.current_price?.toFixed(2) || "—"}</td>
+                    <td style="font-weight:600;color:${r.direction === 'increase' ? 'var(--green)' : r.direction === 'decrease' ? 'var(--amber)' : 'var(--text)'}">$${r.recommended_price?.toFixed(2) || "—"}</td>
+                    <td>
+                      <span class="b-badge ${r.direction === 'increase' ? 'green' : r.direction === 'decrease' ? 'amber' : 'gray'}">
                         ${r.change_pct > 0 ? '+' : ''}${r.change_pct?.toFixed(1) || 0}%
                       </span>
                     </td>
-                    <td style="padding:10px;border-bottom:1px solid var(--card-border)">
+                    <td>
                       ${(r.signals || []).slice(0, 2).map(sig => `
                         <div style="font-size:11px;color:var(--muted);margin-bottom:2px">
-                          <span class="pill pill-cyan" style="font-size:9px;padding:2px 6px">${sig.signal}</span>
+                          <span class="b-badge cyan" style="font-size:9px;padding:2px 6px">${sig.signal}</span>
                           ${esc(sig.detail)}
                         </div>
                       `).join("")}
                     </td>
-                    <td style="text-align:center;padding:10px;border-bottom:1px solid var(--card-border)">
-                      ${r.direction !== 'hold' ? `<button class="btn btn-sm btn-primary" onclick="applyPrice('${esc(r.product_id)}', ${r.recommended_price})">Apply</button>` : '<span class="pill pill-gray">Optimal</span>'}
+                    <td>
+                      ${r.direction !== 'hold' ? `<button class="btn btn-sm btn-primary" onclick="applyPrice('${esc(r.product_id)}', ${r.recommended_price})">Apply</button>` : '<span class="b-badge gray">Optimal</span>'}
                     </td>
                   </tr>
                 `).join("")}
@@ -4508,8 +4596,8 @@
         </div>
       </div>
 
-      <div class="grid grid-2 section-gap">
-        <div class="card">
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card">
           <h3>${icon("shield")} Guardrails</h3>
           <div style="margin-top:12px">
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-border)">
@@ -4526,7 +4614,7 @@
             </div>
           </div>
         </div>
-        <div class="card">
+        <div class="b-card">
           <h3>${icon("info")} How it works</h3>
           <div style="margin-top:12px;font-size:13px;color:var(--muted)">
             <p style="margin-bottom:8px">The pricing engine analyzes three signals:</p>
@@ -4558,20 +4646,21 @@
     const featureList = data.features || [];
 
     view.innerHTML = `
-      <div class="grid grid-3">
-        <div class="card"><h3>Total features</h3><div class="kpi-value">${featureList.length}</div><div class="kpi-sub">available</div></div>
-        <div class="card"><h3>Active features</h3><div class="kpi-value" style="color:var(--green)">${featureList.filter(f => f.active).length}</div><div class="kpi-sub">currently enabled</div></div>
-        <div class="card"><h3>Inactive features</h3><div class="kpi-value" style="color:var(--amber)">${featureList.filter(f => !f.active).length}</div><div class="kpi-sub">available to activate</div></div>
+      <div class="b-header"><div><h2>Feature Activation</h2><p>Enable or disable platform features</p></div></div>
+      <div class="b-grid-3" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s"><h3>Total features</h3><div class="b-stat-value">${featureList.length}</div><div class="b-stat-label">available</div></div>
+        <div class="b-card" style="animation-delay:0.1s"><h3>Active features</h3><div class="b-stat-value" style="color:var(--green)">${featureList.filter(f => f.active).length}</div><div class="b-stat-label">currently enabled</div></div>
+        <div class="b-card" style="animation-delay:0.15s"><h3>Inactive features</h3><div class="b-stat-value" style="color:var(--amber)">${featureList.filter(f => !f.active).length}</div><div class="b-stat-label">available to activate</div></div>
       </div>
-      <div class="card section-gap">
-        <div class="card-title-row"><h3>${icon("sliders")} Feature activation</h3></div>
+      <div class="b-card" style="margin-bottom:24px;animation-delay:0.2s">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3>${icon("sliders")} Feature activation</h3></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
           ${featureList.map(f => `
             <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border);display:flex;align-items:center;gap:12px">
               <div style="flex:1">
                 <div style="font-weight:600;font-size:14px">${esc(f.name)}</div>
                 <div style="font-size:12px;color:var(--muted)">${esc(f.desc)}</div>
-                <div style="margin-top:4px"><span class="pill pill-gray">${f.category}</span></div>
+                <div style="margin-top:4px"><span class="b-badge gray">${f.category}</span></div>
               </div>
               <button class="btn btn-sm ${f.active ? 'btn-primary' : 'btn-ghost-sm'}" onclick="toggleFeature('${f.id}', ${!f.active})">${f.active ? 'Active' : 'Activate'}</button>
             </div>
@@ -4804,18 +4893,22 @@
     };
 
     view.innerHTML = `
-      <div class="card">
-        <h2>Activity Log</h2>
-        <p class="muted">Recent activity for your store — ${summary.total_events || 0} events in the last 30 days.</p>
-        <div class="activity-list" style="margin-top:20px;">
-          ${entries.length === 0 ? '<p class="muted" style="text-align:center;padding:30px;">No activity recorded yet.</p>' : entries.map((e) => `
-            <div class="activity-entry">
-              <div class="activity-icon">${actionIcons[e.action] || "📋"}</div>
-              <div class="activity-text">
-                <p class="activity-action">${esc(e.action?.replace(/_/g, " "))}</p>
-                <p class="activity-detail">${esc(e.detail?.message || e.target || e.actor || "")}</p>
+      <div class="b-header">
+        <div>
+          <h2>Activity Log</h2>
+          <p>Recent activity for your store — ${summary.total_events || 0} events in the last 30 days</p>
+        </div>
+      </div>
+      <div class="b-card" style="animation-delay:0.05s">
+        <div style="margin-top:8px">
+          ${entries.length === 0 ? '<div style="text-align:center;padding:40px;color:var(--muted)">No activity recorded yet.</div>' : entries.map((e) => `
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--card-border)">
+              <div style="width:36px;height:36px;border-radius:8px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${actionIcons[e.action] || "📋"}</div>
+              <div style="flex:1">
+                <div style="font-weight:600;font-size:13px;text-transform:capitalize">${esc(e.action?.replace(/_/g, " "))}</div>
+                <div style="font-size:12px;color:var(--muted)">${esc(e.detail?.message || e.target || e.actor || "")}</div>
               </div>
-              <span class="activity-time">${e.at ? new Date(e.at).toLocaleString() : ""}</span>
+              <div style="font-size:12px;color:var(--muted);white-space:nowrap">${e.at ? new Date(e.at).toLocaleString() : ""}</div>
             </div>
           `).join("")}
         </div>
