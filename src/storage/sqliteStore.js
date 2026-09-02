@@ -29,16 +29,74 @@ const { COLLECTIONS, } = require('./store',);
  */
 const INDEXED_FIELDS = ['store_id', 'status', 'customer_id', 'type', 'action',];
 
+/** Every column the current code expects on a collection table. */
+function expectedColumns() {
+  return ['_id', 'createdAt', 'updatedAt', ...INDEXED_FIELDS, 'data',];
+}
+
+/**
+ * Reconcile an existing table with the columns the current schema expects.
+ *
+ * `CREATE TABLE IF NOT EXISTS` silently no-ops on a table created by an
+ * older version, which previously left collections missing their `data`
+ * column and broke every prepared statement at boot. Adding the missing
+ * columns preserves existing rows.
+ */
+function migrateTable(db, name,) {
+  const present = new Set(
+    db.prepare(`PRAGMA table_info("${name}")`,).all().map((col,) => col.name,),
+  );
+
+  for (const column of expectedColumns()) {
+    if (present.has(column,)) continue;
+    db.exec(`ALTER TABLE "${name}" ADD COLUMN "${column}" TEXT`,);
+  }
+
+  // Backfill indexed columns for rows written before they existed, so
+  // pre-existing data stays queryable. JSON1 ships with node:sqlite, but
+  // a missing extension must never take the platform down on boot.
+  try {
+    const assignments = INDEXED_FIELDS.map(
+      (f) => `"${f}" = json_extract(data, '$.${f}')`,
+    ).join(', ',);
+    db.exec(
+      `UPDATE "${name}" SET ${assignments}
+         WHERE data IS NOT NULL
+           AND "store_id" IS NULL
+           AND json_extract(data, '$.store_id') IS NOT NULL`,
+    );
+  } catch {
+    /* JSON1 unavailable — rows stay unindexed but readable. */
+  }
+}
+
+/** Fail loudly with a clear message instead of letting statements throw later. */
+function assertSchema(db, name,) {
+  const present = new Set(
+    db.prepare(`PRAGMA table_info("${name}")`,).all().map((col,) => col.name,),
+  );
+  const missing = expectedColumns().filter((c,) => !present.has(c,),);
+  if (missing.length > 0) {
+    throw new Error(
+      `SQLite collection "${name}" is missing column(s): ${missing.join(', ',)}. ` +
+        'Delete the database file to rebuild it, or add a migration.',
+    );
+  }
+}
+
 function createSqliteCollection(db, name,) {
   db.exec(
     `CREATE TABLE IF NOT EXISTS "${name}" (
        _id TEXT PRIMARY KEY,
        createdAt TEXT,
        updatedAt TEXT,
-       ${INDEXED_FIELDS.map((f) => `"${f}" TEXT`,).join(', ')}
+       ${INDEXED_FIELDS.map((f) => `"${f}" TEXT`,).join(', ')},
        data TEXT NOT NULL
      )`,
   );
+
+  migrateTable(db, name,);
+  assertSchema(db, name,);
 
   /* ── Indexes ─────────────────────────────────────────────────── */
   db.exec(`CREATE INDEX IF NOT EXISTS "idx_${name}_store_id" ON "${name}" ("store_id")`,);

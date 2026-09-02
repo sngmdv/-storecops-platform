@@ -67,8 +67,10 @@ function createRbac({ store, auditLog, },) {
     },
 
     /**
-     * Express middleware. The acting identity comes from the gateway
-     * (req.authUser, set by API-key/bearer auth) or the X-User header.
+     * Express middleware. The acting identity always comes from the
+     * gateway-authenticated user (req.authUser, set by API-key/bearer
+     * auth). It never trusts client-supplied headers (e.g. X-User), so
+     * an unauthenticated caller cannot impersonate another role.
      * When no users exist yet (fresh install), every caller is treated
      * as admin so bootstrapping works.
      */
@@ -77,7 +79,7 @@ function createRbac({ store, auditLog, },) {
         const allUsers = await store.users.find({},);
         if (allUsers.length === 0) return next(); // bootstrap mode
 
-        const email = req.get('X-User',) || req.authUser?.email;
+        const email = req.authUser?.email;
         const user = email ? await store.users.findOne({ email, },) : null;
 
         if (!user) {
@@ -87,7 +89,7 @@ function createRbac({ store, auditLog, },) {
             req.user = req.authUser;
             return next();
           }
-          return res.status(403,).json({ error: 'Unknown user. Provide a valid X-User header.', },);
+          return res.status(403,).json({ error: 'Unknown user. Authentication required.', },);
         }
 
         const permissions = ROLE_PERMISSIONS[user.role] || ROLE_PERMISSIONS.viewer;

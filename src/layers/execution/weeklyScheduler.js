@@ -209,6 +209,10 @@ function createWeeklyScheduler({ store, reporting, emailService, emailTemplates,
         }
       }, 60 * 60 * 1000,); // Check every hour
 
+      // Don't keep the process alive solely for the scheduler (tests,
+      // one-off scripts). The running server keeps it alive in prod.
+      if (schedulerInterval.unref) schedulerInterval.unref();
+
       console.log('[WeeklyScheduler] Started — will send digests every Sunday at 9 AM',);
     },
 

@@ -31,11 +31,48 @@ function slugify(text,) {
     .slice(0, 40,);
 }
 
+/**
+ * Operators who may reach the platform-wide /admin/* surface.
+ * Tenant owners are NOT platform admins — they only ever see their own
+ * store. Configure with a comma-separated list of operator emails.
+ */
+function platformAdminEmails() {
+  return String(process.env.PLATFORM_ADMIN_EMAILS || '',)
+    .split(',',)
+    .map((e,) => e.trim().toLowerCase(),)
+    .filter(Boolean,);
+}
+
+function isPlatformAdminEmail(email,) {
+  if (!email) return false;
+  return platformAdminEmails().includes(String(email,).toLowerCase(),);
+}
+
 /** Strip secrets before a user document leaves the server. */
 function publicUser(user,) {
   if (!user) return null;
-  const { password_hash, salt, ...safe } = user;
+  // eslint-disable-next-line no-unused-vars
+  const { password_hash, salt, api_key, ingest_key, ...safe } = user;
   return safe;
+}
+
+/**
+ * Minimal projection for cross-tenant listings (e.g. the operator console).
+ * Never includes credentials — leaking these would allow account takeover.
+ */
+function safeUser(user,) {
+  if (!user) return null;
+  return {
+    _id: user._id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    store_id: user.store_id,
+    store_name: user.store_name,
+    plan: user.plan,
+    platform_admin: user.platform_admin === true,
+    created_at: user.created_at || user.createdAt,
+  };
 }
 
 function createAuthService({ store, config, auditLog, },) {
@@ -87,6 +124,9 @@ function createAuthService({ store, config, auditLog, },) {
         email,
         name: String(name || '',).trim(),
         role: 'admin', // the account owner admins their own tenant
+        // Tenant owner !== platform operator. Only emails listed in
+        // PLATFORM_ADMIN_EMAILS (and the master key) reach /admin/*.
+        platform_admin: isPlatformAdminEmail(email,),
         store_id,
         store_name: String(storeName || store_id,).trim(),
         api_key: `sk_${crypto.randomBytes(18,).toString('hex',)}`,
@@ -157,6 +197,44 @@ function createAuthService({ store, config, auditLog, },) {
       return { ok: true, };
     },
 
+    /**
+     * Open a session for an already-resolved user.
+     * Exposed for flows that authenticate a user outside of login()
+     * (e.g. Shopify embedded auth after session-token verification).
+     */
+    async createSession(user,) {
+      if (!user || !user._id) throw new Error('A valid user is required to open a session.',);
+      return createSession(user,);
+    },
+
+    /**
+     * Short-lived placeholder session for a Shopify shop that has not
+     * completed signup yet. Resolves to no user, so it grants no access —
+     * it only lets the client carry state through the onboarding flow.
+     */
+    async createTempSession(shopDomain,) {
+      const domain = slugify(shopDomain,) || 'unknown';
+      const token = crypto.randomBytes(32,).toString('hex',);
+      const expires_at = new Date(Date.now() + 60 * 60 * 1000,).toISOString(); // 1 hour
+      await store.sessions.insert({
+        token,
+        user_id: null, // deliberately unresolvable — grants no access
+        email: `${domain}@pending.shopify`,
+        store_id: null,
+        shop_domain: String(shopDomain || '',).toLowerCase(),
+        pending: true,
+        created_at: new Date().toISOString(),
+        expires_at,
+      },);
+      return { token, expires_at, shop_domain: String(shopDomain || '',).toLowerCase(), pending: true, };
+    },
+
+    /** True when the identity may reach platform-wide operator surfaces. */
+    isPlatformAdmin(user,) {
+      if (!user) return false;
+      return user.platform_admin === true || isPlatformAdminEmail(user.email,);
+    },
+
     /** Find the tenant owning a private API key (for the gateway). */
     async userByApiKey(apiKey,) {
       if (!apiKey) return null;
@@ -173,4 +251,10 @@ function createAuthService({ store, config, auditLog, },) {
   };
 }
 
-module.exports = { createAuthService, hashPassword, publicUser, };
+module.exports = {
+  createAuthService,
+  hashPassword,
+  publicUser,
+  safeUser,
+  isPlatformAdminEmail,
+};

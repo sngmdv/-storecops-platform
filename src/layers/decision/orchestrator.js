@@ -190,7 +190,7 @@ function createOrchestrator({ store, rulesEngine, churnScoring, brandSentiment, 
      * Called when a customer completes a purchase or recovers their cart.
      */
     async cancelSequences(store_id, customer_id,) {
-      const rules = await this.activeRules(store_id,);
+      const rules = await rulesEngine.activeRules(store_id,);
       let totalCancelled = 0;
 
       for (const rule of rules) {

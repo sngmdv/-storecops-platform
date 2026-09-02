@@ -19,7 +19,7 @@ EXPOSE 4000
 
 # Increase heap size for memory-constrained environments
 ENV NODE_OPTIONS="--max-old-space-size=256"
-ENV STORAGE=memory
+# STORAGE defaults to sqlite; override with STORAGE=memory for ephemeral environments
 
 # Health check - longer interval for cold starts
 HEALTHCHECK --interval=60s --timeout=10s --start-period=60s --retries=3 \

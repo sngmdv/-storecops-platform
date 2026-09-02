@@ -60,6 +60,20 @@ function seedStore(store, opts = {},) {
         },);
       }
 
+      // Seed feature adoption: one action per feature type so the store
+      // registers real usage across multiple plan features.
+      if (opts.featureTypes && opts.featureTypes.length) {
+        for (const ft of opts.featureTypes) {
+          await store.actions.insert({
+            store_id: storeId,
+            action_type: ft,
+            rule_id: `${ft}_rule`,
+            status: 'completed',
+            customer_id: 'cust-0',
+          },);
+        }
+      }
+
       // Seed deliveries
       const deliveryCount = opts.deliveryCount || 0;
       for (let i = 0; i < deliveryCount; i++) {
@@ -127,6 +141,9 @@ describe('Retention Engine', () => {
         actionStatus: 'completed',
         deliveryCount: 10,
         createdDaysAgo: 90,
+        featureTypes: ['live_orders', 'stock_monitoring', 'product_insights', 'stockout_alerts',
+          'cart_recovery', 'whatsapp_recovery', 'churn_scoring', 'competitor_radar',
+          'pricing_intelligence', 'campaigns', 'retargeting', 'seo_suite', 'attribution',],
       },);
       await seeder.setup();
 

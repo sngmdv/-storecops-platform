@@ -134,6 +134,19 @@
     headphones: '<path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>',
     "pie-chart": '<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>',
     "dollar-sign": '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/>',
+    "trending-down": '<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>',
+    "rotate-ccw": '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+    "eye-off": '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>',
+    radar: '<path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/>',
+    activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+    tag: '<path d="M12 2H2v10l9.29 9.29a1 1 0 0 0 1.42 0l8.58-8.58a1 1 0 0 0 0-1.42L12 2z"/><circle cx="7" cy="7" r="1.5"/>',
+    star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+    "credit-card": '<rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>',
+    "life-buoy": '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m19.07 4.93-4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/>',
+    trending: '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
   };
 
   function icon(name, cls = "") {
@@ -503,40 +516,102 @@
   });
 
   // ── router ─────────────────────────────────────────────────────────
+  // Module tab groups — each merged module reuses one shared page layout
+  // with a tab strip on top. Every tab is a full (hash) route that
+  // re-renders the strip (highlighting the active tab) plus its content.
+  function tabStrip(tabs, active) {
+    return tabs.map((t) =>
+      `<a class="b-tab${t.key === active ? " active" : ""}" href="#/${t.route}">${icon(t.icon, "icon-sm")} ${t.label}</a>`
+    ).join("");
+  }
+  function withTabs(tabs, activeKey, renderFn) {
+    return async () => {
+      view.innerHTML = `<div class="b-tabs">${tabStrip(tabs, activeKey)}</div><div id="tab-panel"></div>`;
+      await renderFn(document.getElementById("tab-panel"));
+    };
+  }
+
+  const TABS = {
+    recovery: [
+      { key: "recovery", route: "recovery", label: "Revenue Recovery", icon: "dollar" },
+      { key: "browse", route: "browse", label: "Browse Abandonment", icon: "eye" },
+      { key: "messages", route: "messages", label: "Messaging", icon: "mail" },
+    ],
+    customers: [
+      { key: "customers", route: "customers", label: "Customers", icon: "users" },
+      { key: "churn", route: "churn", label: "Churn Risk", icon: "trending-down" },
+      { key: "winback", route: "winback", label: "Win-Back", icon: "rotate-ccw" },
+      { key: "defections", route: "defections", label: "Defections", icon: "eye-off" },
+    ],
+    competitors: [
+      { key: "competitors", route: "competitors", label: "Radar", icon: "radar" },
+      { key: "pricehistory", route: "pricehistory", label: "Price History", icon: "activity" },
+      { key: "brand-keywords", route: "brand-keywords", label: "Brand Keywords", icon: "tag" },
+    ],
+    trends: [
+      { key: "campaigns", route: "campaigns", label: "Trends & Campaigns", icon: "megaphone" },
+      { key: "recommendations", route: "recommendations", label: "Recommendations", icon: "star" },
+    ],
+    inventory: [
+      { key: "inventory", route: "inventory", label: "Inventory", icon: "package" },
+      { key: "markdowns", route: "markdowns", label: "Markdowns", icon: "tag" },
+    ],
+    onboarding: [
+      { key: "onboarding", route: "onboarding", label: "Setup Guide", icon: "check-circle" },
+      { key: "connect", route: "connect", label: "Connect Store", icon: "download" },
+      { key: "features", route: "features", label: "Feature Activation", icon: "sliders" },
+      { key: "settings", route: "settings", label: "Settings", icon: "settings" },
+    ],
+    billing: [
+      { key: "billing", route: "billing", label: "Billing", icon: "credit-card" },
+      { key: "support", route: "support", label: "Support", icon: "life-buoy" },
+      { key: "notifications", route: "notifications", label: "Notifications", icon: "bell" },
+    ],
+  };
+
+  // Maps every hash route (including tab sub-routes) to the sidebar item that should appear active
+  const NAV_PARENT = {
+    dashboard: "dashboard", live: "dashboard", activity: "dashboard",
+    recovery: "recovery", browse: "recovery", messages: "recovery",
+    customers: "customers", churn: "customers", winback: "customers", defections: "customers",
+    competitors: "competitors", pricehistory: "competitors", "brand-keywords": "competitors",
+    campaigns: "campaigns", recommendations: "campaigns",
+    inventory: "inventory", markdowns: "inventory",
+    seo: "seo", returns: "returns", reports: "reports", automations: "automations",
+    onboarding: "onboarding", connect: "onboarding", features: "onboarding", settings: "onboarding",
+    billing: "billing", support: "billing", notifications: "billing",
+  };
+
   const ROUTES = {
     dashboard: { title: "Command Center", render: renderDashboard },
     live: { title: "Live Orders", render: renderLive },
-    inventory: { title: "Inventory Advisor", render: renderInventory },
-    customers: { title: "Customer Intelligence", render: renderCustomers },
-    automations: { title: "Automation Studio", render: renderAutomations },
-    messages: { title: "Messages", render: renderMessages },
-    campaigns: { title: "Campaigns & Retargeting", render: renderCampaigns },
-    competitors: { title: "Competitor Radar", render: renderCompetitors },
-    "brand-keywords": { title: "Brand Keywords", render: renderBrandKeywords },
-    seo: { title: "SEO & Trends", render: renderSeo },
-    reports: { title: "Reports & ROI", render: renderReports },
-    settings: { title: "Settings", render: renderSettings },
-    connect: { title: "Connect Store", render: renderConnect },
-    onboarding: { title: "Setup Guide", render: renderOnboarding },
     activity: { title: "Activity Log", render: renderActivity },
-    recovery: { title: "Revenue Recovery", render: renderRecovery },
-    winback: { title: "Win-Back Campaigns", render: renderWinback },
-    browse: { title: "Browse Abandonment", render: renderBrowse },
-    recommendations: { title: "Product Recommendations", render: renderRecommendations },
-    churn: { title: "Churn Risk", render: renderChurnRisk },
-    defections: { title: "Defection Alerts", render: renderDefections },
-    milestones: { title: "Aha Moments", render: renderMilestones },
-    pricehistory: { title: "Price History", render: renderPriceHistory },
-    markdowns: { title: "Markdown Suggestions", render: renderMarkdowns },
-    templates: { title: "Template Editor", render: renderTemplates },
-    billing: { title: "Billing & Subscription", render: renderBilling },
-    channels: { title: "Channel Settings", render: renderChannels },
-    notifications: { title: "Notification Preferences", render: renderNotifications },
-    support: { title: "Support Tickets", render: renderSupport },
-    cac: { title: "CAC Tracking", render: renderCac },
-    pricing: { title: "Dynamic Pricing", render: renderPricing },
-    features: { title: "Feature Activation", render: renderFeatures },
+    "brand-keywords": { title: "Brand Keywords", render: withTabs(TABS.competitors, "brand-keywords", renderBrandKeywords) },
+    seo: { title: "SEO & Growth", render: renderSeo },
+    reports: { title: "Reports & ROI", render: renderReports },
+    features: { title: "Feature Activation", render: withTabs(TABS.onboarding, "features", renderFeatures) },
+    settings: { title: "Settings", render: withTabs(TABS.onboarding, "settings", renderSettings) },
+    connect: { title: "Connect Store", render: withTabs(TABS.onboarding, "connect", renderConnect) },
+    onboarding: { title: "Setup & Onboarding", render: withTabs(TABS.onboarding, "onboarding", renderOnboarding) },
+    recovery: { title: "Revenue Recovery", render: withTabs(TABS.recovery, "recovery", renderRecovery) },
+    browse: { title: "Browse Abandonment", render: withTabs(TABS.recovery, "browse", renderBrowse) },
+    messages: { title: "Messaging", render: withTabs(TABS.recovery, "messages", renderMessages) },
+    recommendations: { title: "Product Recommendations", render: withTabs(TABS.trends, "recommendations", renderRecommendations) },
+    campaigns: { title: "Trends & Campaigns", render: withTabs(TABS.trends, "campaigns", renderCampaigns) },
+    churn: { title: "Churn Risk", render: withTabs(TABS.customers, "churn", renderChurnRisk) },
+    defections: { title: "Defection Alerts", render: withTabs(TABS.customers, "defections", renderDefections) },
+    winback: { title: "Win-Back Campaigns", render: withTabs(TABS.customers, "winback", renderWinback) },
+    customers: { title: "Customer Intelligence", render: withTabs(TABS.customers, "customers", renderCustomers) },
+    inventory: { title: "Inventory Advisor", render: withTabs(TABS.inventory, "inventory", renderInventory) },
+    markdowns: { title: "Markdown Suggestions", render: withTabs(TABS.inventory, "markdowns", renderMarkdowns) },
+    competitors: { title: "Competitor Radar", render: withTabs(TABS.competitors, "competitors", renderCompetitors) },
+    pricehistory: { title: "Price History", render: withTabs(TABS.competitors, "pricehistory", renderPriceHistory) },
+    automations: { title: "Automation Studio", render: renderAutomations },
     returns: { title: "Returns & Fraud Shield", render: renderReturns },
+    notifications: { title: "Notification Preferences", render: withTabs(TABS.billing, "notifications", renderNotifications) },
+    support: { title: "Support Tickets", render: withTabs(TABS.billing, "support", renderSupport) },
+    billing: { title: "Billing & Support", render: withTabs(TABS.billing, "billing", renderBilling) },
+    "return-fraud": { title: "Returns & Fraud Shield", render: renderReturns },
   };
 
   function route() {
@@ -552,7 +627,7 @@
           .then(() => route())
           .catch(() => {
             // If auto-login fails, show login with pre-filled shop
-            view.innerHTML = `<div class="login"><div class="login-card">
+            container.innerHTML = `<div class="login"><div class="login-card">
               <h3>Connect your Storecops account</h3>
               <p class="muted">Sign in to continue to Storecops.</p>
               <div id="toast" class="toast"></div>
@@ -566,21 +641,22 @@
     const name = (location.hash || "#/dashboard").replace("#/", "") || "dashboard";
     const target = ROUTES[name] || ROUTES.dashboard;
     $("#page-title").textContent = target.title;
+    const activeNav = NAV_PARENT[name] || name;
     document.querySelectorAll(".side-nav a").forEach((a) =>
-      a.classList.toggle("active", a.dataset.route === name || (!ROUTES[name] && a.dataset.route === "dashboard"))
+      a.classList.toggle("active", a.dataset.route === activeNav || (!ROUTES[name] && a.dataset.route === "dashboard"))
     );
     closeStream();
     destroyCharts();
-    view.innerHTML = '<div class="empty"><span class="spinner"></span>&nbsp; Loading…</div>';
+    container.innerHTML = '<div class="empty"><span class="spinner"></span>&nbsp; Loading…</div>';
     target.render().catch((error) => {
-      view.innerHTML = `<div class="card"><h3>Something went wrong</h3><p class="muted">${esc(error.message)}</p></div>`;
+      container.innerHTML = `<div class="card"><h3>Something went wrong</h3><p class="muted">${esc(error.message)}</p></div>`;
     });
   }
 
   window.addEventListener("hashchange", route);
 
   // ── page: dashboard ────────────────────────────────────────────────
-  async function renderDashboard() {
+  async function renderDashboard(container = view) {
     const s = api.store();
     // Auto-check onboarding steps based on current store state
     api.post("/onboarding/auto-check", { store_id: s }).catch(() => {});
@@ -621,7 +697,7 @@
     const maturityColor = maturityScore >= 80 ? "var(--green)" : maturityScore >= 50 ? "var(--amber)" : "var(--red)";
     const maturityLabel = maturityScore >= 80 ? "Advanced" : maturityScore >= 50 ? "Growing" : "Getting Started";
 
-    view.innerHTML = `
+    container.innerHTML = `
       <!-- Header -->
       <div class="b-header">
         <div>
@@ -998,7 +1074,7 @@
   }
 
   // ── page: live orders (Behance-inspired redesign) ─────────────────
-  async function renderLive() {
+  async function renderLive(container = view) {
     const s = api.store();
     const data = await api.get(`/orders/${s}/live?limit=50`).catch(() => ({ orders: [], count: 0, stats: {} }));
     const stats = data.stats || {};
@@ -1022,7 +1098,7 @@
     const trendUp = (val) => `<span class="orders-stat-trend up">↗ ${val}%</span>`;
     const trendDown = (val) => `<span class="orders-stat-trend down">↘ ${val}%</span>`;
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Live Orders</h2>
@@ -1262,7 +1338,7 @@
   }
 
   // ── page: inventory ────────────────────────────────────────────────
-  async function renderInventory() {
+  async function renderInventory(container = view) {
     const s = api.store();
     const [levels, insights] = await Promise.all([
       api.get(`/inventory/${s}/levels`).catch(() => null),
@@ -1275,7 +1351,7 @@
     const lowCount = entries.filter(e => e.stock > 0 && e.stock <= 5).length;
     const outCount = entries.filter(e => e.stock <= 0).length;
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Inventory Advisor</h2>
@@ -1422,7 +1498,7 @@
   }
 
   // ── page: customers ────────────────────────────────────────────────
-  async function renderCustomers() {
+  async function renderCustomers(container = view) {
     const s = api.store();
     const [segments, churn] = await Promise.all([
       api.get(`/segments/${s}`).catch(() => null),
@@ -1433,7 +1509,7 @@
     const customers = segments?.customers || [];
     const distribution = segments?.distribution || {};
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Customer Intelligence</h2>
@@ -1485,7 +1561,7 @@
   }
 
   // ── page: automations ──────────────────────────────────────────────
-  async function renderAutomations() {
+  async function renderAutomations(container = view) {
     const s = api.store();
     const [rules, pending] = await Promise.all([
       api.get(`/rules/${s}`).catch(() => []),
@@ -1495,7 +1571,7 @@
     const ruleList = Array.isArray(rules) ? rules : rules.rules || [];
     const actionList = Array.isArray(pending) ? pending : pending.actions || [];
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Automations</h2>
@@ -1546,7 +1622,7 @@
   }
 
   // ── page: messages ─────────────────────────────────────────────────
-  async function renderMessages() {
+  async function renderMessages(container = view) {
     const s = api.store();
     const [channels, deliveryData, rules] = await Promise.all([
       api.get(`/channels/${s}/status`).catch(() => ({ whatsapp: {}, email: {} })),
@@ -1586,7 +1662,7 @@
       return `<span class="b-badge violet">${esc(st || "unknown")}</span>`;
     };
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Messages & Delivery</h2>
@@ -1680,7 +1756,7 @@
   }
 
   // ── page: campaigns ────────────────────────────────────────────────
-  async function renderCampaigns() {
+  async function renderCampaigns(container = view) {
     const s = api.store();
     const [campaigns, seasonal, withImpact] = await Promise.all([
       api.get(`/campaigns/${s}`).catch(() => []),
@@ -1761,7 +1837,7 @@
       </div>`;
     };
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Campaigns & Retargeting</h2>
@@ -1887,7 +1963,7 @@
     });
 
     // Launch buttons — convert draft → launched with target customers.
-    view.querySelectorAll(".campaign-launch-btn").forEach((btn) => {
+    container.querySelectorAll(".campaign-launch-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const id = btn.dataset.id;
         btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Launching...';
@@ -1900,7 +1976,7 @@
     });
 
     // Execute buttons — process pending actions through delivery pipeline.
-    view.querySelectorAll(".campaign-execute-btn").forEach((btn) => {
+    container.querySelectorAll(".campaign-execute-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const id = btn.dataset.id;
         btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Sending...';
@@ -1913,7 +1989,7 @@
     });
 
     // Measure buttons — show impact panel.
-    view.querySelectorAll(".campaign-measure-btn").forEach((btn) => {
+    container.querySelectorAll(".campaign-measure-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const id = btn.dataset.id;
         const panel = $("#measure-modal");
@@ -1967,7 +2043,7 @@
   }
 
   // ── page: competitors ──────────────────────────────────────────────
-  async function renderCompetitors() {
+  async function renderCompetitors(container = view) {
     const s = api.store();
     const [analysis, ads, tracked] = await Promise.all([
       api.get(`/competitors/${s}`).catch(() => null),
@@ -1996,7 +2072,7 @@
       return '<span class="b-badge purple">pending</span>';
     };
   
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Competitor Radar</h2>
@@ -2202,12 +2278,12 @@
   }
 
   // ── page: brand keywords ──────────────────────────────────────────
-  async function renderBrandKeywords() {
+  async function renderBrandKeywords(container = view) {
     const s = api.store();
     const existing = await api.get("/brand-keywords").catch(() => ({ keywords: [] }));
     const keywords = existing.keywords || [];
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>${icon("tag")} Brand Keywords</h2>
@@ -2286,7 +2362,7 @@
   }
 
   // ── page: seo & trends ─────────────────────────────────────────────
-  async function renderSeo() {
+  async function renderSeo(container = view) {
     const s = api.store();
     const [performance, trends, rankings, storeInfo] = await Promise.all([
       api.get(`/search-console/${s}/performance`).catch(() => ({ queries: [] })),
@@ -2302,7 +2378,7 @@
     const autoBrand = storeInfo.brand || s;
     const isConnected = storeInfo.connected;
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>SEO & Trends</h2>
@@ -2565,7 +2641,7 @@
   }
 
   // ── page: reports ──────────────────────────────────────────────────
-  async function renderReports() {
+  async function renderReports(container = view) {
     const s = api.store();
     const [roi, maturity, digest, attribution] = await Promise.all([
       api.get(`/report/${s}/roi`).catch(() => null),
@@ -2576,7 +2652,7 @@
 
     const byRule = attribution?.by_rule || attribution?.report?.by_rule || [];
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Reports & Analytics</h2>
@@ -2634,7 +2710,7 @@
   }
 
   // ── page: settings ─────────────────────────────────────────────────
-  async function renderSettings() {
+  async function renderSettings(container = view) {
     const sess = api.session() || {};
     const connectors = await api.get("/connectors").catch(() => ({}));
     const readyBadge = (p) =>
@@ -2642,7 +2718,7 @@
         ? '<span style="color:var(--green)">● Ready</span>'
         : '<span style="color:var(--amber)">○ Not configured</span>';
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Settings</h2>
@@ -2753,7 +2829,7 @@
     }
   }
 
-  async function renderConnect() {
+  async function renderConnect(container = view) {
     const s = api.store();
     const [status, info, connectors] = await Promise.all([
       api.get(`/integrations/${s}`).catch(() => ({ connected: false })),
@@ -2777,7 +2853,7 @@
         ? `<p class="muted" style="color:var(--amber)">${icon("alert-triangle", "icon-sm")} Connector not configured yet — add the ${name} app credentials in Settings → Platform connectors.</p>`
         : "";
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Connect Store</h2>
@@ -2955,7 +3031,7 @@
   chartDefaults();
 
   // ── page: onboarding ───────────────────────────────────────────────
-  async function renderOnboarding() {
+  async function renderOnboarding(container = view) {
     const s = api.store();
     const state = await api.get("/onboarding").catch(() => null);
     const next = await api.get("/onboarding/next").catch(() => null);
@@ -2976,7 +3052,7 @@
     const completionPct = state?.completion_pct || 0;
     const currentIdx = steps.findIndex(step => next?.action === step.id) || 0;
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Onboarding</h2>
@@ -3109,7 +3185,7 @@
   }
 
   // ── page: revenue recovery ─────────────────────────────────────────
-  async function renderRecovery() {
+  async function renderRecovery(container = view) {
     const s = api.store();
     const [report, actions, insights] = await Promise.all([
       api.get(`/report/${s}`).catch(() => ({})),
@@ -3123,7 +3199,7 @@
     const recoveryRate = funnel.carts > 0 ? ((funnel.purchases / funnel.carts) * 100).toFixed(1) : 0;
     const revenueRecovered = 0;
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Revenue Recovery</h2>
@@ -3234,7 +3310,7 @@
   }
 
   // ── page: win-back campaigns ───────────────────────────────────────
-  async function renderWinback() {
+  async function renderWinback(container = view) {
     const s = api.store();
     const [churn, campaigns] = await Promise.all([
       api.get(`/churn/${s}`).catch(() => ({ customers: [], risk_bands: {} })),
@@ -3246,7 +3322,7 @@
     const campaignList = Array.isArray(campaigns) ? campaigns : campaigns.campaigns || [];
     const winbackCampaigns = campaignList.filter(c => c.type === "winback" || c.name?.toLowerCase().includes("win"));
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Win-Back Campaigns</h2>
@@ -3364,7 +3440,7 @@
   }
 
   // ── page: browse abandonment ──────────────────────────────────────
-  async function renderBrowse() {
+  async function renderBrowse(container = view) {
     const s = api.store();
     const [report, insights] = await Promise.all([
       api.get(`/report/${s}`).catch(() => ({})),
@@ -3374,7 +3450,7 @@
     const browseAbandon = (funnel.product_views || 0) - (funnel.carts || 0);
     const recoveryRate = funnel.product_views > 0 ? (((funnel.carts || 0) / funnel.product_views) * 100).toFixed(1) : 0;
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Browse Abandonment</h2>
@@ -3470,12 +3546,12 @@
   }
 
   // ── page: product recommendations ─────────────────────────────────
-  async function renderRecommendations() {
+  async function renderRecommendations(container = view) {
     const s = api.store();
     const products = await api.get(`/insights/${s}/products`).catch(() => ({ products: [] }));
     const prods = (products.products || []).slice(0, 20);
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header"><div><h2>Recommendations</h2><p>Product recommendation placements and analytics</p></div></div>
       <div class="b-grid-3" style="margin-bottom:24px">
         <div class="b-card" style="animation-delay:0.05s"><h3>Products tracked</h3><div class="b-stat-value">${prods.length}</div><div class="b-stat-label">in your catalog</div></div>
@@ -3523,7 +3599,7 @@
   }
 
   // ── page: churn risk ──────────────────────────────────────────────
-  async function renderChurnRisk() {
+  async function renderChurnRisk(container = view) {
     const s = api.store();
     const churnRaw = await api.get(`/churn/${s}`).catch(() => []);
     const customers = Array.isArray(churnRaw) ? churnRaw : (churnRaw.customers || []);
@@ -3532,7 +3608,7 @@
     const high = customers.filter(c => c.risk_band === "HIGH");
     const medium = customers.filter(c => c.risk_band === "MEDIUM");
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Churn Risk</h2>
@@ -3638,12 +3714,12 @@
   }
 
   // ── page: defection alerts ────────────────────────────────────────
-  async function renderDefections() {
+  async function renderDefections(container = view) {
     const s = api.store();
     const defections = await api.get(`/defection/${s}`).catch(() => ({ defections: [] }));
     const alerts = defections.defections || [];
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header"><div><h2>Defection Alerts</h2><p>High-value customers lost and recovery attempts</p></div></div>
       <div class="b-grid-3" style="margin-bottom:24px">
         <div class="b-card" style="animation-delay:0.05s"><h3>Defection alerts</h3><div class="b-stat-value" style="color:var(--red)">${alerts.length}</div><div class="b-stat-label">high-value customers lost</div></div>
@@ -3668,77 +3744,9 @@
       </div>`;
   }
 
-  // ── page: aha moments / milestones ─────────────────────────────────
-  async function renderMilestones() {
-    const s = api.store();
-    const moments = await api.get("/aha-moments").catch(() => []);
-    const achieved = moments.filter(m => m.achieved);
-    const pending = moments.filter(m => !m.achieved);
-
-    view.innerHTML = `
-      <div class="b-header"><div><h2>Milestones</h2><p>Achievements and platform milestones</p></div></div>
-      <div class="b-grid-3" style="margin-bottom:24px">
-        <div class="b-card" style="animation-delay:0.05s"><h3>Milestones achieved</h3><div class="b-stat-value" style="color:var(--green)">${achieved.length}</div><div class="b-stat-label">of ${moments.length} total</div></div>
-        <div class="b-card" style="animation-delay:0.1s"><h3>Progress</h3><div class="b-stat-value">${Math.round((achieved.length / Math.max(moments.length, 1)) * 100)}%</div><div class="b-stat-label">completion rate</div></div>
-        <div class="b-card" style="animation-delay:0.15s"><h3>Next milestone</h3><div class="b-stat-value" style="font-size:24px">${pending.length > 0 ? pending[0].icon : "🎉"}</div><div class="b-stat-label">${pending.length > 0 ? pending[0].title : "All done!"}</div></div>
-      </div>
-
-      <div class="b-card" style="margin-bottom:24px;animation-delay:0.2s">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3>${icon("trophy")} Achieved milestones</h3></div>
-        <div style="overflow-x:auto;margin-top:12px">
-          ${achieved.length === 0 ? '<div class="empty">No milestones achieved yet. Start using the platform to unlock achievements!' :
-            achieved.map(m => `
-              <div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--card-border)">
-                <div style="width:48px;height:48px;border-radius:50%;background:rgba(8,144,108,0.1);display:flex;align-items:center;justify-content:center;font-size:24px">${m.icon}</div>
-                <div style="flex:1">
-                  <div style="font-weight:600;color:var(--green)">${esc(m.title)}</div>
-                  <div style="font-size:13px;color:var(--muted);margin-top:2px">${esc(m.description)}</div>
-                </div>
-                <span class="b-badge green">Achieved</span>
-              </div>
-            `).join("")}
-        </div>
-      </div>
-
-      <div class="b-card" style="margin-bottom:24px;animation-delay:0.25s">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3>${icon("target")} Upcoming milestones</h3></div>
-        <div style="overflow-x:auto;margin-top:12px">
-          ${pending.length === 0 ? '<div class="empty">Congratulations! You\'ve achieved all milestones!' :
-            pending.map(m => `
-              <div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--card-border);opacity:0.7">
-                <div style="width:48px;height:48px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:24px">${m.icon}</div>
-                <div style="flex:1">
-                  <div style="font-weight:600">${esc(m.title)}</div>
-                  <div style="font-size:13px;color:var(--muted);margin-top:2px">${esc(m.description)}</div>
-                </div>
-                <span class="b-badge gray">Pending</span>
-              </div>
-            `).join("")}
-        </div>
-      </div>
-
-      <div style="text-align:center;margin-top:16px">
-        <button class="btn btn-primary" onclick="scanMilestones()">${icon("refresh-cw")} Scan for new milestones</button>
-      </div>`;
-
-    // Add scan function to window for onclick
-    window.scanMilestones = async () => {
-      try {
-        const result = await api.post("/aha-moments/scan", { store_id: s });
-        if (result.new_achievements && result.new_achievements.length > 0) {
-          toast(`${icon("check-circle")} ${result.new_achievements.length} new milestone(s) achieved!`);
-        } else {
-          toast("No new milestones detected. Keep using the platform!");
-        }
-        route();
-      } catch (e) {
-        toast(`${icon("alert-triangle")} ${esc(e.message)}`);
-      }
-    };
-  }
 
   // ── page: price history ───────────────────────────────────────────
-  async function renderPriceHistory() {
+  async function renderPriceHistory(container = view) {
     const s = api.store();
     const [competitors, priceHistory] = await Promise.all([
       api.get(`/competitors/${s}/tracked`).catch(() => []),
@@ -3749,7 +3757,7 @@
     const recentChanges = history.length;
     const pricePosition = history.filter(h => h.change < 0).length > history.filter(h => h.change > 0).length ? "Competitive" : "Above average";
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header"><div><h2>Price History</h2><p>Track competitor price changes and your price position</p></div></div>
       <div class="b-grid-3" style="margin-bottom:24px">
         <div class="b-card" style="animation-delay:0.05s"><h3>Tracked competitors</h3><div class="b-stat-value">${compList.length}</div><div class="b-stat-label">monitoring prices</div></div>
@@ -3808,12 +3816,12 @@
   }
 
   // ── page: markdown suggestions ────────────────────────────────────
-  async function renderMarkdowns() {
+  async function renderMarkdowns(container = view) {
     const s = api.store();
     const insights = await api.get(`/insights/${s}/products`).catch(() => ({ products: [] }));
     const slowMoving = (insights.products || []).filter(p => p.velocity === "slow" || p.velocity === "dead").slice(0, 10);
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header"><div><h2>Markdowns</h2><p>Slow-moving inventory and markdown suggestions</p></div></div>
       <div class="b-grid-3" style="margin-bottom:24px">
         <div class="b-card" style="animation-delay:0.05s"><h3>Slow-moving products</h3><div class="b-stat-value" style="color:var(--amber)">${slowMoving.length}</div><div class="b-stat-label">need markdown</div></div>
@@ -3842,81 +3850,9 @@
       </div>`;
   }
 
-  // ── page: template editor ─────────────────────────────────────────
-  async function renderTemplates() {
-    const s = api.store();
-    const data = await api.get(`/templates/${s}`).catch(() => ({ templates: [] }));
-    const templates = data.templates || [];
-
-    view.innerHTML = `
-      <div class="b-header"><div><h2>Templates</h2><p>Email and WhatsApp message templates</p></div></div>
-      <div class="b-grid-3" style="margin-bottom:24px">
-        <div class="b-card" style="animation-delay:0.05s"><h3>Total templates</h3><div class="b-stat-value">${templates.length}</div><div class="b-stat-label">email & WhatsApp</div></div>
-        <div class="b-card" style="animation-delay:0.1s"><h3>Active templates</h3><div class="b-stat-value" style="color:var(--green)">${templates.filter(t => t.active).length}</div><div class="b-stat-label">sending messages</div></div>
-        <div class="b-card" style="animation-delay:0.15s"><h3>Total sent</h3><div class="b-stat-value">${templates.reduce((sum, t) => sum + (t.stats?.sent || 0), 0).toLocaleString()}</div><div class="b-stat-label">across all templates</div></div>
-      </div>
-      <div class="b-card" style="margin-bottom:24px;animation-delay:0.2s">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3>${icon("file-text")} Templates</h3><button class="btn btn-sm btn-primary" onclick="createTemplate()">${icon("plus")} New template</button></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
-          ${templates.map(t => `
-            <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <span style="font-weight:600">${esc(t.name)}</span>
-                <span class="b-badge ${t.active ? 'green' : 'gray'}">${t.active ? 'Active' : 'Inactive'}</span>
-              </div>
-              <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Channel: ${esc(t.channel)}</div>
-              <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Subject: "${esc(t.subject)}"</div>
-              <div style="display:flex;gap:8px;margin-bottom:8px;font-size:11px;color:var(--muted)">
-                <span>Sent: ${(t.stats?.sent || 0).toLocaleString()}</span>
-                <span>·</span>
-                <span>Opened: ${(t.stats?.opened || 0).toLocaleString()}</span>
-                <span>·</span>
-                <span>Clicked: ${(t.stats?.clicked || 0).toLocaleString()}</span>
-              </div>
-              <div style="display:flex;gap:8px">
-                <button class="btn btn-sm btn-primary" onclick="editTemplate('${t.id}')">Edit</button>
-                <button class="btn btn-sm btn-ghost-sm" onclick="testTemplate('${t.id}')">Preview</button>
-                <button class="btn btn-sm btn-ghost-sm" onclick="toggleTemplate('${t.id}', ${!t.active})">${t.active ? 'Deactivate' : 'Activate'}</button>
-              </div>
-            </div>
-          `).join("")}
-        </div>
-      </div>`;
-
-    window.createTemplate = async () => {
-      const name = prompt("Template name:");
-      if (!name) return;
-      const channel = prompt("Channel (email/whatsapp):", "email") || "email";
-      const subject = prompt("Subject line:", "Check out our deals!") || "Check out our deals!";
-      await api.post(`/templates/${s}`, { name, channel, subject, active: true });
-      toast("Template created");
-      renderTemplates();
-    };
-
-    window.editTemplate = async (id) => {
-      const subject = prompt("New subject line:");
-      if (!subject) return;
-      await api.put(`/templates/${s}/${id}`, { subject });
-      toast("Template updated");
-      renderTemplates();
-    };
-
-    window.testTemplate = async (id) => {
-      const email = prompt("Send test to:", "test@example.com");
-      if (!email) return;
-      await api.post(`/templates/${s}/${id}/test`, { email });
-      toast("Test email sent");
-    };
-
-    window.toggleTemplate = async (id, active) => {
-      await api.put(`/templates/${s}/${id}`, { active });
-      toast(active ? "Template activated" : "Template deactivated");
-      renderTemplates();
-    };
-  }
 
   // ── page: billing & subscription ──────────────────────────────────
-  async function renderBilling() {
+  async function renderBilling(container = view) {
     const s = api.store();
     const [plans, entitlement, invoices, usage] = await Promise.all([
       api.get(`/billing/plans`).catch(() => ({ plans: {} })),
@@ -3925,7 +3861,7 @@
       api.get(`/billing/${s}/usage`).catch(() => ({})),
     ]);
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Billing & Subscription</h2>
@@ -4057,105 +3993,13 @@
     };
   }
 
-  // ── page: channel settings ────────────────────────────────────────
-  async function renderChannels() {
-    const s = api.store();
-    const status = await api.get(`/channels/${s}/status`).catch(() => ({}));
-
-    view.innerHTML = `
-      <div class="b-header"><div><h2>Channels</h2><p>Email, WhatsApp, and push notification configuration</p></div></div>
-      <div class="b-grid-3" style="margin-bottom:24px">
-        <div class="b-card" style="animation-delay:0.05s"><h3>Email channel</h3><div class="b-stat-value" style="color:${status.email?.connected ? 'var(--green)' : 'var(--red)'}">${status.email?.connected ? 'Connected' : 'Not set'}</div><div class="b-stat-label">${status.email?.provider || 'SendGrid'}</div></div>
-        <div class="b-card" style="animation-delay:0.1s"><h3>WhatsApp channel</h3><div class="b-stat-value" style="color:${status.whatsapp?.connected ? 'var(--green)' : 'var(--red)'}">${status.whatsapp?.connected ? 'Connected' : 'Not set'}</div><div class="b-stat-label">${status.whatsapp?.provider || 'Twilio'}</div></div>
-        <div class="b-card" style="animation-delay:0.15s"><h3>Push notifications</h3><div class="b-stat-value" style="color:var(--amber)">Configured</div><div class="b-stat-label">Web push</div></div>
-      </div>
-      <div class="b-grid-2" style="margin-bottom:24px">
-        <div class="b-card">
-          <h3>${icon("mail")} Email configuration</h3>
-          <div style="margin-top:12px">
-            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Provider</label>
-            <select id="email-provider" style="width:100%;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);margin-bottom:12px">
-              <option ${status.email?.provider === 'SendGrid' ? 'selected' : ''}>SendGrid</option>
-              <option ${status.email?.provider === 'Klaviyo' ? 'selected' : ''}>Klaviyo</option>
-              <option ${status.email?.provider === 'Mailchimp' ? 'selected' : ''}>Mailchimp</option>
-              <option ${status.email?.provider === 'Custom SMTP' ? 'selected' : ''}>Custom SMTP</option>
-            </select>
-            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">API Key</label>
-            <input type="password" id="email-apikey" placeholder="Enter API key" style="width:100%;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);margin-bottom:12px">
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-primary" onclick="saveEmailConfig()">Save email settings</button>
-              <button class="btn btn-ghost-sm" onclick="testChannel('email')">Send test</button>
-            </div>
-          </div>
-        </div>
-        <div class="b-card">
-          <h3>${icon("message-circle")} WhatsApp configuration</h3>
-          <div style="margin-top:12px">
-            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Provider</label>
-            <select id="wa-provider" style="width:100%;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);margin-bottom:12px">
-              <option ${status.whatsapp?.provider === 'Twilio' ? 'selected' : ''}>Twilio</option>
-              <option ${status.whatsapp?.provider === 'Meta Business API' ? 'selected' : ''}>Meta Business API</option>
-              <option ${status.whatsapp?.provider === 'Custom' ? 'selected' : ''}>Custom</option>
-            </select>
-            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Account SID</label>
-            <input type="text" id="wa-sid" placeholder="Enter Account SID" style="width:100%;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);margin-bottom:12px">
-            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Auth Token</label>
-            <input type="password" id="wa-token" placeholder="Enter Auth Token" style="width:100%;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);margin-bottom:12px">
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-primary" onclick="saveWhatsAppConfig()">Save WhatsApp settings</button>
-              <button class="btn btn-ghost-sm" onclick="testChannel('whatsapp')">Send test</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="b-card" style="margin-bottom:24px">
-        <h3>${icon("test-tube")} Send test message</h3>
-        <div style="display:flex;gap:8px;margin-top:12px;align-items:end">
-          <div style="flex:1">
-            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Recipient</label>
-            <input type="text" id="test-recipient" placeholder="email@example.com or +1234567890" style="width:100%;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)">
-          </div>
-          <button class="btn btn-primary" onclick="sendTestMessage()">Send test</button>
-        </div>
-      </div>`;
-
-    window.saveEmailConfig = async () => {
-      const provider = document.getElementById("email-provider").value;
-      const apiKey = document.getElementById("email-apikey").value;
-      await api.put(`/channels/${s}/email`, { provider, apiKey });
-      toast("Email configuration saved");
-      renderChannels();
-    };
-
-    window.saveWhatsAppConfig = async () => {
-      const provider = document.getElementById("wa-provider").value;
-      const sid = document.getElementById("wa-sid").value;
-      const token = document.getElementById("wa-token").value;
-      await api.put(`/channels/${s}/whatsapp`, { provider, sid, token });
-      toast("WhatsApp configuration saved");
-      renderChannels();
-    };
-
-    window.testChannel = async (channel) => {
-      await api.post(`/channels/${s}/test`, { channel });
-      toast(`Test message sent via ${channel}`);
-    };
-
-    window.sendTestMessage = async () => {
-      const recipient = document.getElementById("test-recipient").value;
-      if (!recipient) { toast("Enter a recipient"); return; }
-      const channel = recipient.includes("@") ? "email" : "whatsapp";
-      await api.post(`/channels/${s}/test`, { channel, recipient });
-      toast(`Test sent to ${recipient}`);
-    };
-  }
 
   // ── page: notification preferences ────────────────────────────────
-  async function renderNotifications() {
+  async function renderNotifications(container = view) {
     const s = api.store();
     const prefs = await api.get(`/notifications/${s}/preferences`).catch(() => ({ email: [], inApp: [], channels: {}, quietHours: {} }));
     
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Notification Preferences</h2>
@@ -4253,7 +4097,7 @@
   }
 
   // ── page: support tickets ─────────────────────────────────────────
-  async function renderSupport() {
+  async function renderSupport(container = view) {
     const s = api.store();
     const [tickets, stats] = await Promise.all([
       api.get(`/support/tickets?store_id=${s}`).catch(() => []),
@@ -4262,7 +4106,7 @@
 
     const ticketList = Array.isArray(tickets) ? tickets : [];
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Support Tickets</h2>
@@ -4407,245 +4251,14 @@
     };
   }
 
-  // ── page: CAC tracking ────────────────────────────────────────────
-  async function renderCac() {
-    const s = api.store();
-    const [cacData, ltvRatio, spend] = await Promise.all([
-      api.get(`/cac/calculate?store_id=${s}`).catch(() => ({})),
-      api.get(`/cac/ltv-ratio?store_id=${s}`).catch(() => ({})),
-      api.get(`/cac/spend?store_id=${s}`).catch(() => []),
-    ]);
-
-    const spendList = Array.isArray(spend) ? spend : [];
-    const ratioVerdict = ltvRatio.verdict || "N/A";
-    const ratioColor = ratioVerdict === "EXCELLENT" ? "var(--green)" : ratioVerdict === "GOOD" ? "var(--primary)" : ratioVerdict === "BREAKING_EVEN" ? "var(--amber)" : "var(--red)";
-
-    view.innerHTML = `
-      <div class="b-header"><div><h2>Customer Acquisition Cost</h2><p>Track marketing spend, CAC, and LTV ratios</p></div></div>
-      <div class="b-grid-4" style="margin-bottom:24px">
-        <div class="b-card" style="animation-delay:0.05s"><h3>Overall CAC</h3><div class="b-stat-value" style="color:var(--primary)">${cacData.overall_cac ? "$" + cacData.overall_cac.toFixed(2) : "N/A"}</div><div class="b-stat-label">per customer</div></div>
-        <div class="b-card" style="animation-delay:0.1s"><h3>Total Spend</h3><div class="b-stat-value">${cacData.total_spend ? "$" + cacData.total_spend.toFixed(2) : "$0"}</div><div class="b-stat-label">last 30 days</div></div>
-        <div class="b-card" style="animation-delay:0.15s"><h3>Customers Acquired</h3><div class="b-stat-value" style="color:var(--green)">${cacData.total_customers || 0}</div><div class="b-stat-label">new customers</div></div>
-        <div class="b-card" style="animation-delay:0.2s"><h3>LTV:CAC Ratio</h3><div class="b-stat-value" style="color:${ratioColor}">${ltvRatio.ltv_cac_ratio ? ltvRatio.ltv_cac_ratio.toFixed(1) + "x" : "N/A"}</div><div class="b-stat-label">${ratioVerdict}</div></div>
-      </div>
-
-      <div class="b-grid-2" style="margin-bottom:24px">
-        <div class="b-card">
-          <h3>${icon("pie-chart")} CAC by channel</h3>
-          <div style="margin-top:12px">
-            ${Object.entries(cacData.by_channel || {}).map(([channel, data]) => `
-              <div style="margin-bottom:12px">
-                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                  <span style="font-size:13px;text-transform:capitalize">${channel}</span>
-                  <span style="font-weight:600">$${data.cac.toFixed(2)}</span>
-                </div>
-                <div style="display:flex;gap:8px;font-size:11px;color:var(--muted)">
-                  <span>$${data.spend.toFixed(2)} spend</span>
-                  <span>·</span>
-                  <span>${data.customers} customers</span>
-                </div>
-                <div style="height:6px;background:var(--card-border);border-radius:3px;overflow:hidden;margin-top:4px">
-                  <div style="height:100%;width:${Math.min(100, (data.cac / Math.max(ltvRatio.avg_ltv || 100, 1)) * 100)}%;background:var(--primary);border-radius:3px"></div>
-                </div>
-              </div>
-            `).join("") || '<div class="empty">No channel data yet. Record marketing spend to see CAC by channel.</div>'}
-          </div>
-        </div>
-        <div class="b-card">
-          <h3>${icon("dollar-sign")} Record marketing spend</h3>
-          <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
-            <div>
-              <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Channel</label>
-              <select id="cac-channel" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)">
-                <option value="google_ads">Google Ads</option>
-                <option value="facebook_ads">Facebook Ads</option>
-                <option value="instagram">Instagram</option>
-                <option value="tiktok">TikTok</option>
-                <option value="email">Email</option>
-                <option value="influencer">Influencer</option>
-                <option value="organic">Organic</option>
-                <option value="referral">Referral</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            <div>
-              <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Amount ($)</label>
-              <input id="cac-amount" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)">
-            </div>
-            <div>
-              <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Description (optional)</label>
-              <input id="cac-desc" placeholder="e.g. June campaign" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)">
-            </div>
-            <button class="btn btn-primary" onclick="recordSpend()">${icon("plus")} Record Spend</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="b-card" style="margin-bottom:24px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3>${icon("history")} Recent spend</h3></div>
-        <div style="overflow-x:auto;margin-top:12px">
-          ${spendList.length === 0 ? '<div class="empty">No spend recorded yet. Add your marketing spend above.</div>' :
-            spendList.slice(0, 10).map(r => `
-              <div style="display:flex;align-items:center;gap:12px;padding:10px;border-bottom:1px solid var(--card-border)">
-                <div style="width:36px;height:36px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:14px">${icon("dollar-sign")}</div>
-                <div style="flex:1">
-                  <div style="font-weight:500">${esc(r.channel.replace("_", " "))}</div>
-                  <div style="font-size:12px;color:var(--muted)">${esc(r.description || "No description")}</div>
-                </div>
-                <div style="text-align:right">
-                  <div style="font-weight:600;color:var(--primary)">$${r.amount.toFixed(2)}</div>
-                  <div style="font-size:11px;color:var(--muted)">${new Date(r.date).toLocaleDateString()}</div>
-                </div>
-              </div>
-            `).join("")}
-        </div>
-      </div>`;
-
-    window.recordSpend = async () => {
-      const channel = document.getElementById("cac-channel").value;
-      const amount = parseFloat(document.getElementById("cac-amount").value);
-      const description = document.getElementById("cac-desc").value;
-
-      if (!amount || amount <= 0) {
-        toast("Please enter a valid amount");
-        return;
-      }
-
-      try {
-        await api.post("/cac/spend", { store_id: s, channel, amount, description });
-        toast(`${icon("check-circle")} $${amount.toFixed(2)} recorded for ${channel}`);
-        route();
-      } catch (e) {
-        toast(`${icon("alert-triangle")} ${esc(e.message)}`);
-      }
-    };
-  }
-
-  // ── page: dynamic pricing advisory ────────────────────────────────
-  async function renderPricing() {
-    const s = api.store();
-    const [recommendations, competitors] = await Promise.all([
-      api.get(`/pricing/recommendations?store_id=${s}`).catch(() => ({ recommendations: [] })),
-      api.get(`/competitors/${s}/tracked`).catch(() => ({ competitors: [] })),
-    ]);
-
-    const recs = recommendations.recommendations || [];
-    const compList = Array.isArray(competitors) ? competitors : competitors.competitors || [];
-
-    view.innerHTML = `
-      <div class="b-header"><div><h2>Dynamic Pricing</h2><p>AI-powered pricing recommendations and guardrails</p></div></div>
-      <div class="b-grid-4" style="margin-bottom:24px">
-        <div class="b-card" style="animation-delay:0.05s"><h3>Products analyzed</h3><div class="b-stat-value">${recs.length}</div><div class="b-stat-label">price recommendations</div></div>
-        <div class="b-card" style="animation-delay:0.1s"><h3>Price increases</h3><div class="b-stat-value" style="color:var(--green)">${recs.filter(r => r.direction === 'increase').length}</div><div class="b-stat-label">margin opportunities</div></div>
-        <div class="b-card" style="animation-delay:0.15s"><h3>Price decreases</h3><div class="b-stat-value" style="color:var(--amber)">${recs.filter(r => r.direction === 'decrease').length}</div><div class="b-stat-label">competitive adjustments</div></div>
-        <div class="b-card" style="animation-delay:0.2s"><h3>Hold price</h3><div class="b-stat-value">${recs.filter(r => r.direction === 'hold').length}</div><div class="b-stat-label">optimal as-is</div></div>
-      </div>
-
-      <div class="b-card" style="margin-bottom:24px;animation-delay:0.25s">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-          <h3>${icon("trending-up")} Price Recommendations</h3>
-          <button class="btn btn-primary btn-sm" onclick="getRecommendations()">${icon("refresh-cw")} Analyze Products</button>
-        </div>
-        <div style="overflow-x:auto;margin-top:12px">
-          ${recs.length === 0 ? `
-            <div class="empty" style="text-align:center;padding:32px">
-              <div style="font-size:48px;margin-bottom:12px">${icon("tag")}</div>
-              <div style="font-weight:600;margin-bottom:8px">No pricing recommendations yet</div>
-              <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Add competitors and products to get AI-powered pricing advice.</div>
-              <a href="#/competitors" class="btn btn-primary">Add Competitors →</a>
-            </div>
-          ` : `
-            <table class="b-table">
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th>Current</th>
-                  <th>Recommended</th>
-                  <th>Change</th>
-                  <th>Signals</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${recs.map(r => `
-                  <tr>
-                    <td style="font-weight:500">${esc(r.product_id)}</td>
-                    <td>$${r.current_price?.toFixed(2) || "—"}</td>
-                    <td style="font-weight:600;color:${r.direction === 'increase' ? 'var(--green)' : r.direction === 'decrease' ? 'var(--amber)' : 'var(--text)'}">$${r.recommended_price?.toFixed(2) || "—"}</td>
-                    <td>
-                      <span class="b-badge ${r.direction === 'increase' ? 'green' : r.direction === 'decrease' ? 'amber' : 'gray'}">
-                        ${r.change_pct > 0 ? '+' : ''}${r.change_pct?.toFixed(1) || 0}%
-                      </span>
-                    </td>
-                    <td>
-                      ${(r.signals || []).slice(0, 2).map(sig => `
-                        <div style="font-size:11px;color:var(--muted);margin-bottom:2px">
-                          <span class="b-badge cyan" style="font-size:9px;padding:2px 6px">${sig.signal}</span>
-                          ${esc(sig.detail)}
-                        </div>
-                      `).join("")}
-                    </td>
-                    <td>
-                      ${r.direction !== 'hold' ? `<button class="btn btn-sm btn-primary" onclick="applyPrice('${esc(r.product_id)}', ${r.recommended_price})">Apply</button>` : '<span class="b-badge gray">Optimal</span>'}
-                    </td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
-          `}
-        </div>
-      </div>
-
-      <div class="b-grid-2" style="margin-bottom:24px">
-        <div class="b-card">
-          <h3>${icon("shield")} Guardrails</h3>
-          <div style="margin-top:12px">
-            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-border)">
-              <span style="font-size:13px">Max price increase</span>
-              <span style="font-weight:600;color:var(--green)">+15%</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-border)">
-              <span style="font-size:13px">Max price decrease</span>
-              <span style="font-weight:600;color:var(--amber)">-20%</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-border)">
-              <span style="font-size:13px">Data sources</span>
-              <span style="font-size:12px;color:var(--muted)">Competitors, Inventory, Demand</span>
-            </div>
-          </div>
-        </div>
-        <div class="b-card">
-          <h3>${icon("info")} How it works</h3>
-          <div style="margin-top:12px;font-size:13px;color:var(--muted)">
-            <p style="margin-bottom:8px">The pricing engine analyzes three signals:</p>
-            <ol style="margin:0;padding-left:20px">
-              <li style="margin-bottom:4px"><b>Competitor prices</b> — Are you priced above or below market?</li>
-              <li style="margin-bottom:4px"><b>Inventory velocity</b> — Fast-selling items can command premium pricing.</li>
-              <li><b>Demand trends</b> — Rising demand = room to increase price.</li>
-            </ol>
-          </div>
-        </div>
-      </div>`;
-
-    window.getRecommendations = async () => {
-      toast("Analyzing products for pricing recommendations...");
-      // This would typically trigger analysis for all products
-      route();
-    };
-
-    window.applyPrice = async (productId, newPrice) => {
-      if (!confirm(`Update ${productId} to $${newPrice.toFixed(2)}?`)) return;
-      toast(`${icon("check-circle")} Price updated for ${productId}`);
-    };
-  }
 
   // ── page: feature activation ──────────────────────────────────────
-  async function renderFeatures() {
+  async function renderFeatures(container = view) {
     const s = api.store();
     const data = await api.get(`/features/${s}`).catch(() => ({ features: [] }));
     const featureList = data.features || [];
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header"><div><h2>Feature Activation</h2><p>Enable or disable platform features</p></div></div>
       <div class="b-grid-3" style="margin-bottom:24px">
         <div class="b-card" style="animation-delay:0.05s"><h3>Total features</h3><div class="b-stat-value">${featureList.length}</div><div class="b-stat-label">available</div></div>
@@ -4676,7 +4289,7 @@
   }
 
   // ── page: returns & fraud shield ───────────────────────────────────
-  async function renderReturns() {
+  async function renderReturns(container = view) {
     const s = api.store();
     const [dashboard, impact, recommendations] = await Promise.all([
       api.get(`/returns/${s}/dashboard`).catch(() => ({ fraud_stats: {}, cost_analysis: {}, recent_returns: [], pending_reviews_count: 0 })),
@@ -4691,7 +4304,7 @@
     const topReasons = impact.top_reasons || [];
     const topSKUs = impact.top_skus || [];
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Returns & Fraud Shield</h2>
@@ -4879,7 +4492,7 @@
   };
 
   // ── page: activity log ─────────────────────────────────────────────
-  async function renderActivity() {
+  async function renderActivity(container = view) {
     const s = api.store();
     const [entries, summary] = await Promise.all([
       api.get(`/activity?store_id=${s}&limit=50`).catch(() => []),
@@ -4892,7 +4505,7 @@
       data_exported: "📦", settings_updated: "⚙️", plan_changed: "💳",
     };
 
-    view.innerHTML = `
+    container.innerHTML = `
       <div class="b-header">
         <div>
           <h2>Activity Log</h2>

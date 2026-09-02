@@ -33,8 +33,15 @@ function apiKeyMiddleware(platform,) {
     const provided = req.get('X-API-Key',) || req.query?.api_key;
     if (provided) {
       if (provided === platform.config.apiKey) {
-        // Master key acts as a platform-wide admin identity.
-        req.authUser = { email: 'master@platform', role: 'admin', };
+        // Master key acts as a platform-wide operator identity.
+        // No store_id: it is intentionally unscoped so operators can act
+        // across tenants, and it is the only key that reaches /admin/*.
+        req.authUser = {
+          email: 'master@platform',
+          role: 'admin',
+          platform_admin: true,
+          store_id: null,
+        };
         return next();
       }
       const tenant = await platform.auth.userByApiKey(provided,);
@@ -177,13 +184,15 @@ function createAuthRouter(platform,) {
         },);
         
         if (existingUser) {
-          // Create a session for this user
-          const session = await platform.auth.createSession(existingUser._id, existingUser.email, existingUser.role, conn.store_id,);
-          return res.json({ 
-            session, 
-            store_id: conn.store_id, 
+          // Open a session for the tenant that owns this shop.
+          // createSession resolves store_id from the user document so the
+          // session is automatically scoped to that tenant.
+          const session = await platform.auth.createSession(existingUser,);
+          return res.json({
+            session,
+            store_id: existingUser.store_id || conn.store_id,
             shop: shopDomain,
-            embedded: true, 
+            embedded: true,
           },);
         }
       }
@@ -511,7 +520,13 @@ function createApp(platform,) {
     return res.json(pending,);
   },);
 
-  app.use('/api/v1', rateLimiter, apiKeyMiddleware(platform,), createApiRouter(platform,),);
+  app.use(
+    '/api/v1',
+    rateLimiter,
+    apiKeyMiddleware(platform,),
+    platform.tieredRateLimiter.middleware.bind(platform.tieredRateLimiter,),
+    createApiRouter(platform,),
+  );
 
   // Inbound order webhooks from connected stores (Shopify etc.).
   // Public, HMAC-verified when WEBHOOK_SECRET is configured.

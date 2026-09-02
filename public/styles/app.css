@@ -1110,6 +1110,42 @@ code {
 }
 .b-filter-btn svg { width: 16px; height: 16px; }
 
+/* ── Module Tabs ── */
+.b-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 6px;
+  margin-bottom: 24px;
+  background: var(--surface-2);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  animation: bSlideUp 0.4s ease;
+}
+.b-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.b-tab:hover {
+  color: var(--primary);
+  background: var(--primary-light);
+}
+.b-tab.active {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.b-tab svg { width: 16px; height: 16px; }
+
 /* ── Progress Bars ── */
 .b-progress-bar {
   height: 8px;

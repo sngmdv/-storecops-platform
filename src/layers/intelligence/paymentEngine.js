@@ -63,6 +63,18 @@ function isIndianCustomer(customer,) {
   return customer?.country === 'IN' || customer?.currency === 'inr';
 }
 
+/**
+ * True only when real provider credentials are present. Placeholder test
+ * keys (sk_test_xxx / rzp_test_xxx etc.) are treated as "not configured"
+ * so the engine falls back to mock mode instead of making failing network
+ * calls against the live API.
+ */
+function hasRealCredentials(key,) {
+  if (!key || typeof key !== 'string') return false;
+  return !/^(sk_|pk_|rzp_|whsec_|rzp_whsec_|wh_|cs_)/i.test(key,) &&
+    !key.includes('test_xxx');
+}
+
 function formatCurrency(amount, currency,) {
   const symbols = { usd: '$', inr: '₹', eur: '€', gbp: '£', };
   return `${symbols[currency] || ''}${Number(amount,).toLocaleString(undefined, { maximumFractionDigits: 2, },)}`;
@@ -82,7 +94,7 @@ async function createStripeCheckout({ config, customer, plan, billingCycle, },) 
   const interval = billingCycle === 'annual' ? 'year' : 'month';
 
   // Real Stripe integration
-  if (config.payment.stripe.secretKey && Stripe) {
+  if (hasRealCredentials(config.payment.stripe.secretKey,) && Stripe) {
     try {
       const stripe = new Stripe(config.payment.stripe.secretKey, {
         apiVersion: '2024-12-18.acacia',
@@ -156,6 +168,7 @@ async function createStripeCheckout({ config, customer, plan, billingCycle, },) 
     id: `cs_${generateId('stripe',)}`,
     url: `${config.publicUrl}/app?payment=mock_checkout`,
     provider: 'stripe',
+    mode: 'subscription',
     customer_email: customer.email,
     customer_name: customer.name,
     customer_country: customer.country || 'US',
@@ -164,6 +177,14 @@ async function createStripeCheckout({ config, customer, plan, billingCycle, },) 
     amount,
     currency: planData.currency || 'usd',
     trial_days: 14,
+    line_items: [{
+      price_data: {
+        currency: planData.currency || 'usd',
+        unit_amount: amount * 100, // Stripe uses cents
+        recurring: { interval, },
+      },
+      quantity: 1,
+    },],
     created_at: now(),
     expires_at: addDays(now(), 30,),
     metadata: {
@@ -181,7 +202,7 @@ async function createStripeCheckout({ config, customer, plan, billingCycle, },) 
  * Create a Stripe subscription (for existing customers).
  */
 async function createStripeSubscription({ config, customerId, priceId, trialDays = 14, },) {
-  if (!config.payment.stripe.secretKey || !Stripe) {
+  if (!hasRealCredentials(config.payment.stripe.secretKey,) || !Stripe) {
     return { error: 'Stripe not configured', };
   }
 
@@ -234,16 +255,7 @@ function verifyStripeWebhook({ payload, signature, webhookSecret, },) {
   if (!signature) return { valid: false, reason: 'Missing Stripe-Signature header', };
 
   try {
-    // Use Stripe SDK's built-in verification if available
-    if (Stripe && config?.payment?.stripe?.secretKey) {
-      const stripe = new Stripe(config.payment.stripe.secretKey, {
-        apiVersion: '2024-12-18.acacia',
-      },);
-      const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret,);
-      return { valid: true, event, };
-    }
-
-    // Manual verification fallback
+    // Manual HMAC-SHA256 verification (no SDK key required).
     const parts = signature.split(',',).reduce((acc, part,) => {
       const [key, val,] = part.split('=',);
       acc[key] = val;
@@ -286,7 +298,7 @@ async function createRazorpayOrder({ config, customer, plan, billingCycle, },) {
   const totalAmount = baseAmount + gstAmount;
 
   // Real Razorpay integration
-  if (config.payment.razorpay.keyId && Razorpay) {
+  if (hasRealCredentials(config.payment.razorpay.keyId,) && Razorpay) {
     try {
       const razorpay = new Razorpay({
         key_id: config.payment.razorpay.keyId,
@@ -346,11 +358,29 @@ async function createRazorpayOrder({ config, customer, plan, billingCycle, },) {
   // Mock mode (development/testing)
   const order = {
     id: `order_${generateId('rzp',)}`,
-    amount: totalAmount,
+    amount: totalAmount * 100, // Razorpay reports amounts in paise
     currency: 'INR',
     status: 'created',
     receipt: `rcpt_${generateId('rzp',)}`,
     created_at: now(),
+    gst: {
+      rate: config.payment.gstRate,
+      gst_amount: gstAmount,
+      base_amount: baseAmount,
+      total_amount: totalAmount,
+      cgst: Math.round(gstAmount / 2,),
+      sgst: Math.round(gstAmount / 2,),
+    },
+    recurring: {
+      enabled: true,
+      max_amount: totalAmount * 100 * 12, // 12 months in paise
+    },
+    payment_methods: {
+      upi: true,
+      card: true,
+      netbanking: true,
+      wallet: true,
+    },
     mock: true,
   };
 

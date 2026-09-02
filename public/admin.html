@@ -129,6 +129,14 @@
     .brief-banner .brief-sub { opacity: 0.85; font-size: 12px; }
     @media (max-width: 1100px) { .admin-grid4 { grid-template-columns: repeat(2, 1fr); } .admin-grid3 { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 768px) { .admin-grid2 { grid-template-columns: 1fr; } .admin-grid4 { grid-template-columns: 1fr; } .admin-grid3 { grid-template-columns: 1fr; } }
+
+    .a-tabs { display: flex; gap: 0; padding: 16px 20px 0; border-bottom: 1px solid var(--card-border); }
+    .a-tab {
+      padding: 8px 16px; font-size: 13px; font-weight: 500; color: var(--text-dim);
+      text-decoration: none; border-bottom: 2px solid transparent; transition: all 0.15s;
+    }
+    .a-tab:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+    .a-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
   </style>
 </head>
 <body class="dark">
@@ -157,21 +165,12 @@
         storecops <span class="a-tag" style="vertical-align:middle;background:var(--primary-light);color:var(--primary)">admin</span>
       </div>
       <nav class="side-nav">
-        <a href="#/" data-route="overview"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span> Overview</a>
-        <a href="#/stores" data-route="stores"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span> Store Health</a>
-        <a href="#/leads" data-route="leads"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> Leads Pipeline</a>
-        <a href="#/renewals" data-route="renewals"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span> Renewals & ROI</a>
-        <a href="#/conversion" data-route="conversion"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></span> Conversion Intel</a>
-        <a href="#/brief" data-route="brief"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span> CEO Brief</a>
-        <a href="#/forecast" data-route="forecast"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span> Revenue Forecast</a>
-        <a href="#/campaigns" data-route="campaigns"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span> Campaigns</a>
-        <a href="#/features" data-route="features"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span> Feature Adoption</a>
-        <a href="#/billing" data-route="billing"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span> Billing & Payments</a>
-        <a href="#/invoices" data-route="invoices"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span> Invoices</a>
-        <a href="#/support" data-route="support"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span> Support Desk</a>
-        <a href="#/settings" data-route="settings"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> System Settings</a>
-        <a href="#/return-fraud" data-route="return-fraud"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span> Return Fraud</a>
-        <a href="#/ai-model" data-route="ai-model"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg></span> AI Model</a>
+        <a href="#/" data-route="overview"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span> Portfolio Dashboard</a>
+        <a href="#/stores" data-route="stores"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span> Client Management</a>
+        <a href="#/billing" data-route="billing"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span> Billing & Revenue</a>
+        <a href="#/features" data-route="features"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span> Client Success</a>
+        <a href="#/settings" data-route="settings"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> System Health</a>
+        <a href="#/support" data-route="support"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span> Support & Feedback</a>
       </nav>
       <div class="side-foot">
         <span style="font-size:12px;color:var(--muted)">Platform Operator</span>
@@ -238,28 +237,81 @@
     }
 
     /* ── Router ───────────────────────────────────────────────── */
+    // Consolidated admin modules — each group shares one page with a
+    // tab strip on top. Every tab remains a full (hash) route that
+    // re-renders the strip (highlighting the active tab) plus content.
+    function tabStrip(tabs, active) {
+      return tabs.map((t) =>
+        `<a class="a-tab${t.key === active ? " active" : ""}" href="#/${t.route}">${t.label}</a>`
+      ).join("");
+    }
+    function withTabs(tabs, activeKey, renderFn) {
+      return async () => {
+        view.innerHTML = `<div class="a-tabs">${tabStrip(tabs, activeKey)}</div><div id="a-tab-panel"></div>`;
+        await renderFn(document.getElementById("a-tab-panel"));
+      };
+    }
+
+    const ADMIN_TABS = {
+      overview: [
+        { key: "overview", route: "overview", label: "Portfolio" },
+        { key: "brief", route: "brief", label: "CEO Brief" },
+        { key: "forecast", route: "forecast", label: "Forecast" },
+        { key: "conversion", route: "conversion", label: "Conversion" },
+      ],
+      stores: [
+        { key: "stores", route: "stores", label: "Store Health" },
+        { key: "return-fraud", route: "return-fraud", label: "Return Fraud" },
+      ],
+      billing: [
+        { key: "billing", route: "billing", label: "Billing" },
+        { key: "invoices", route: "invoices", label: "Invoices" },
+        { key: "renewals", route: "renewals", label: "Renewals & ROI" },
+      ],
+      features: [
+        { key: "features", route: "features", label: "Feature Adoption" },
+        { key: "campaigns", route: "campaigns", label: "Campaigns" },
+      ],
+      settings: [
+        { key: "settings", route: "settings", label: "System Settings" },
+        { key: "ai-model", route: "ai-model", label: "AI Model" },
+      ],
+      support: [
+        { key: "support", route: "support", label: "Support Desk" },
+      ],
+    };
+
     const ROUTES = {
-      "": { title: "Overview", render: renderOverview },
-      "stores": { title: "Store Health", render: renderStores },
-      "leads": { title: "Leads Pipeline", render: renderLeads },
-      "renewals": { title: "Renewals & ROI", render: renderRenewals },
-      "conversion": { title: "Conversion Intelligence", render: renderConversion },
-      "brief": { title: "CEO Daily Brief", render: renderBrief },
-      "forecast": { title: "Revenue Forecast", render: renderForecast },
-      "campaigns": { title: "Campaigns", render: renderCampaigns },
-      "features": { title: "Feature Adoption", render: renderFeatures },
-      "billing": { title: "Billing & Payments", render: renderBilling },
-      "invoices": { title: "Invoice Management", render: renderInvoices },
-      "support": { title: "Support Desk", render: renderSupport },
-      "settings": { title: "System Settings", render: renderSettings },
-      "return-fraud": { title: "Return Fraud", render: renderReturnFraud },
-      "ai-model": { title: "AI Model", render: renderAiModel },
+      "": { title: "Portfolio Dashboard", render: withTabs(ADMIN_TABS.overview, "overview", renderOverview) },
+      "overview": { title: "Portfolio Dashboard", render: withTabs(ADMIN_TABS.overview, "overview", renderOverview) },
+      "brief": { title: "CEO Daily Brief", render: withTabs(ADMIN_TABS.overview, "brief", renderBrief) },
+      "forecast": { title: "Revenue Forecast", render: withTabs(ADMIN_TABS.overview, "forecast", renderForecast) },
+      "conversion": { title: "Conversion Intelligence", render: withTabs(ADMIN_TABS.overview, "conversion", renderConversion) },
+      "stores": { title: "Client Management", render: withTabs(ADMIN_TABS.stores, "stores", renderStores) },
+      "return-fraud": { title: "Return Fraud", render: withTabs(ADMIN_TABS.stores, "return-fraud", renderReturnFraud) },
+      "billing": { title: "Billing & Revenue", render: withTabs(ADMIN_TABS.billing, "billing", renderBilling) },
+      "invoices": { title: "Invoice Management", render: withTabs(ADMIN_TABS.billing, "invoices", renderInvoices) },
+      "renewals": { title: "Renewals & ROI", render: withTabs(ADMIN_TABS.billing, "renewals", renderRenewals) },
+      "features": { title: "Client Success", render: withTabs(ADMIN_TABS.features, "features", renderFeatures) },
+      "campaigns": { title: "Campaigns", render: withTabs(ADMIN_TABS.features, "campaigns", renderCampaigns) },
+      "settings": { title: "System Health", render: withTabs(ADMIN_TABS.settings, "settings", renderSettings) },
+      "ai-model": { title: "AI Model", render: withTabs(ADMIN_TABS.settings, "ai-model", renderAiModel) },
+      "support": { title: "Support & Feedback", render: withTabs(ADMIN_TABS.support, "support", renderSupport) },
+    };
+    const ADMIN_PARENT = {
+      "": "overview", "overview": "overview", "brief": "overview", "forecast": "overview", "conversion": "overview",
+      "stores": "stores", "return-fraud": "stores",
+      "billing": "billing", "invoices": "billing", "renewals": "billing",
+      "features": "features", "campaigns": "features",
+      "settings": "settings", "ai-model": "settings",
+      "support": "support",
     };
     function route() {
       const hash = (location.hash || "#/").replace("#/", "") || "";
       const target = ROUTES[hash] || ROUTES[""];
       $("#admin-title").textContent = target.title;
-      document.querySelectorAll(".side-nav a").forEach(a => a.classList.toggle("active", a.dataset.route === (hash || "")));
+      const activeNav = ADMIN_PARENT[hash] ?? (hash || "overview");
+      document.querySelectorAll(".side-nav a").forEach(a => a.classList.toggle("active", a.dataset.route === activeNav));
       destroyCharts();
       view.innerHTML = '<div class="a-empty"><span class="spinner"></span> Loading…</div>';
       target.render().catch(e => { view.innerHTML = `<div class="a-card"><h3>Error</h3><p class="a-sub">${esc(e.message)}</p></div>`; });
@@ -267,7 +319,7 @@
     window.addEventListener("hashchange", route);
 
     /* ── Overview ─────────────────────────────────────────────── */
-    async function renderOverview() {
+    async function renderOverview(container = view) {
       const [retention, pipeline, reminders] = await Promise.all([
         api("/admin/retention/dashboard"),
         api("/admin/leads/pipeline"),
@@ -280,7 +332,7 @@
       const criticalStores = stores.filter(s => s.health?.risk?.band === "CRITICAL" || s.health?.risk?.band === "HIGH");
       const criticalReminders = (reminders.reminders || []).filter(r => r.urgency === "critical");
 
-      view.innerHTML = `
+      container.innerHTML = `
         <div class="admin-grid4">
           <div class="a-card"><h3>Monthly Recurring Revenue</h3><div class="a-kpi">${money(m.mrr)}</div><div class="a-sub">ARR: ${money(m.arr)} · ARPA: ${money(m.arpa)}</div></div>
           <div class="a-card"><h3>Churn Rate</h3><div class="a-kpi" style="color:${(m.churn_rate||0)>10?'var(--red)':(m.churn_rate||0)>5?'var(--amber)':'var(--green)'}">${(m.churn_rate||0).toFixed(1)}%</div><div class="a-sub">NRR: ${(m.nrr||0).toFixed(1)}% · LTV: ${money(m.ltv)}</div></div>
@@ -410,11 +462,11 @@
     }
 
     /* ── Store Health ─────────────────────────────────────────── */
-    async function renderStores() {
+    async function renderStores(container = view) {
       const data = await api("/admin/retention/dashboard");
       const stores = (data.stores || []).sort((a, b) => (a.health?.score || 0) - (b.health?.score || 0));
 
-      view.innerHTML = `
+      container.innerHTML = `
         <div class="a-card a-section">
           <div class="a-row">
             <div>
@@ -451,66 +503,8 @@
       } catch (e) { toast("⚠️ " + e.message); }
     };
 
-    /* ── Leads Pipeline ───────────────────────────────────────── */
-    async function renderLeads() {
-      const [pipeline, leads] = await Promise.all([
-        api("/admin/leads/pipeline"),
-        api("/admin/leads?limit=50"),
-      ]);
-      const p = pipeline;
-      const allLeads = Array.isArray(leads) ? leads : [];
-      const bySt = p.by_status || {};
-      const byGr = p.by_grade || {};
-
-      view.innerHTML = `
-        <div class="admin-grid4">
-          <div class="a-card"><h3>Total Leads</h3><div class="a-kpi">${p.total_leads||0}</div><div class="a-sub">${p.hot_leads||0} hot · ${p.stale_leads||0} stale</div></div>
-          <div class="a-card"><h3>Conversion Rate</h3><div class="a-kpi">${(p.conversion_rate||0).toFixed(1)}%</div><div class="a-sub">${bySt.converted||0} converted of ${p.total_leads||0}</div></div>
-          <div class="a-card"><h3>By Grade</h3><div class="a-kpi" style="font-size:20px">A:${byGr.A||0} B:${byGr.B||0} C:${byGr.C||0}</div><div class="a-sub">D:${byGr.D||0} F:${byGr.F||0}</div></div>
-          <div class="a-card"><h3>By Status</h3><div class="a-kpi" style="font-size:20px">New:${bySt.new||0}</div><div class="a-sub">Contacted:${bySt.contacted||0} · Engaged:${bySt.engaged||0} · Lost:${bySt.lost||0}</div></div>
-        </div>
-        <div class="admin-grid2">
-          <div class="a-card"><h3>Lead Grades</h3><div class="chart-wrap"><canvas id="lead-grade"></canvas></div></div>
-          <div class="a-card"><h3>Pipeline Stages</h3><div class="chart-wrap"><canvas id="lead-stage"></canvas></div></div>
-        </div>
-        <div class="a-card a-section">
-          <div class="a-row">
-            <div>
-              <div class="section-chip">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                Leads Pipeline
-              </div>
-              <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">All Leads</h3>
-            </div>
-          </div>
-          <div style="overflow-x:auto"><table class="a-table">
-            <thead><tr><th>Store / Contact</th><th>Source</th><th>Score</th><th>Grade</th><th>Status</th><th>Audits</th><th>Last Activity</th><th>Action</th></tr></thead>
-            <tbody id="leads-tbody"></tbody>
-          </table></div>
-        </div>`;
-
-      makeChart($("#lead-grade"), { type: "doughnut", data: { labels: ["A (Hot)","B (Warm)","C (Lukewarm)","D (Cold)","F (Ice)"], datasets: [{ data: [byGr.A||0,byGr.B||0,byGr.C||0,byGr.D||0,byGr.F||0], backgroundColor: ["#08906c","#34bf99","#f59e0b","#ef4444","#6b7078"], borderWidth: 0 }] }, options: { plugins: { legend: { position: "bottom" } }, cutout: "62%" } });
-      makeChart($("#lead-stage"), { type: "bar", data: { labels: ["New","Contacted","Engaged","Converted","Lost"], datasets: [{ data: [bySt.new||0,bySt.contacted||0,bySt.engaged||0,bySt.converted||0,bySt.lost||0], backgroundColor: GRAD.slice(0,5), borderRadius: 8 }] }, options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } } });
-
-      const tbody = $("#leads-tbody");
-      if (!allLeads.length) { tbody.innerHTML = '<tr><td colspan="8" class="a-empty">No leads yet. Leads auto-capture from deep audits at /api/v1/audit/deep.</td></tr>'; return; }
-      tbody.innerHTML = allLeads.map(l => {
-        const gCls = l.lead_grade==="A"?"a-pill-green":l.lead_grade==="B"?"a-pill-blue":l.lead_grade==="C"?"a-pill-amber":"a-pill-red";
-        const ago = l.last_engagement_at ? Math.round((Date.now()-new Date(l.last_engagement_at).getTime())/86400000) + "d ago" : "never";
-        return `<tr><td><b>${esc(l.store_name||l.store_url||"?")}</b><br><small class="a-sub">${esc(l.name||l.email||"—")}</small></td><td>${esc(l.source||"—")}</td><td><b>${l.lead_score||0}</b></td><td><span class="a-pill ${gCls}">${esc(l.lead_grade||"—")}</span></td><td><span class="a-pill a-pill-violet">${esc(l.status||"new")}</span></td><td>${l.audit_count||0}</td><td>${ago}</td><td><button class="a-btn-sm" onclick="updateLead('${esc(l._id)}','contacted')">Mark contacted</button></td></tr>`;
-      }).join("");
-    }
-
-    window.updateLead = async function (id, status) {
-      try {
-        await fetch(API + "/admin/leads/" + id, { method: "PATCH", headers: { "X-API-Key": API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ status, notes: "Marked " + status + " from admin console" }) });
-        toast("✅ Lead updated to " + status);
-        renderLeads();
-      } catch (e) { toast("⚠️ " + e.message); }
-    };
-
     /* ── Renewals & ROI ───────────────────────────────────────── */
-    async function renderRenewals() {
+    async function renderRenewals(container = view) {
       const [reminders, retention] = await Promise.all([
         api("/admin/revenue/reminders"),
         api("/admin/retention/dashboard"),
@@ -519,7 +513,7 @@
       const m = retention.metrics || {};
       const subs = retention.stores || [];
 
-      view.innerHTML = `
+      container.innerHTML = `
         <div class="admin-grid4">
           <div class="a-card"><h3>Active Subscriptions</h3><div class="a-kpi">${m.active_subscriptions||0}</div><div class="a-sub">${m.cancelled_subscriptions||0} cancelled · ${m.past_due_subscriptions||0} past due</div></div>
           <div class="a-card"><h3>Smart Reminders</h3><div class="a-kpi">${reminders.total||0}</div><div class="a-sub">${reminders.by_urgency?.critical||0} critical · ${reminders.by_urgency?.high||0} high</div></div>
@@ -581,12 +575,12 @@
     };
 
     /* ── Conversion Intelligence ──────────────────────────────── */
-    async function renderConversion() {
+    async function renderConversion(container = view) {
       const data = await api("/admin/revenue/conversion");
       const f = data.funnel || {};
       const expOpps = data.expansion_opportunities || [];
 
-      view.innerHTML = `
+      container.innerHTML = `
         <div class="admin-grid4">
           <div class="a-card"><h3>Total Audits</h3><div class="a-kpi">${f.total_audits||0}</div><div class="a-sub">Public deep scans</div></div>
           <div class="a-card"><h3>Audit → Lead</h3><div class="a-kpi">${(f.audit_to_lead_pct||0).toFixed(1)}%</div><div class="a-sub">${f.total_leads||0} leads captured</div></div>
@@ -624,12 +618,12 @@
     }
 
     /* ── CEO Daily Brief ────────────────────────────────────────── */
-    async function renderBrief() {
+    async function renderBrief(container = view) {
       const brief = await api("/admin/intel/brief");
       const m = brief.metrics || {};
       const priorities = brief.priorities || [];
 
-      view.innerHTML = `
+      container.innerHTML = `
         <div class="brief-banner">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
             <div>
@@ -673,12 +667,12 @@
     }
 
     /* ── Revenue Forecast ───────────────────────────────────────── */
-    async function renderForecast() {
+    async function renderForecast(container = view) {
       const fc = await api("/admin/intel/forecast");
       const proj = fc.projections || [];
       const breakdown = fc.breakdown || {};
 
-      view.innerHTML = `
+      container.innerHTML = `
         <div class="admin-grid4">
           <div class="a-card"><h3>Current MRR</h3><div class="a-kpi">${money(fc.currentMRR)}</div><div class="a-sub">${money(fc.currentARR)} ARR</div></div>
           <div class="a-card"><h3>Monthly Churn Loss</h3><div class="a-kpi" style="color:var(--red)">-${money(fc.monthlyChurnLoss)}</div><div class="a-sub">Weighted by risk band</div></div>
@@ -725,11 +719,11 @@
     }
 
     /* ── Campaigns ──────────────────────────────────────────────── */
-    async function renderCampaigns() {
+    async function renderCampaigns(container = view) {
       const raw = await api("/admin/intel/campaign-suggestions");
       const suggestions = Array.isArray(raw) ? raw : [];
 
-      view.innerHTML = `
+      container.innerHTML = `
         <div class="a-card a-section">
           <div class="a-row">
             <div>
@@ -795,7 +789,7 @@
     };
 
     /* ── Feature Adoption ───────────────────────────────────────── */
-    async function renderFeatures() {
+    async function renderFeatures(container = view) {
       const [intelData, heatmapData] = await Promise.all([
         api("/admin/intel/feature-adoption"),
         api("/admin/features/heatmap").catch(() => null),
@@ -806,7 +800,7 @@
       const underused = intelData.underusedFeatures || [];
       const heatmap = heatmapData || { stores: [], features: [], feature_names: [] };
 
-      view.innerHTML = `
+      container.innerHTML = `
         <div class="admin-grid4">
           <div class="a-card"><h3>Total Stores</h3><div class="a-kpi">${heatmap.summary?.total_stores || intelData.totalStores||0}</div></div>
           <div class="a-card"><h3>Avg Adoption Score</h3><div class="a-kpi">${heatmap.summary?.avg_adoption_score || Math.round(Object.values(adoption).reduce((sum, a) => sum + (a.adoptionRate||0), 0) / Math.max(Object.keys(adoption).length, 1))}%</div></div>
@@ -882,14 +876,14 @@
     }
 
     /* ── Billing & Payments ───────────────────────────────────────── */
-    async function renderBilling() {
+    async function renderBilling(container = view) {
       const [analytics, compliance, plans] = await Promise.all([
         api("/admin/payment/analytics"),
         api("/admin/payment/compliance"),
         api("/payment/plans"),
       ]);
 
-      view.innerHTML = `
+      container.innerHTML = `
         <div class="admin-grid4">
           <div class="a-card"><h3>Total MRR</h3><div class="a-kpi">${money(analytics.totalMRR)}</div><div class="a-sub">Revenue: ${money(analytics.totalRevenue)}</div></div>
           <div class="a-card"><h3>Active Subscriptions</h3><div class="a-kpi">${analytics.activeSubscriptions||0}</div><div class="a-sub">${analytics.pausedSubscriptions||0} paused · ${analytics.cancelledSubscriptions||0} cancelled</div></div>
@@ -965,7 +959,7 @@
     }
 
     /* ── Invoices ─────────────────────────────────────────────── */
-    async function renderInvoices() {
+    async function renderInvoices(container = view) {
       const [stores, payments] = await Promise.all([
         api("/admin/stores"),
         api("/admin/payment/analytics"),
@@ -973,7 +967,7 @@
       const storeList = stores.stores || [];
       const invoices = storeList.flatMap(s => (s.invoices || []).map(inv => ({ ...inv, store: s.name || s.store_id }))).slice(0, 20);
 
-      view.innerHTML = `
+      container.innerHTML = `
         <div class="admin-grid4">
           <div class="a-card"><h3>Total Invoices</h3><div class="a-kpi">${invoices.length}</div><div class="a-sub">All time</div></div>
           <div class="a-card"><h3>Pending</h3><div class="a-kpi" style="color:var(--amber)">${invoices.filter(i => i.status === 'pending').length}</div><div class="a-sub">Awaiting payment</div></div>
@@ -1014,11 +1008,11 @@
     }
 
     /* ── Support Desk ──────────────────────────────────────────── */
-    async function renderSupport() {
+    async function renderSupport(container = view) {
       const stores = await api("/admin/stores").catch(() => ({ stores: [] }));
       const storeList = stores.stores || [];
 
-      view.innerHTML = `
+      container.innerHTML = `
         <div class="admin-grid4">
           <div class="a-card"><h3>Open Tickets</h3><div class="a-kpi">0</div><div class="a-sub">Needs response</div></div>
           <div class="a-card"><h3>Pending</h3><div class="a-kpi" style="color:var(--amber)">0</div><div class="a-sub">Awaiting reply</div></div>
@@ -1047,14 +1041,14 @@
     }
 
     /* ── System Settings ────────────────────────────────────────── */
-    async function renderSettings() {
+    async function renderSettings(container = view) {
       const [plans, rateLimits, demoStatus] = await Promise.all([
         api("/payment/plans").catch(() => ({})),
         api("/rate-limit/plans").catch(() => ({})),
         api("/admin/demo/status").catch(() => ({})),
       ]);
 
-      view.innerHTML = `
+      container.innerHTML = `
         <div class="admin-grid3">
           <div class="a-card">
             <div class="section-chip">
@@ -1133,7 +1127,7 @@
     }
 
     /* ── Return Fraud ─────────────────────────────────────── */
-    async function renderReturnFraud() {
+    async function renderReturnFraud(container = view) {
       const [fraudTrends, perfData] = await Promise.all([
         api("/admin/return-fraud/trends"),
         api("/admin/return-fraud/model-performance")
@@ -1149,7 +1143,7 @@
       const storeData = fraudTrends.by_store || {};
       const stores = Object.entries(storeData);
 
-      view.innerHTML = `
+      container.innerHTML = `
         <div class="b-header">
           <div><h2>Return Fraud Shield</h2><p>Intelligent return fraud detection and prevention across all stores</p></div>
         </div>
@@ -1187,9 +1181,9 @@
     };
 
     /* ── AI Model ─────────────────────────────────────── */
-    async function renderAiModel() {
+    async function renderAiModel(container = view) {
       const perf = await api("/admin/return-fraud/model-performance");
-      view.innerHTML = `
+      container.innerHTML = `
         <div class="b-header"><div><h2>AI Model Performance</h2><p>Fraud detection model metrics</p></div></div>
         <div class="admin-grid4" style="margin-bottom:24px">
           <div class="a-card"><div class="a-sub">Total Returns</div><div class="a-kpi">${perf.total_returns || 0}</div></div>

@@ -8,6 +8,7 @@
 
 const express = require('express',);
 const { webhookVerifier, exportCustomerData, deleteCustomerData, } = require('./security',);
+const { safeUser, } = require('./auth',);
 
 function wrap(handler,) {
   return async (req, res,) => {
@@ -83,8 +84,20 @@ function buildReportEmailHtml(report, email,) {
 
 function createApiRouter(platform,) {
   const router = express.Router();
-  const defaultStore = (req,) =>
-    req.params.store_id || req.body?.store_id || platform.config.defaultStoreId;
+  /**
+   * Resolve the store a request acts on.
+   *
+   * Tenants are pinned to their own store, so a request that names no
+   * store (or names someone else's) can never fall through to the
+   * platform default — which previously exposed demo/other tenants' data.
+   * Platform operators stay unscoped so the console can span tenants.
+   */
+  const defaultStore = (req,) => {
+    if (req.authUser && !req.authUser.platform_admin) {
+      return req.authUser.store_id || platform.config.defaultStoreId;
+    }
+    return req.params.store_id || req.body?.store_id || platform.config.defaultStoreId;
+  };
 
   /** Extract pagination params from query string and apply to an array. */
   function paginate(arr, req, { maxDefault = 50, maxCap = 200, } = {},) {
@@ -100,13 +113,44 @@ function createApiRouter(platform,) {
     };
   }
 
+  // ── Tenant isolation ────────────────────────────────────────────────
+  // A tenant may only ever touch its own store; platform operators
+  // (master key, or users listed in PLATFORM_ADMIN_EMAILS) are unscoped
+  // by design and are the only identities that reach /admin/*.
+
+  const isOperator = (req,) => req.authUser?.platform_admin === true;
+
+  // 1. Platform-wide operator surfaces are closed to tenants.
+  router.use((req, res, next,) => {
+    if (req.path === '/admin' || req.path.startsWith('/admin/',)) {
+      if (!isOperator(req,)) {
+        return res.status(403,).json({ error: 'Operator access required.', },);
+      }
+    }
+    return next();
+  },);
+
+  // 2. Any route carrying :store_id must name a store the caller owns.
+  //    router.param is the only hook guaranteed to see route params before
+  //    the handler runs (router.use sees an empty req.params).
+  router.param('store_id', (req, res, next, storeId,) => {
+    if (!req.authUser) return next();
+    if (isOperator(req,)) return next();
+    if (!req.authUser.store_id || storeId !== req.authUser.store_id) {
+      return res.status(403,).json({
+        error: 'Access denied: that store does not belong to this account.',
+      },);
+    }
+    return next();
+  },);
+
   // RBAC gate: reads need `read`, everything else needs `mutate` (10.1).
   // With zero users registered (fresh install) the gate is open.
   // Machine/browser routes are exempt: /track authenticates via API key +
   // webhook HMAC, and SSE (/live/*) can't send custom headers at all.
   router.use((req, res, next,) => {
     // Write-only ingest keys (tracking snippet) may only post events.
-    if (req.ingestOnly && !(req.path === '/track' || req.path === '/track/batch')) {
+    if (req.ingestOnly && !(req.path === '/track' || req.path.startsWith('/track/batch',))) {
       return res.status(403,).json({ error: 'This key is write-only (event ingestion).', },);
     }
     if (req.path === '/track' || req.path.startsWith('/live/',)) return next();
@@ -963,10 +1007,12 @@ function createApiRouter(platform,) {
     },),
   );
 
+  // Operator-only. Returns a credential-free projection — the raw user
+  // documents carry api_key, which would allow impersonating any tenant.
   router.get(
     '/admin/users',
     platform.rbac.middleware('administer',),
-    wrap(async () => platform.rbac.users(),),
+    wrap(async () => (await platform.rbac.users()).map(safeUser,),),
   );
 
   router.get(

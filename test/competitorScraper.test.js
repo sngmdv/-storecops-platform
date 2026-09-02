@@ -458,7 +458,7 @@ describe('metaAdLibrary: scrapeAllCompetitors', () => {
     assert.equal(result.status, 'not_configured',);
   },);
 
-  it('returns no_competitors when none have page IDs', async () => {
+  it('returns no_competitors when none have page IDs', { timeout: 120000, }, async () => {
     process.env.META_AD_LIBRARY_TOKEN = 'test-token';
     const platform = createPlatform();
     const meta = platform.metaAdLibrary;

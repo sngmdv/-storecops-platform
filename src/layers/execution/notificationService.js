@@ -43,7 +43,6 @@ function createNotificationService({ store, },) {
       if (!title) throw new Error('title is required',);
       if (!SEVERITY.includes(severity,)) severity = 'info';
       if (!CATEGORIES.includes(category,)) category = 'system';
-
       // Enforce per-severity cap to prevent unbounded growth.
       const max = MAX_PER_SEVERITY[severity] || 100;
       const existing = await store.notifications.find((n,) =>
@@ -71,6 +70,22 @@ function createNotificationService({ store, },) {
       },);
 
       return notification;
+    },
+
+    /**
+     * Convenience overload matching the callers that pass store_id as the
+     * first argument: send(store_id, payload). Delegates to push().
+     */
+    async send(store_id, { type, title, message, severity = 'info', category = 'system', icon, action_url, metadata, } = {},) {
+      return this.push({
+        store_id,
+        title: title || (type || 'notification'),
+        message,
+        severity,
+        category: category === 'system' && type ? type : category,
+        action_url,
+        metadata,
+      },);
     },
 
     /**
