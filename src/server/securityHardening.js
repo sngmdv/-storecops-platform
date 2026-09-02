@@ -140,23 +140,13 @@ function sanitizeObject(obj,) {
 }
 
 /**
- * Sanitize string input
+ * Sanitize string input — only null-byte removal for API bodies.
+ * HTML encoding is NOT applied to API payloads (it breaks JSON).
+ * XSS encoding is only needed for HTML template contexts.
  */
 function sanitizeString(str,) {
   if (typeof str !== 'string') return str;
-
-  // Remove null bytes
-  let sanitized = str.replace(/\0/g, '',);
-
-  // Basic XSS prevention - encode HTML entities
-  sanitized = sanitized
-    .replace(/&/g, '&amp;',)
-    .replace(/</g, '&lt;',)
-    .replace(/>/g, '&gt;',)
-    .replace(/"/g, '&quot;',)
-    .replace(/'/g, '&#x27;',);
-
-  return sanitized;
+  return str.replace(/\0/g, '',);
 }
 
 /**
@@ -243,14 +233,18 @@ function requestSizeLimiter(maxSizeBytes = 1024 * 1024,) {
 }
 
 /**
- * SQL injection prevention (for any raw queries)
+ * SQL injection prevention — only blocks high-confidence attack patterns.
+ * NOTE: This is a defense-in-depth layer. The real protection comes from
+ * using parameterized queries (which SQLite store already does).
+ * We intentionally do NOT block SELECT/INSERT/etc. in text fields since
+ * those are legitimate product names, descriptions, etc.
  */
 function preventSqlInjection() {
   return (req, res, next,) => {
     const sqlPatterns = [
-      /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION|FETCH|DECLARE|TRUNCATE)\b)/i,
-      /(-{2})|(\b(OR|AND)\b\s+\d+\s*=\s*\d+)/i,
-      /(';\s*(DROP|DELETE|INSERT|UPDATE))/i,
+      /(';\s*(DROP|DELETE|INSERT|UPDATE|ALTER)\b)/i,
+      /(UNION\s+(ALL\s+)?SELECT)/i,
+      /(--\s*$)|(\/\*.*\*\/)/,
     ];
 
     const checkValue = (value,) => {

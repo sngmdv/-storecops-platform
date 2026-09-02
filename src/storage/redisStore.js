@@ -169,6 +169,43 @@ function createCollection(name, client, prefix,) {
       }
     },
 
+    async updateMany(filter, patch,) {
+      const matches = await this.find(filter,);
+      const results = [];
+      for (const doc of matches) {
+        const updated = { ...doc, ...patch, updatedAt: new Date().toISOString(), };
+        await client.hset(keyFor(doc._id,), 'data', JSON.stringify(updated,),);
+        results.push(updated,);
+      }
+      return results;
+    },
+
+    async delete(id,) {
+      try {
+        const pipeline = client.pipeline();
+        pipeline.del(keyFor(id,),);
+        pipeline.srem(indexKey(), id,);
+        await pipeline.exec();
+        return true;
+      } catch (err) {
+        console.error(`[Redis] delete error for ${name}:`, err.message,);
+        return false;
+      }
+    },
+
+    async deleteMany(filter,) {
+      const matches = await this.find(filter,);
+      if (matches.length === 0) return 0;
+
+      const pipeline = client.pipeline();
+      for (const doc of matches) {
+        pipeline.del(keyFor(doc._id,),);
+        pipeline.srem(indexKey(), doc._id,);
+      }
+      await pipeline.exec();
+      return matches.length;
+    },
+
     async count() {
       try {
         return await client.scard(indexKey(),);

@@ -109,6 +109,41 @@ function createCollection(name,) {
       return updated;
     },
 
+    async updateMany(filter, patch,) {
+      const matches = await this.find(filter,);
+      const results = [];
+      for (const doc of matches) {
+        const updated = { ...doc, ...patch, updatedAt: new Date().toISOString(), };
+        records.set(doc._id, updated,);
+        results.push(updated,);
+      }
+      return results;
+    },
+
+    async delete(id,) {
+      return records.delete(id,);
+    },
+
+    async deleteMany(filter,) {
+      if (typeof filter === 'function') {
+        let count = 0;
+        for (const [key, record,] of records) {
+          if (filter(record,)) { records.delete(key,); count++; }
+        }
+        return count;
+      }
+
+      const filterKeys = Object.entries(filter,);
+      let count = 0;
+      for (const [key, record,] of records) {
+        if (filterKeys.every(([k, v,]) => record[k] === v,)) {
+          records.delete(key,);
+          count++;
+        }
+      }
+      return count;
+    },
+
     async count() {
       return records.size;
     },

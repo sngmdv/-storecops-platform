@@ -19,11 +19,15 @@ const crypto = require('crypto',);
 
 // ── Token encryption for stored credentials ──────────────────────────
 // Uses AES-256-GCM so tokens can be stored in the database for re-sync.
-const TOKEN_KEY = crypto.scryptSync(
-  process.env.TOKEN_ENCRYPTION_KEY || 'storecops-default-key-do-not-use-in-prod',
-  'storecops-salt',
-  32,
-);
+const DEFAULT_KEY = 'storecops-default-key-do-not-use-in-prod';
+const rawKey = process.env.TOKEN_ENCRYPTION_KEY || DEFAULT_KEY;
+const TOKEN_KEY = crypto.scryptSync(rawKey, 'storecops-salt', 32,);
+
+if (process.env.NODE_ENV === 'production' && rawKey === DEFAULT_KEY) {
+  console.error('[SECURITY] FATAL: TOKEN_ENCRYPTION_KEY is not set. Set it in your .env file.',);
+  console.error('[SECURITY] Example: TOKEN_ENCRYPTION_KEY=your-random-64-char-string-here',);
+  process.exit(1,);
+}
 function encryptToken(token,) {
   if (!token) return null;
   const iv = crypto.randomBytes(12,);

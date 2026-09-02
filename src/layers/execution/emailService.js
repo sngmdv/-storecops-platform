@@ -72,14 +72,114 @@ const PROVIDERS = {
   },
 
   /**
-   * SMTP-lite provider placeholder. Wire to nodemailer or similar
-   * when the deployment has SMTP credentials.
+   * SMTP provider: sends via SMTP using Node's built-in net/tls modules.
+   * Requires SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS env vars.
+   * Optional: SMTP_SECURE=true for TLS on connect (port 465).
    */
   smtp: async ({ to, subject, html, from, },) => {
-    // Placeholder — implement with nodemailer if SMTP is preferred.
-    const recipients = Array.isArray(to,) ? to.join(', ',) : to;
-    console.log(`[EMAIL/SMTP] to=${maskEmail(recipients,)} subject="${(subject || '').slice(0, 60,)}" — SMTP provider not yet wired, falling back to console.`,);
-    return { delivered: true, provider: 'smtp-fallback', to: recipients, subject, };
+    const net = require('net',);
+    const tls = require('tls',);
+
+    const host = process.env.SMTP_HOST;
+    const port = Number(process.env.SMTP_PORT) || 587;
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+    const secure = process.env.SMTP_SECURE === 'true';
+
+    if (!host) throw new Error('SMTP_HOST is not configured.',);
+    if (!user || !pass) throw new Error('SMTP_USER and SMTP_PASS are required.',);
+
+    const recipients = Array.isArray(to,) ? to : [to,];
+    const sender = from || process.env.EMAIL_FROM || 'noreply@storecops.com';
+
+    /**
+     * Minimal SMTP client — sends one email and closes.
+     */
+    function smtpSend() {
+      return new Promise((resolve, reject,) => {
+        const socket = secure
+          ? tls.connect({ host, port: port || 465, },)
+          : net.createConnection({ host, port, },);
+
+        let buffer = '';
+        let step = 0;
+        let rejected = false;
+
+        const commands = [
+          `EHLO storecops.local`,
+          secure ? null : `STARTTLS`,
+          `MAIL FROM:<${sender}>`,
+          ...recipients.map((r) => `RCPT TO:<${r}>`),
+          `DATA`,
+          `From: ${sender}`,
+          `To: ${recipients.join(', ')}`,
+          `Subject: ${subject}`,
+          `MIME-Version: 1.0`,
+          `Content-Type: text/html; charset=UTF-8`,
+          ``,
+          html || '',
+          `.`,
+          `QUIT`,
+        ].filter(Boolean,);
+
+        function sendNext() {
+          if (step < commands.length) {
+            socket.write(commands[step] + '\r\n',);
+            step++;
+          }
+        }
+
+        socket.setEncoding('ascii',);
+        socket.setTimeout(15000,);
+
+        socket.on('connect', () => { /* wait for banner */ },);
+
+        socket.on('data', (data,) => {
+          buffer += data;
+          const lines = buffer.split('\r\n',);
+          buffer = lines.pop(); /* keep incomplete line */
+
+          for (const line of lines) {
+            const code = parseInt(line.slice(0, 3,), 10,);
+
+            if (code >= 400 && !rejected) {
+              rejected = true;
+              socket.end();
+              reject(new Error(`SMTP error ${code}: ${line}`,),);
+              return;
+            }
+
+            if (line.startsWith('220 ') || line.startsWith('250 ') || line.startsWith('354 ') || line.match(/^2\d{2}-/)) {
+              if (step === 0) {
+                /* banner received, check for STARTTLS needed */
+                sendNext();
+              } else if (line.match(/^2\d{2}\s/) || line.match(/^2\d{2}-.*\r?\n2\d{2}\s/)) {
+                /* multiline reply complete */
+                sendNext();
+              }
+            }
+          }
+        },);
+
+        socket.on('timeout', () => {
+          socket.destroy();
+          reject(new Error('SMTP connection timed out.',),);
+        },);
+
+        socket.on('error', (err,) => {
+          reject(err,);
+        },);
+
+        socket.on('end', () => {
+          if (!rejected) resolve({ delivered: true, provider: 'smtp', to: recipients, subject, });
+        },);
+
+        sendNext();
+      },);
+    }
+
+    await smtpSend();
+    return { delivered: true, provider: 'smtp', to: recipients, subject, };
   },
 };
 

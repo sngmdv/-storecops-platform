@@ -556,7 +556,7 @@ function createApiRouter(platform,) {
       if (!store_id) throw new Error('store_id is required',);
 
       // Get products from inventory
-      const products = await store.inventory?.find({ store_id, },) || [];
+      const products = await platform.store.events.find({ store_id, type: 'product' },) || [];
       const recommendations = [];
 
       for (const product of products.slice(0, 20,)) {
