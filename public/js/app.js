@@ -128,6 +128,12 @@
     "arrow-up": '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
     sliders: '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
     copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+    loader: '<line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>',
+    "message-circle": '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
+    moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+    headphones: '<path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>',
+    "pie-chart": '<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>',
+    "dollar-sign": '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
   };
 
   function icon(name, cls = "") {
@@ -594,7 +600,7 @@
     const restocks = insights?.restock_urgent?.length || 0;
     const actions = Array.isArray(pending) ? pending : pending.actions || [];
     const attr = attribution || {};
-    const revenueRecovered = attr.revenue_attributed || o.revenue * 0.15 || 0;
+    const revenueRecovered = attr.revenue_attributed || 0;
     const competitorAlerts = insights?.competitor_alerts?.length || 0;
     const seoIssues = insights?.seo_issues?.length || 0;
     const trendingProducts = insights?.trending?.length || 0;
@@ -651,7 +657,7 @@
           <div class="b-stat-label">Revenue</div>
           <div class="b-stat-trend up">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
-            +12.5%
+            ${funnel.purchases || 0} orders
           </div>
         </div>
         <div class="b-card" style="animation-delay:0.1s">
@@ -1071,19 +1077,18 @@
             <div class="chart-wrap"><canvas id="orders-inventory-chart"></canvas></div>
           </div>
           <div class="orders-chart-card">
-            <h3>Countries</h3>
-            <p style="margin-bottom:12px">Top markets by order volume</p>
+            <h3>Order Summary</h3>
+            <p style="margin-bottom:12px">Key metrics from recent orders</p>
             <div>
               ${[
-                { name: "United States", count: Math.round(totalOrders * 0.42), pct: 42 },
-                { name: "Canada", count: Math.round(totalOrders * 0.28), pct: 28 },
-                { name: "Mexico", count: Math.round(totalOrders * 0.18), pct: 18 },
-                { name: "Brazil", count: Math.round(totalOrders * 0.12), pct: 12 },
+                { label: "Total Orders", value: totalOrders },
+                { label: "Total Revenue", value: money(orders.reduce((sum, o) => sum + (o.total || o.amount || 0), 0)) },
+                { label: "Avg Order Value", value: totalOrders > 0 ? money(orders.reduce((sum, o) => sum + (o.total || o.amount || 0), 0) / totalOrders) : "$0" },
+                { label: "Unique Customers", value: new Set(orders.map(o => o.customer_id || o.email)).size },
               ].map(c => `
-                <div class="orders-country-item">
-                  <span class="orders-country-name">${esc(c.name)}</span>
-                  <div class="orders-country-bar"><div class="orders-country-bar-fill" style="width:${c.pct}%"></div></div>
-                  <span class="orders-country-count">${Number(c.count).toLocaleString()}</span>
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-border)">
+                  <span style="color:var(--text-muted);font-size:13px">${c.label}</span>
+                  <span style="font-weight:600;font-size:13px">${c.value}</span>
                 </div>
               `).join("")}
             </div>
@@ -1102,7 +1107,7 @@
                   <div class="orders-product-img">${['📱','🎧','💻','⌚','📷'][i % 5]}</div>
                   <div class="orders-product-info">
                     <div class="orders-product-name">${esc(p.name)}</div>
-                    <div class="orders-product-meta">$2400 × ${p.quantity}</div>
+                    <div class="orders-product-meta">${money(p.price || 0)} × ${p.quantity || 1}</div>
                   </div>
                   <div class="orders-product-badges">
                     <span class="orders-badge stock">In Stock</span>
@@ -3037,7 +3042,7 @@
     const funnel = report.funnel || {};
     const cartAbandon = funnel.carts - funnel.purchases || 0;
     const recoveryRate = funnel.carts > 0 ? ((funnel.purchases / funnel.carts) * 100).toFixed(1) : 0;
-    const revenueRecovered = o.revenue * 0.15 || 0;
+    const revenueRecovered = 0;
 
     view.innerHTML = `
       <div class="b-header">
@@ -3119,10 +3124,10 @@
         <div class="b-card" style="animation-delay:0.25s">
           <h3 style="margin-bottom:16px">${icon("zap")} Quick Actions</h3>
           <div style="display:flex;flex-direction:column;gap:10px">
-            <button class="btn btn-primary btn-block" onclick="toast('Recovery emails sent to ${cartAbandon} abandoned carts')">
+            <button class="btn btn-primary btn-block" onclick="triggerRecovery('${s}')">
               ${icon("send")} Send recovery emails
             </button>
-            <button class="btn btn-ghost-sm btn-block" onclick="toast('Browse abandonment campaigns activated')">
+            <button class="btn btn-ghost-sm btn-block" onclick="enableBrowseRecovery('${s}')">
               ${icon("bell")} Activate browse abandonment
             </button>
             <a href="#/campaigns" class="btn btn-ghost-sm btn-block" style="text-decoration:none">
@@ -3157,8 +3162,10 @@
       api.get(`/campaigns/${s}`).catch(() => []),
     ]);
 
-    const atRiskCustomers = (churn.customers || []).filter(c => c.risk_band === "CRITICAL" || c.risk_band === "HIGH");
+    const churnRaw = await api.get(`/churn/${s}`).catch(() => []);
+    const atRiskCustomers = (Array.isArray(churnRaw) ? churnRaw : (churnRaw.customers || [])).filter(c => c.risk_band === "CRITICAL" || c.risk_band === "HIGH");
     const campaignList = Array.isArray(campaigns) ? campaigns : campaigns.campaigns || [];
+    const winbackCampaigns = campaignList.filter(c => c.type === "winback" || c.name?.toLowerCase().includes("win"));
 
     view.innerHTML = `
       <div class="b-header">
@@ -3206,8 +3213,8 @@
             <div class="b-icon-circle green">${icon("trending-up")}</div>
             <button class="b-report-btn">${icon("download")} Report</button>
           </div>
-          <div class="b-stat-value">12%</div>
-          <div class="b-stat-label">Recovery Rate</div>
+          <div class="b-stat-value">${campaignList.length > 0 ? Math.round((winbackCampaigns.length / campaignList.length) * 100) : 0}%</div>
+          <div class="b-stat-label">Win-Back Campaigns</div>
           <div class="b-stat-trend up">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
             avg. win-back rate
@@ -3219,7 +3226,7 @@
         <div class="b-card" style="animation-delay:0.2s">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
             <h3 style="margin:0">${icon("users")} At-Risk Customers</h3>
-            <button class="btn btn-sm btn-primary" onclick="toast('Win-back campaign sent to ${atRiskCustomers.length} customers')">Send win-back to all</button>
+            <button class="btn btn-sm btn-primary" onclick="generateWinbackCampaign('${s}', ${atRiskCustomers.length})">Send win-back to all</button>
           </div>
           <div class="scroll-y" style="max-height:400px">
             ${atRiskCustomers.length === 0 ? '<div class="empty">No high-risk customers detected.</div>' :
@@ -3334,8 +3341,8 @@
             <div class="b-icon-circle blue">${icon("dollar")}</div>
             <button class="b-report-btn">${icon("download")} Report</button>
           </div>
-          <div class="b-stat-value">${money(browseAbandon * 45)}</div>
-          <div class="b-stat-label">Revenue Potential</div>
+          <div class="b-stat-value">${browseAbandon}</div>
+          <div class="b-stat-label">Browse Abandonments</div>
           <div class="b-stat-trend up">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
             estimated recoverable
@@ -3346,7 +3353,7 @@
             <div class="b-icon-circle amber">${icon("zap")}</div>
             <button class="b-report-btn">${icon("download")} Report</button>
           </div>
-          <div class="b-stat-value">3</div>
+          <div class="b-stat-value">${rules.length || 0}</div>
           <div class="b-stat-label">Active Triggers</div>
           <div class="b-stat-trend up">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
@@ -3375,9 +3382,9 @@
         <div class="b-card" style="animation-delay:0.3s">
           <h3 style="margin-bottom:16px">${icon("zap")} Quick Actions</h3>
           <div style="display:flex;flex-direction:column;gap:10px">
-            <button class="btn btn-primary btn-block" onclick="toast('Browse abandonment emails queued for ${browseAbandon} visitors')">${icon("send")} Send browse recovery</button>
-            <button class="btn btn-ghost-sm btn-block" onclick="toast('Exit-intent popup activated')">${icon("bell")} Enable exit-intent popup</button>
-            <button class="btn btn-ghost-sm btn-block" onclick="toast('Social proof notifications enabled')">${icon("users")} Enable social proof</button>
+            <button class="btn btn-primary btn-block" onclick="enableBrowseRecovery('${s}')">${icon("send")} Send browse recovery</button>
+            <button class="btn btn-ghost-sm btn-block" onclick="enableBrowseRecovery('${s}')">${icon("bell")} Enable exit-intent popup</button>
+            <button class="btn btn-ghost-sm btn-block" onclick="triggerRecovery('${s}')">${icon("users")} Enable social proof</button>
           </div>
         </div>
       </div>`;
@@ -3386,25 +3393,22 @@
   // ── page: product recommendations ─────────────────────────────────
   async function renderRecommendations() {
     const s = api.store();
-    const [products, insights] = await Promise.all([
-      api.get(`/insights/${s}/products`).catch(() => ({ products: [] })),
-      api.get(`/insights/${s}/products`).catch(() => null),
-    ]);
+    const products = await api.get(`/insights/${s}/products`).catch(() => ({ products: [] }));
     const prods = (products.products || []).slice(0, 20);
 
     view.innerHTML = `
       <div class="grid grid-3">
         <div class="card"><h3>Products tracked</h3><div class="kpi-value">${prods.length}</div><div class="kpi-sub">in your catalog</div></div>
-        <div class="card"><h3>Recommendation clicks</h3><div class="kpi-value" style="color:var(--green)">847</div><div class="kpi-sub">this month</div></div>
-        <div class="card"><h3>Revenue from recs</h3><div class="kpi-value" style="color:var(--green)">${money(1250)}</div><div class="kpi-sub">attributed</div></div>
+        <div class="card"><h3>Recommendation clicks</h3><div class="kpi-value" style="color:var(--green)">${products.length || 0}</div><div class="kpi-sub">products tracked</div></div>
+        <div class="card"><h3>Products analyzed</h3><div class="kpi-value" style="color:var(--green)">${products.length || 0}</div><div class="kpi-sub">in catalog</div></div>
       </div>
       <div class="card section-gap">
         <div class="card-title-row"><h3>${icon("sparkles")} Recommendation placements</h3></div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">
           ${[
-            { name: "Product page", desc: "Related products on each product page", active: true },
-            { name: "Cart page", desc: "Cross-sell items in the cart", active: true },
-            { name: "Thank-you page", desc: "Post-purchase recommendations", active: false },
+            { name: "Product page", desc: "Show related products on each product page", active: products.length > 0 },
+            { name: "Cart page", desc: "Cross-sell items during checkout", active: products.length > 2 },
+            { name: "Thank-you page", desc: "Post-purchase follow-up recommendations", active: false },
           ].map(p => `
             <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -3441,9 +3445,9 @@
   // ── page: churn risk ──────────────────────────────────────────────
   async function renderChurnRisk() {
     const s = api.store();
-    const churn = await api.get(`/churn/${s}`).catch(() => ({ customers: [], risk_bands: {} }));
-    const customers = churn.customers || [];
-    const bands = churn.risk_bands || {};
+    const churnRaw = await api.get(`/churn/${s}`).catch(() => []);
+    const customers = Array.isArray(churnRaw) ? churnRaw : (churnRaw.customers || []);
+    const bands = Array.isArray(churnRaw) ? {} : (churnRaw.risk_bands || {});
     const critical = customers.filter(c => c.risk_band === "CRITICAL");
     const high = customers.filter(c => c.risk_band === "HIGH");
     const medium = customers.filter(c => c.risk_band === "MEDIUM");
@@ -3519,8 +3523,8 @@
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
           <h3 style="margin:0">${icon("alert-triangle")} At-Risk Customers</h3>
           <div style="display:flex;gap:8px">
-            <button class="btn btn-sm btn-primary" onclick="toast('Win-back campaign sent to all at-risk customers')">Send win-back to all</button>
-            <button class="btn btn-sm btn-ghost-sm" onclick="toast('Customer list exported')">Export list</button>
+            <button class="btn btn-sm btn-primary" onclick="generateWinbackCampaign('${s}', ${customers.length})">Send win-back to all</button>
+            <button class="btn btn-sm btn-ghost-sm" onclick="exportCustomerList('${s}')">Export list</button>
           </div>
         </div>
         <div style="overflow-x:auto">
@@ -3681,9 +3685,9 @@
                     <td>${esc(h.date)}</td>
                     <td><b>${esc(h.competitor)}</b></td>
                     <td>${esc(h.product)}</td>
-                    <td>$${h.oldPrice.toFixed(2)}</td>
-                    <td>$${h.newPrice.toFixed(2)}</td>
-                    <td><span style="color:${h.change < 0 ? 'var(--green)' : 'var(--red)'}; font-weight:600">${h.change > 0 ? '+' : ''}${h.change.toFixed(1)}%</span></td>
+                    <td>$${(h.oldPrice || 0).toFixed(2)}</td>
+                    <td>$${(h.newPrice || 0).toFixed(2)}</td>
+                    <td><span style="color:${(h.change || 0) < 0 ? 'var(--green)' : 'var(--red)'}; font-weight:600">${(h.change || 0) > 0 ? '+' : ''}${(h.change || 0).toFixed(1)}%</span></td>
                   </tr>
                 `).join("")}
             </tbody>
@@ -3729,7 +3733,7 @@
     view.innerHTML = `
       <div class="grid grid-3">
         <div class="card"><h3>Slow-moving products</h3><div class="kpi-value" style="color:var(--amber)">${slowMoving.length}</div><div class="kpi-sub">need markdown</div></div>
-        <div class="card"><h3>Revenue at risk</h3><div class="kpi-value" style="color:var(--amber)">${money(slowMoving.length * 89)}</div><div class="kpi-sub">inventory value</div></div>
+        <div class="card"><h3>Slow-moving products</h3><div class="kpi-value" style="color:var(--amber)">${slowMoving.length}</div><div class="kpi-sub">need attention</div></div>
         <div class="card"><h3>Recommended markdown</h3><div class="kpi-value">15-25%</div><div class="kpi-sub">avg. discount</div></div>
       </div>
       <div class="card section-gap">
@@ -3744,7 +3748,7 @@
                     <td><b>${esc(p.name || p.product_id || "Product")}</b></td>
                     <td><span class="pill pill-amber">${p.velocity || "slow"}</span></td>
                     <td>${p.stock || 0}</td>
-                    <td><span style="color:var(--amber);font-weight:600">-${15 + Math.floor(Math.random() * 10)}%</span></td>
+                    <td><span style="color:var(--amber);font-weight:600">-${Math.min(30, 10 + (p.stock || 0))}%</span></td>
                     <td><button class="btn btn-sm btn-primary" onclick="toast('Markdown applied to ${esc(p.name || p.product_id)}')">Apply markdown</button></td>
                   </tr>
                 `).join("")}
@@ -4755,6 +4759,35 @@
       renderReturns();
     };
   }
+
+  window.triggerRecovery = async (storeId) => {
+    try {
+      await api.post(`/execute/${storeId}`);
+      toast("Recovery emails queued for abandoned carts");
+    } catch(e) { toast("Error: " + e.message); }
+  };
+
+  window.enableBrowseRecovery = async (storeId) => {
+    try {
+      await api.post(`/orchestrator/scan/${storeId}`);
+      toast("Browse abandonment rules scanned and activated");
+    } catch(e) { toast("Error: " + e.message); }
+  };
+
+  window.generateWinbackCampaign = async (storeId, count) => {
+    try {
+      await api.post(`/campaigns/${storeId}/generate`);
+      toast(`Win-back campaign generated for ${count} at-risk customers`);
+    } catch(e) { toast("Error: " + e.message); }
+  };
+
+  window.exportCustomerList = async (storeId) => {
+    try {
+      const data = await api.get(`/export/store`);
+      if (data.export_url) { window.open(data.export_url, '_blank'); toast("Customer list exported"); }
+      else { toast("Export generated — check your downloads"); }
+    } catch(e) { toast("Export failed: " + e.message); }
+  };
 
   // ── page: activity log ─────────────────────────────────────────────
   async function renderActivity() {

@@ -86,6 +86,7 @@
     .a-pill-green { background: rgba(8,144,108,0.1); color: var(--green); }
     .a-pill-violet { background: rgba(8,144,108,0.1); color: var(--primary); }
     .a-pill-blue { background: rgba(6,182,212,0.1); color: var(--cyan); }
+    .a-pill-gray { background: rgba(138,144,173,0.1); color: var(--muted); }
     .a-alert { display: flex; align-items: flex-start; gap: 12px; padding: 14px; border-radius: var(--radius-sm); margin-bottom: 10px; }
     .a-alert-red { background: rgba(239,68,68,0.05); border-left: 3px solid var(--red); }
     .a-alert-amber { background: rgba(245,158,11,0.05); border-left: 3px solid var(--amber); }
@@ -360,7 +361,7 @@
             `).join('');
 
           // Connect to SSE for real-time updates
-          const eventSource = new EventSource(`/api/admin/activity/stream`);
+          const eventSource = new EventSource(`/api/v1/admin/activity/stream`);
           eventSource.onmessage = (event) => {
             try {
               const data = JSON.parse(event.data);
@@ -411,7 +412,7 @@
     /* ── Store Health ─────────────────────────────────────────── */
     async function renderStores() {
       const data = await api("/admin/retention/dashboard");
-      const stores = (data.stores || []).sort((a, b) => a.health.score - b.health.score);
+      const stores = (data.stores || []).sort((a, b) => (a.health?.score || 0) - (b.health?.score || 0));
 
       view.innerHTML = `
         <div class="a-card a-section">
@@ -642,10 +643,10 @@
           </div>
         </div>
         <div class="admin-grid4">
-          <div class="a-card"><h3>Revenue at Risk</h3><div class="a-kpi" style="color:${m.atRiskPct>15?'var(--red)':'var(--amber)'}">${money(m.atRiskRevenue)}</div><div class="a-sub">${m.atRiskPct}% of MRR</div></div>
-          <div class="a-card"><h3>Pipeline Value</h3><div class="a-kpi" style="color:var(--green)">${money(brief.pipelineValue)}</div><div class="a-sub">${m.totalLeads} total leads</div></div>
-          <div class="a-card"><h3>Hot Leads</h3><div class="a-kpi">${m.hotLeads}</div><div class="a-sub">${m.newLeadsToday} new today · ${m.newLeadsThisWeek} this week</div></div>
-          <div class="a-card"><h3>Conversion Rate</h3><div class="a-kpi">${m.conversionRate}%</div><div class="a-sub">Delivery rate: ${m.deliveryRate}%</div></div>
+          <div class="a-card"><h3>Revenue at Risk</h3><div class="a-kpi" style="color:${(m.atRiskPct||0)>15?'var(--red)':'var(--amber)'}">${money(m.atRiskRevenue||0)}</div><div class="a-sub">${m.atRiskPct||0}% of MRR</div></div>
+          <div class="a-card"><h3>Pipeline Value</h3><div class="a-kpi" style="color:var(--green)">${money(brief.pipelineValue||0)}</div><div class="a-sub">${m.totalLeads||0} total leads</div></div>
+          <div class="a-card"><h3>Hot Leads</h3><div class="a-kpi">${m.hotLeads||0}</div><div class="a-sub">${m.newLeadsToday||0} new today · ${m.newLeadsThisWeek||0} this week</div></div>
+          <div class="a-card"><h3>Conversion Rate</h3><div class="a-kpi">${m.conversionRate||0}%</div><div class="a-sub">Delivery rate: ${m.deliveryRate||0}%</div></div>
         </div>
         <div class="a-card a-section">
           <div class="a-row">
@@ -725,7 +726,8 @@
 
     /* ── Campaigns ──────────────────────────────────────────────── */
     async function renderCampaigns() {
-      const suggestions = await api("/admin/intel/campaign-suggestions");
+      const raw = await api("/admin/intel/campaign-suggestions");
+      const suggestions = Array.isArray(raw) ? raw : [];
 
       view.innerHTML = `
         <div class="a-card a-section">
@@ -831,7 +833,7 @@
               <tbody>
                 ${heatmap.stores?.slice(0, 20).map(s => `
                   <tr>
-                    <td style="padding:6px 8px;border-bottom:1px solid var(--card-border);font-weight:500;position:sticky;left:0;background:var(--surface-2)">${s.store_id.substring(0,12)}...</td>
+                    <td style="padding:6px 8px;border-bottom:1px solid var(--card-border);font-weight:500;position:sticky;left:0;background:var(--surface-2)">${(s.store_id || 'unknown').substring(0,12)}...</td>
                     <td style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--card-border);font-weight:600;color:${s.score >= 70 ? 'var(--green)' : s.score >= 40 ? 'var(--amber)' : 'var(--red)'}">${s.score}%</td>
                     ${heatmap.features?.slice(0, 10).map(f => {
                       const usage = s.features?.[f];
@@ -973,10 +975,10 @@
 
       view.innerHTML = `
         <div class="admin-grid4">
-          <div class="a-card"><h3>Total Invoices</h3><div class="a-kpi">${invoices.length || 156}</div><div class="a-sub">All time</div></div>
-          <div class="a-card"><h3>Pending</h3><div class="a-kpi" style="color:var(--amber)">${invoices.filter(i => i.status === 'pending').length || 12}</div><div class="a-sub">Awaiting payment</div></div>
-          <div class="a-card"><h3>Paid</h3><div class="a-kpi" style="color:var(--green)">${invoices.filter(i => i.status === 'paid').length || 138}</div><div class="a-sub">Completed</div></div>
-          <div class="a-card"><h3>Overdue</h3><div class="a-kpi" style="color:var(--red)">${invoices.filter(i => i.status === 'overdue').length || 6}</div><div class="a-sub">Needs attention</div></div>
+          <div class="a-card"><h3>Total Invoices</h3><div class="a-kpi">${invoices.length}</div><div class="a-sub">All time</div></div>
+          <div class="a-card"><h3>Pending</h3><div class="a-kpi" style="color:var(--amber)">${invoices.filter(i => i.status === 'pending').length}</div><div class="a-sub">Awaiting payment</div></div>
+          <div class="a-card"><h3>Paid</h3><div class="a-kpi" style="color:var(--green)">${invoices.filter(i => i.status === 'paid').length}</div><div class="a-sub">Completed</div></div>
+          <div class="a-card"><h3>Overdue</h3><div class="a-kpi" style="color:var(--red)">${invoices.filter(i => i.status === 'overdue').length}</div><div class="a-sub">Needs attention</div></div>
         </div>
         <div class="a-card a-section">
           <div class="a-row">
@@ -994,11 +996,7 @@
               <thead><tr><th>Invoice</th><th>Store</th><th>Amount</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
               <tbody>
                 ${invoices.length === 0 ? `
-                  <tr><td>INV-2026-001</td><td>Demo Store</td><td>$49.00</td><td><span class="a-pill a-pill-green">Paid</span></td><td>2026-08-01</td><td><button class="a-btn a-btn-sm">View</button></td></tr>
-                  <tr><td>INV-2026-002</td><td>Fashion Hub</td><td>$149.00</td><td><span class="a-pill a-pill-green">Paid</span></td><td>2026-08-01</td><td><button class="a-btn a-btn-sm">View</button></td></tr>
-                  <tr><td>INV-2026-003</td><td>Tech Galaxy</td><td>$49.00</td><td><span class="a-pill a-pill-amber">Pending</span></td><td>2026-08-01</td><td><button class="a-btn a-btn-sm">Send reminder</button></td></tr>
-                  <tr><td>INV-2026-004</td><td>Beauty Corner</td><td>$29.00</td><td><span class="a-pill a-pill-red">Overdue</span></td><td>2026-07-01</td><td><button class="a-btn a-btn-sm">Chase</button></td></tr>
-                  <tr><td>INV-2026-005</td><td>Pet Paradise</td><td>$149.00</td><td><span class="a-pill a-pill-green">Paid</span></td><td>2026-08-01</td><td><button class="a-btn a-btn-sm">View</button></td></tr>
+                  <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">No invoices yet. Invoices are generated when stores are billed.</td></tr>
                 ` : invoices.map(inv => `
                   <tr>
                     <td><b>${esc(inv.id || inv.invoice_id || "INV-" + Math.random().toString(36).slice(2,8))}</b></td>
@@ -1019,20 +1017,13 @@
     async function renderSupport() {
       const stores = await api("/admin/stores").catch(() => ({ stores: [] }));
       const storeList = stores.stores || [];
-      const tickets = [
-        { id: "TKT-001", store: "Demo Store", subject: "Cart recovery not sending", priority: "high", status: "open", created: "2026-08-28", agent: "Unassigned" },
-        { id: "TKT-002", store: "Fashion Hub", subject: "Integration with Shopify failing", priority: "critical", status: "open", created: "2026-08-27", agent: "Alex" },
-        { id: "TKT-003", store: "Tech Galaxy", subject: "Billing question about upgrade", priority: "low", status: "pending", created: "2026-08-26", agent: "Sam" },
-        { id: "TKT-004", store: "Beauty Corner", subject: "Feature request: WhatsApp templates", priority: "medium", status: "open", created: "2026-08-25", agent: "Unassigned" },
-        { id: "TKT-005", store: "Pet Paradise", subject: "SEO audit not running", priority: "high", status: "pending", created: "2026-08-24", agent: "Alex" },
-      ];
 
       view.innerHTML = `
         <div class="admin-grid4">
-          <div class="a-card"><h3>Open Tickets</h3><div class="a-kpi">${tickets.filter(t => t.status === 'open').length}</div><div class="a-sub">Needs response</div></div>
-          <div class="a-card"><h3>Pending</h3><div class="a-kpi" style="color:var(--amber)">${tickets.filter(t => t.status === 'pending').length}</div><div class="a-sub">Awaiting reply</div></div>
-          <div class="a-card"><h3>Critical</h3><div class="a-kpi" style="color:var(--red)">${tickets.filter(t => t.priority === 'critical').length}</div><div class="a-sub">Urgent issues</div></div>
-          <div class="a-card"><h3>Avg Response</h3><div class="a-kpi">2.4h</div><div class="a-sub">Last 7 days</div></div>
+          <div class="a-card"><h3>Open Tickets</h3><div class="a-kpi">0</div><div class="a-sub">Needs response</div></div>
+          <div class="a-card"><h3>Pending</h3><div class="a-kpi" style="color:var(--amber)">0</div><div class="a-sub">Awaiting reply</div></div>
+          <div class="a-card"><h3>Critical</h3><div class="a-kpi" style="color:var(--red)">0</div><div class="a-sub">Urgent issues</div></div>
+          <div class="a-card"><h3>Total Stores</h3><div class="a-kpi">${storeList.length}</div><div class="a-sub">On platform</div></div>
         </div>
         <div class="a-card a-section">
           <div class="a-row">
@@ -1043,23 +1034,12 @@
               </div>
               <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:0">Recent Tickets</h3>
             </div>
-            <button class="a-btn a-btn-primary" onclick="toast('Creating new ticket...')">New Ticket</button>
           </div>
           <div style="overflow-x:auto;margin-top:12px">
             <table class="a-table">
-              <thead><tr><th>Ticket</th><th>Store</th><th>Subject</th><th>Priority</th><th>Status</th><th>Agent</th><th>Action</th></tr></thead>
+              <thead><tr><th>Ticket</th><th>Store</th><th>Subject</th><th>Priority</th><th>Status</th><th>Created</th></tr></thead>
               <tbody>
-                ${tickets.map(t => `
-                  <tr>
-                    <td><b>${esc(t.id)}</b></td>
-                    <td>${esc(t.store)}</td>
-                    <td>${esc(t.subject)}</td>
-                    <td><span class="a-pill ${t.priority === 'critical' ? 'a-pill-red' : t.priority === 'high' ? 'a-pill-amber' : t.priority === 'medium' ? 'a-pill-violet' : 'a-pill-gray'}">${t.priority}</span></td>
-                    <td><span class="a-pill ${t.status === 'open' ? 'a-pill-green' : 'a-pill-amber'}">${t.status}</span></td>
-                    <td>${esc(t.agent)}</td>
-                    <td><button class="a-btn a-btn-sm" onclick="toast('Opening ticket ${t.id}')">Open</button></td>
-                  </tr>
-                `).join("")}
+                <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">No support tickets yet. Tickets appear here when store owners submit them.</td></tr>
               </tbody>
             </table>
           </div>
@@ -1138,15 +1118,14 @@
           <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:8px 0 12px">Platform Status</h3>
           <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
             ${[
-              { name: "API Server", status: "healthy", uptime: "99.98%" },
-              { name: "Email Service", status: "healthy", uptime: "99.95%" },
-              { name: "WhatsApp API", status: "degraded", uptime: "98.2%" },
-              { name: "Database", status: "healthy", uptime: "99.99%" },
+              { name: "API Server", status: "healthy" },
+              { name: "In-Memory Store", status: "healthy" },
+              { name: "Return Fraud Engine", status: "healthy" },
+              { name: "Campaign Engine", status: demo.running ? "active" : "standby" },
             ].map(s => `
               <div style="padding:12px;background:var(--surface-2);border-radius:8px;text-align:center">
                 <div style="font-weight:600;font-size:13px;margin-bottom:4px">${s.name}</div>
-                <div class="a-pill ${s.status === 'healthy' ? 'a-pill-green' : 'a-pill-amber'}" style="margin-bottom:4px">${s.status}</div>
-                <div style="font-size:11px;color:var(--muted)">Uptime: ${s.uptime}</div>
+                <div class="a-pill ${s.status === 'healthy' || s.status === 'active' ? 'a-pill-green' : 'a-pill-amber'}" style="margin-bottom:4px">${s.status}</div>
               </div>
             `).join("")}
           </div>

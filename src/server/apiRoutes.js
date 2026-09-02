@@ -2928,6 +2928,27 @@ function createApiRouter(platform,) {
     },),
   );
 
+  // Admin return actions by return_id alone (no store_id needed)
+  router.post(
+    '/returns/:return_id/approve',
+    wrap(async (req,) => {
+      const ret = await platform.store.returns.findById(req.params.return_id,);
+      if (!ret) throw new Error('Return not found.',);
+      await platform.store.returns.update(req.params.return_id, { status: 'approved', approved_at: new Date().toISOString(), },);
+      return { ok: true, return_id: req.params.return_id, status: 'approved', };
+    },),
+  );
+
+  router.post(
+    '/returns/:return_id/deny',
+    wrap(async (req,) => {
+      const ret = await platform.store.returns.findById(req.params.return_id,);
+      if (!ret) throw new Error('Return not found.',);
+      await platform.store.returns.update(req.params.return_id, { status: 'denied', denied_at: new Date().toISOString(), },);
+      return { ok: true, return_id: req.params.return_id, status: 'denied', };
+    },),
+  );
+
   return router;
 }
 
