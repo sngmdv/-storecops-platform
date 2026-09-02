@@ -14,6 +14,10 @@ COPY . .
 # Create data directory for SQLite (persistent volume mounts here)
 RUN mkdir -p data
 
+# Force rebuild - invalidate source layer cache
+ARG CACHEBUST=1
+RUN echo "Build timestamp: $(date)"
+
 # Expose the port (overridden by hosting platform)
 EXPOSE 4000
 
