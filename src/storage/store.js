@@ -30,6 +30,8 @@ const COLLECTION_CAPS = {
   supportTickets: 300,
   featureUsage: 500,
   marketingSpend: 200,
+  returns: 2000,
+  returnAuditLog: 3000,
 };
 
 function createCollection(name,) {
@@ -221,6 +223,10 @@ const COLLECTIONS = [
 
   // Feature Adoption
   'featureUsage', // per-store feature usage tracking
+
+  // Return Intelligence & Fraud Shield
+  'returns', // return/exchange records with fraud scoring
+  'returnAuditLog', // immutable audit trail for return decisions
 ];
 
 /**

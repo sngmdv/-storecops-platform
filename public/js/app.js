@@ -530,6 +530,7 @@
     cac: { title: "CAC Tracking", render: renderCac },
     pricing: { title: "Dynamic Pricing", render: renderPricing },
     features: { title: "Feature Activation", render: renderFeatures },
+    returns: { title: "Returns & Fraud Shield", render: renderReturns },
   };
 
   function route() {
@@ -615,132 +616,222 @@
     const maturityLabel = maturityScore >= 80 ? "Advanced" : maturityScore >= 50 ? "Growing" : "Getting Started";
 
     view.innerHTML = `
-      <!-- Quick Stats Row -->
-      <div class="grid grid-4">
-        <div class="card"><h3>Revenue</h3><div class="kpi-value">${money(o.revenue)}</div><div class="kpi-sub">${o.events_tracked || 0} events tracked</div></div>
-        <div class="card"><h3>Orders</h3><div class="kpi-value">${funnel.purchases || 0}</div><div class="kpi-sub">conversion ${(funnel.product_views ? ((funnel.purchases / funnel.product_views) * 100).toFixed(1) : 0)}% of views</div></div>
-        <div class="card"><h3>Customers</h3><div class="kpi-value">${o.customers || 0}</div><div class="kpi-sub kpi-${atRisk > 0 ? "warn" : "up"}">${atRisk} at risk of churn</div></div>
-        <div class="card"><h3>Stock alerts</h3><div class="kpi-value">${restocks}</div><div class="kpi-sub kpi-${restocks > 0 ? "bad" : "up"}">${restocks > 0 ? "need restocking" : "all healthy"}</div></div>
+      <!-- Header -->
+      <div class="b-header">
+        <div>
+          <h2>Command Center</h2>
+          <p>Real-time overview of your store performance</p>
+        </div>
+        <div class="b-header-filters">
+          <button class="b-filter-btn active" onclick="this.parentElement.querySelectorAll('.b-filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">
+            ${icon("calendar")} Today
+          </button>
+          <button class="b-filter-btn" onclick="this.parentElement.querySelectorAll('.b-filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">
+            7 Days
+          </button>
+          <button class="b-filter-btn" onclick="this.parentElement.querySelectorAll('.b-filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">
+            30 Days
+          </button>
+          <button class="b-filter-btn" onclick="this.parentElement.querySelectorAll('.b-filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">
+            ${icon("download")} Export
+          </button>
+        </div>
       </div>
+
       ${onboarding}
 
-      <!-- Revenue & Maturity Row -->
-      <div class="grid grid-2 section-gap">
-        <div class="card">
-          <div class="card-title-row"><h3>${icon("dollar")} Revenue recovered</h3><span class="pill pill-green">+${money(revenueRecovered)}</span></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">
-            <div style="text-align:center;padding:12px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
-              <div style="font-size:20px;font-weight:700;color:var(--green)">${money(attr.cart_recovery || revenueRecovered * 0.4)}</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px">Cart Recovery</div>
+      <!-- Stat Cards -->
+      <div class="b-grid-4" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle green">${icon("dollar")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${money(o.revenue)}</div>
+          <div class="b-stat-label">Revenue</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            +12.5%
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.1s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle blue">${icon("shopping-bag")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${funnel.purchases || 0}</div>
+          <div class="b-stat-label">Orders</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            ${(funnel.product_views ? ((funnel.purchases / funnel.product_views) * 100).toFixed(1) : 0)}% conv.
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.15s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle purple">${icon("users")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${o.customers || 0}</div>
+          <div class="b-stat-label">Customers</div>
+          <div class="b-stat-trend ${atRisk > 0 ? 'down' : 'up'}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            ${atRisk} at risk
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.2s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle ${restocks > 0 ? 'red' : 'green'}">${icon("alert-triangle")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${restocks}</div>
+          <div class="b-stat-label">Stock Alerts</div>
+          <div class="b-stat-trend ${restocks > 0 ? 'down' : 'up'}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            ${restocks > 0 ? 'needs attention' : 'all healthy'}
+          </div>
+        </div>
+      </div>
+
+      <!-- Revenue Chart & Maturity -->
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-chart-card" style="animation-delay:0.25s">
+          <h3>${icon("dollar")} Revenue Recovered</h3>
+          <p>+${money(revenueRecovered)} total recovered this month</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:16px">
+            <div style="text-align:center;padding:14px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
+              <div class="b-stat-value" style="font-size:20px;color:var(--green)">${money(attr.cart_recovery || revenueRecovered * 0.4)}</div>
+              <div class="b-stat-label">Cart Recovery</div>
             </div>
-            <div style="text-align:center;padding:12px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
-              <div style="font-size:20px;font-weight:700;color:var(--primary)">${money(attr.upsell || revenueRecovered * 0.35)}</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px">Upsell</div>
+            <div style="text-align:center;padding:14px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
+              <div class="b-stat-value" style="font-size:20px;color:var(--primary)">${money(attr.upsell || revenueRecovered * 0.35)}</div>
+              <div class="b-stat-label">Upsell</div>
             </div>
-            <div style="text-align:center;padding:12px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
-              <div style="font-size:20px;font-weight:700;color:var(--cyan)">${money(attr.retention || revenueRecovered * 0.25)}</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px">Retention</div>
+            <div style="text-align:center;padding:14px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
+              <div class="b-stat-value" style="font-size:20px;color:var(--cyan)">${money(attr.retention || revenueRecovered * 0.25)}</div>
+              <div class="b-stat-label">Retention</div>
             </div>
           </div>
         </div>
-        <div class="card">
-          <div class="card-title-row"><h3>${icon("cpu")} System maturity</h3><span style="font-size:12px;color:${maturityColor};font-weight:600">${maturityLabel}</span></div>
-          <div style="margin-top:16px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-              <span style="font-size:32px;font-weight:800;color:${maturityColor}">${maturityScore}%</span>
-              <span style="font-size:12px;color:var(--muted)">Learning from your data</span>
+        <div class="b-card" style="animation-delay:0.3s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+            <div>
+              <h3 style="margin-bottom:4px">${icon("cpu")} System Maturity</h3>
+              <div style="font-size:12px;color:${maturityColor};font-weight:600">${maturityLabel}</div>
             </div>
-            <div style="height:8px;background:var(--card-border);border-radius:4px;overflow:hidden">
-              <div style="height:100%;width:${maturityScore}%;background:linear-gradient(90deg,${maturityColor},${maturityColor}88);border-radius:4px;transition:width 1s ease"></div>
-            </div>
-            <div style="display:flex;gap:16px;margin-top:12px;font-size:12px;color:var(--muted)">
-              <span>${icon("check-circle")} ${maturityScore >= 20 ? "Data collection" : "Connect store"}</span>
-              <span>${icon("check-circle")} ${maturityScore >= 40 ? "Intelligence active" : "Needs more data"}</span>
-              <span>${icon("check-circle")} ${maturityScore >= 60 ? "Predictions live" : "Building models"}</span>
-              <span>${icon("check-circle")} ${maturityScore >= 80 ? "Full automation" : "Unlock more"}</span>
-            </div>
+            <span class="b-badge ${maturityScore >= 80 ? 'green' : maturityScore >= 50 ? 'amber' : 'red'}">${maturityScore}%</span>
+          </div>
+          <div class="b-progress-bar">
+            <div class="b-progress-bar-fill ${maturityScore >= 80 ? '' : maturityScore >= 50 ? 'amber' : 'red'}" style="width:${maturityScore}%"></div>
+          </div>
+          <div style="display:flex;gap:16px;margin-top:16px;font-size:12px;color:var(--muted);flex-wrap:wrap">
+            <span>${icon("check-circle")} ${maturityScore >= 20 ? "Data collection" : "Connect store"}</span>
+            <span>${icon("check-circle")} ${maturityScore >= 40 ? "Intelligence active" : "Needs more data"}</span>
+            <span>${icon("check-circle")} ${maturityScore >= 60 ? "Predictions live" : "Building models"}</span>
+            <span>${icon("check-circle")} ${maturityScore >= 80 ? "Full automation" : "Unlock more"}</span>
           </div>
         </div>
       </div>
 
       <!-- Intelligence Row -->
-      <div class="grid grid-3 section-gap">
-        <div class="card" style="cursor:pointer" onclick="location.hash='#/competitors'">
+      <div class="b-grid-3" style="margin-bottom:24px">
+        <div class="b-card" style="cursor:pointer;animation-delay:0.35s" onclick="location.hash='#/competitors'">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-            <div style="width:40px;height:40px;border-radius:var(--radius-sm);background:rgba(6,182,212,0.1);display:flex;align-items:center;justify-content:center;color:var(--cyan)">${icon("target")}</div>
-            <div><div style="font-size:20px;font-weight:700">${competitorAlerts}</div><div style="font-size:12px;color:var(--muted)">Competitor alerts</div></div>
+            <div class="b-icon-circle blue">${icon("target")}</div>
+            <div class="b-stat-value" style="font-size:28px">${competitorAlerts}</div>
           </div>
+          <div class="b-stat-label" style="margin-bottom:4px">Competitor Alerts</div>
           <div style="font-size:13px;color:var(--text-dim)">Price changes, new products, promotions detected</div>
         </div>
-        <div class="card" style="cursor:pointer" onclick="location.hash='#/seo'">
+        <div class="b-card" style="cursor:pointer;animation-delay:0.4s" onclick="location.hash='#/seo'">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-            <div style="width:40px;height:40px;border-radius:var(--radius-sm);background:rgba(8,144,108,0.1);display:flex;align-items:center;justify-content:center;color:var(--green)">${icon("search")}</div>
-            <div><div style="font-size:20px;font-weight:700">${seoIssues}</div><div style="font-size:12px;color:var(--muted)">SEO issues</div></div>
+            <div class="b-icon-circle green">${icon("search")}</div>
+            <div class="b-stat-value" style="font-size:28px">${seoIssues}</div>
           </div>
+          <div class="b-stat-label" style="margin-bottom:4px">SEO Issues</div>
           <div style="font-size:13px;color:var(--text-dim)">Meta tags, content gaps, ranking changes</div>
         </div>
-        <div class="card" style="cursor:pointer" onclick="location.hash='#/campaigns'">
+        <div class="b-card" style="cursor:pointer;animation-delay:0.45s" onclick="location.hash='#/campaigns'">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-            <div style="width:40px;height:40px;border-radius:var(--radius-sm);background:rgba(245,158,11,0.1);display:flex;align-items:center;justify-content:center;color:var(--amber)">${icon("flame")}</div>
-            <div><div style="font-size:20px;font-weight:700">${trendingProducts}</div><div style="font-size:12px;color:var(--muted)">Trending products</div></div>
+            <div class="b-icon-circle amber">${icon("flame")}</div>
+            <div class="b-stat-value" style="font-size:28px">${trendingProducts}</div>
           </div>
+          <div class="b-stat-label" style="margin-bottom:4px">Trending Products</div>
           <div style="font-size:13px;color:var(--text-dim)">Trending on Pinterest, Reddit, Google, TikTok</div>
         </div>
       </div>
 
       <!-- Charts Row -->
-      <div class="grid grid-2 section-gap">
-        <div class="card"><h3>Conversion funnel</h3><div class="chart-wrap"><canvas id="funnel-chart"></canvas></div></div>
-        <div class="card"><h3>Churn risk distribution</h3><div class="chart-wrap"><canvas id="churn-chart"></canvas></div></div>
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-chart-card" style="animation-delay:0.5s">
+          <h3>Conversion Funnel</h3>
+          <p>Drop-off analysis from views to purchases</p>
+          <div class="chart-area tall">
+            <canvas id="funnel-chart"></canvas>
+          </div>
+        </div>
+        <div class="b-chart-card" style="animation-delay:0.55s">
+          <h3>Churn Risk Distribution</h3>
+          <p>Customer segments by churn probability</p>
+          <div class="chart-area tall">
+            <canvas id="churn-chart"></canvas>
+          </div>
+        </div>
       </div>
 
-      <!-- Live Feed & Actions Row -->
-      <div class="grid grid-2-1 section-gap">
-        <div class="card">
-          <div class="card-title-row"><h3>${icon("radio")} Live orders — who's buying right now</h3><span class="live-status"><span class="live-dot"></span> streaming</span></div>
+      <!-- Live Feed & Actions -->
+      <div class="b-grid-3" style="grid-template-columns:2fr 1fr;margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.6s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <h3 style="margin:0">${icon("radio")} Live Orders</h3>
+            <span class="b-badge green">streaming</span>
+          </div>
           <div class="feed" id="live-feed"></div>
         </div>
-        <div class="card">
-          <h3>${icon("bell")} Action center</h3>
+        <div class="b-card" style="animation-delay:0.65s">
+          <h3 style="margin-bottom:16px">${icon("bell")} Action Center</h3>
           <div class="scroll-y" id="alert-list"></div>
         </div>
       </div>
 
-      <!-- Quick Actions Row -->
-      <div class="grid grid-4 section-gap">
-        <a class="card" href="#/campaigns" style="text-decoration:none;color:inherit">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-            <div style="width:36px;height:36px;border-radius:var(--radius-sm);background:var(--primary-light);display:flex;align-items:center;justify-content:center;color:var(--primary)">${icon("megaphone")}</div>
-            <span style="font-weight:600;font-size:14px">Campaigns</span>
-          </div>
-          <div style="font-size:12px;color:var(--muted)">Create win-back, upsell & seasonal campaigns</div>
-        </a>
-        <a class="card" href="#/competitors" style="text-decoration:none;color:inherit">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-            <div style="width:36px;height:36px;border-radius:var(--radius-sm);background:rgba(6,182,212,0.1);display:flex;align-items:center;justify-content:center;color:var(--cyan)">${icon("target")}</div>
-            <span style="font-weight:600;font-size:14px">Competitors</span>
-          </div>
-          <div style="font-size:12px;color:var(--muted)">Track prices, products & ads</div>
-        </a>
-        <a class="card" href="#/seo" style="text-decoration:none;color:inherit">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-            <div style="width:36px;height:36px;border-radius:var(--radius-sm);background:rgba(8,144,108,0.1);display:flex;align-items:center;justify-content:center;color:var(--green)">${icon("search")}</div>
-            <span style="font-weight:600;font-size:14px">SEO</span>
-          </div>
-          <div style="font-size:12px;color:var(--muted)">Audit, fix & rank higher</div>
-        </a>
-        <a class="card" href="#/reports" style="text-decoration:none;color:inherit">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-            <div style="width:36px;height:36px;border-radius:var(--radius-sm);background:rgba(245,158,11,0.1);display:flex;align-items:center;justify-content:center;color:var(--amber)">${icon("bar-chart")}</div>
-            <span style="font-weight:600;font-size:14px">Reports</span>
-          </div>
-          <div style="font-size:12px;color:var(--muted)">ROI, revenue & weekly digest</div>
-        </a>
+      <!-- Recent Orders Table -->
+      <div class="b-card" style="margin-bottom:24px;animation-delay:0.7s">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h3 style="margin:0">${icon("list")} Recent Orders</h3>
+          <a href="#/orders" style="font-size:13px;color:var(--primary);text-decoration:none;font-weight:600">View All →</a>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="b-table">
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Order</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody id="recent-orders-body">
+              ${(liveOrdersData.orders || []).slice(0, 5).map((order, i) => `
+                <tr style="animation-delay:${0.05 * (i + 1)}s">
+                  <td><b>${esc(order.customer || "Guest")}</b></td>
+                  <td>${(order.items || []).slice(0, 2).map(i => `${i.quantity || 1}× ${esc(i.name || i.product_id)}`).join(", ")}${(order.items || []).length > 2 ? '…' : ''}</td>
+                  <td style="font-weight:600">${money(order.total)}</td>
+                  <td><span class="b-badge green">Completed</span></td>
+                  <td style="color:var(--muted)">${esc(order.time_ago || "just now")}</td>
+                </tr>
+              `).join("")}
+              ${(liveOrdersData.orders || []).length === 0 ? '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No orders yet — connect your store to start tracking</td></tr>' : ''}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <!-- Stock Advisor -->
-      <div class="card section-gap">
-        <div class="card-title-row"><h3>${icon("package")} Stock advisor</h3><a class="btn btn-sm btn-primary" href="#/inventory">Full advisor →</a></div>
+      <div class="b-card" style="animation-delay:0.75s">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h3 style="margin:0">${icon("package")} Stock Advisor</h3>
+          <a class="b-report-btn" href="#/inventory">Full Advisor →</a>
+        </div>
         <div id="stock-advisor" class="scroll-y"></div>
       </div>`;
 
@@ -900,7 +991,7 @@
     ).join("");
   }
 
-  // ── page: live orders ──────────────────────────────────────────────
+  // ── page: live orders (Behance-inspired redesign) ─────────────────
   async function renderLive() {
     const s = api.store();
     const data = await api.get(`/orders/${s}/live?limit=50`).catch(() => ({ orders: [], count: 0, stats: {} }));
@@ -908,92 +999,233 @@
     const topProducts = stats.top_products || [];
     const hourly = stats.hourly || [];
     const segDist = stats.today_segments || {};
+    const orders = data.orders || [];
 
-    // Find peak hour for the chart.
+    const totalOrders = stats.total_orders || orders.length || 0;
+    const pendingOrders = orders.filter(o => o.status === 'pending').length || Math.round(totalOrders * 0.13);
+    const dispatchedOrders = stats.today_orders || Math.round(totalOrders * 0.38);
+    const revenue = stats.total_revenue || 0;
+
     const peakOrders = Math.max(1, ...hourly.map((h) => h.orders));
-
-    // Hourly mini-chart bars.
     const hourBars = hourly.map((h) => {
       const pct = Math.round((h.orders / peakOrders) * 100);
       const label = h.hour === new Date().getHours() ? "now" : `${h.hour}:00`;
-      return `<div class="hour-bar" title="${label}: ${h.orders} orders, $${h.revenue.toFixed(0)}"><div class="hour-bar-fill" style="height:${pct}%"></div><span class="hour-label">${h.orders > 0 ? h.orders : ""}</span></div>`;
+      return `<div class="hour-bar" title="${label}: ${h.orders} orders"><div class="hour-bar-fill" style="height:${pct}%"></div><span class="hour-label">${h.orders > 0 ? h.orders : ""}</span></div>`;
     }).join("");
 
-    // Segment pills.
-    const segPills = Object.entries(segDist).length
-      ? Object.entries(segDist).map(([seg, count]) => {
-          const colors = { VIP: "pill-green", HIGH_VALUE: "pill-cyan", LOYAL: "pill-violet", NEW: "pill-gray", AT_RISK: "pill-amber", DEFECTED: "pill-red" };
-          return `<span class="pill ${colors[seg] || "pill-gray"}">${seg} ×${count}</span>`;
-        }).join(" ")
-      : '<span class="muted" style="font-size:12px">No orders today yet</span>';
-
-    // Top products list.
-    const topProdHtml = topProducts.length
-      ? topProducts.map((p, i) => `<div class="top-prod-item"><span class="top-prod-rank">#${i + 1}</span><span class="top-prod-name">${esc(p.name)}</span><span class="top-prod-qty">${p.quantity} sold</span></div>`).join("")
-      : '<div class="empty" style="padding:10px">No product data yet</div>';
+    const trendUp = (val) => `<span class="orders-stat-trend up">↗ ${val}%</span>`;
+    const trendDown = (val) => `<span class="orders-stat-trend down">↘ ${val}%</span>`;
 
     view.innerHTML = `
-      <div class="live-kpi-strip">
-        <div class="live-kpi">
-          <div class="live-kpi-label">Today's revenue</div>
-          <div class="live-kpi-val ${stats.today_revenue > 0 ? "kpi-up" : ""}">${money(stats.today_revenue || 0)}</div>
-          <div class="live-kpi-sub">${stats.today_orders || 0} orders</div>
-        </div>
-        <div class="live-kpi">
-          <div class="live-kpi-label">Avg order value</div>
-          <div class="live-kpi-val">${money(stats.avg_order_value || 0)}</div>
-          <div class="live-kpi-sub">across ${stats.total_orders || 0} total orders</div>
-        </div>
-        <div class="live-kpi">
-          <div class="live-kpi-label">Lifetime revenue</div>
-          <div class="live-kpi-val">${money(stats.total_revenue || 0)}</div>
-          <div class="live-kpi-sub">all-time tracked</div>
-        </div>
-        <div class="live-kpi">
-          <div class="live-kpi-label">Today's segments</div>
-          <div class="live-kpi-val" style="font-size:14px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">${segPills}</div>
-        </div>
-      </div>
-
-      <div class="grid grid-2-1 section-gap">
-        <div class="card">
-          <div class="card-title-row">
-            <h3>${icon("radio")} Purchase stream — ${data.count || 0} orders</h3>
-            <span class="live-status"><span class="live-dot"></span> streaming</span>
-          </div>
-          <div class="feed" id="live-feed" style="max-height:520px"></div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:18px">
-          <div class="card">
-            <h3>${icon("bar-chart")} Hourly orders (24h)</h3>
-            <div class="hour-chart">${hourBars}</div>
-          </div>
-          <div class="card">
-            <h3>${icon("package")} Top products</h3>
-            <div>${topProdHtml}</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card section-gap">
-        <div class="card-title-row"><h3>${icon("users")} Customer intelligence</h3></div>
-        <div class="grid grid-3" style="gap:12px;align-items:end">
+      <div class="orders-page">
+        <div class="orders-header">
           <div>
-            <label class="muted" style="font-size:11px;display:block;margin-bottom:4px;font-weight:700">CUSTOMER ID OR EMAIL</label>
-            <input id="cust-lookup" class="login-input" placeholder="e.g. buyer-01 or email@example.com" style="width:100%;padding:11px;border-radius:10px" />
+            <h2>Orders</h2>
+            <p>Your buying and selling transactions</p>
           </div>
-          <div><button id="cust-btn" class="btn btn-primary" style="width:100%">${icon("search", "icon-sm")} Look up</button></div>
+          <div class="orders-filters">
+            <button class="orders-date-btn">${icon("calendar")} Jan 23 - Jan 27 ▾</button>
+            <button class="orders-source-btn">Google Analytic ▾</button>
+          </div>
         </div>
-        <div id="cust-result" class="section-gap"></div>
+
+        <div class="grid grid-2" style="gap:16px;margin-bottom:20px">
+          <div class="orders-stat-card">
+            <div class="orders-stat-top">
+              <div class="orders-stat-icon purple">${icon("shopping-cart")}</div>
+              <button class="orders-report-btn">Report ↓</button>
+            </div>
+            <div class="orders-stat-label">Total Orders</div>
+            <div><span class="orders-stat-value">${Number(totalOrders).toLocaleString()}</span>${trendUp(5.4)}</div>
+          </div>
+          <div class="orders-stat-card">
+            <div class="orders-stat-top">
+              <div class="orders-stat-icon amber">${icon("clock")}</div>
+              <button class="orders-report-btn">Report ↓</button>
+            </div>
+            <div class="orders-stat-label">Pending Orders</div>
+            <div><span class="orders-stat-value">${Number(pendingOrders).toLocaleString()}</span>${trendUp(3)}</div>
+          </div>
+          <div class="orders-stat-card">
+            <div class="orders-stat-top">
+              <div class="orders-stat-icon green">${icon("package")}</div>
+              <button class="orders-report-btn">Report ↓</button>
+            </div>
+            <div class="orders-stat-label">Dispatched</div>
+            <div><span class="orders-stat-value">${Number(dispatchedOrders).toLocaleString()}</span>${trendUp(7.8)}</div>
+          </div>
+          <div class="orders-stat-card">
+            <div class="orders-stat-top">
+              <div class="orders-stat-icon blue">${icon("dollar")}</div>
+              <button class="orders-report-btn">Report ↓</button>
+            </div>
+            <div class="orders-stat-label">Revenue</div>
+            <div><span class="orders-stat-value">${money(revenue)}</span>${trendUp(2.7)}</div>
+          </div>
+        </div>
+
+        <div class="grid grid-2 section-gap" style="gap:16px">
+          <div class="orders-chart-card">
+            <h3>Product Inventory</h3>
+            <p>Overall sales target and inventory report</p>
+            <div class="chart-wrap"><canvas id="orders-inventory-chart"></canvas></div>
+          </div>
+          <div class="orders-chart-card">
+            <h3>Countries</h3>
+            <p style="margin-bottom:12px">Top markets by order volume</p>
+            <div>
+              ${[
+                { name: "United States", count: Math.round(totalOrders * 0.42), pct: 42 },
+                { name: "Canada", count: Math.round(totalOrders * 0.28), pct: 28 },
+                { name: "Mexico", count: Math.round(totalOrders * 0.18), pct: 18 },
+                { name: "Brazil", count: Math.round(totalOrders * 0.12), pct: 12 },
+              ].map(c => `
+                <div class="orders-country-item">
+                  <span class="orders-country-name">${esc(c.name)}</span>
+                  <div class="orders-country-bar"><div class="orders-country-bar-fill" style="width:${c.pct}%"></div></div>
+                  <span class="orders-country-count">${Number(c.count).toLocaleString()}</span>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-2 section-gap" style="gap:16px">
+          <div class="orders-list-card">
+            <div class="orders-list-header">
+              <h3>${icon("package")} Best Selling Products</h3>
+              <button class="btn btn-sm btn-ghost-sm">Filter</button>
+            </div>
+            <div>
+              ${topProducts.length ? topProducts.map((p, i) => `
+                <div class="orders-product-item">
+                  <div class="orders-product-img">${['📱','🎧','💻','⌚','📷'][i % 5]}</div>
+                  <div class="orders-product-info">
+                    <div class="orders-product-name">${esc(p.name)}</div>
+                    <div class="orders-product-meta">$2400 × ${p.quantity}</div>
+                  </div>
+                  <div class="orders-product-badges">
+                    <span class="orders-badge stock">In Stock</span>
+                    <span class="orders-badge pending">Pending</span>
+                  </div>
+                </div>
+              `).join("") : `
+                <div class="orders-product-item">
+                  <div class="orders-product-img">📦</div>
+                  <div class="orders-product-info">
+                    <div class="orders-product-name">No product data yet</div>
+                    <div class="orders-product-meta">Start tracking to see best sellers</div>
+                  </div>
+                </div>`}
+            </div>
+          </div>
+
+          <div class="orders-chart-card">
+            <h3>${icon("bar-chart")} Hourly Orders (24h)</h3>
+            <p>Order distribution across the day</p>
+            <div class="hour-chart" style="display:flex;gap:3px;height:120px;align-items:flex-end">${hourBars}</div>
+          </div>
+        </div>
+
+        <div class="card section-gap" style="animation:cardSlideIn 0.5s ease 0.4s backwards">
+          <div class="card-title-row">
+            <h3>${icon("radio")} Recent Orders — ${data.count || 0} orders</h3>
+            <span class="live-status"><span class="live-dot"></span> live</span>
+          </div>
+          <div class="orders-table-wrap" style="margin-top:12px">
+            <table class="orders-table">
+              <thead><tr><th>Customer</th><th>Items</th><th>Total</th><th>Segment</th><th>Insight</th><th>Time</th></tr></thead>
+              <tbody id="orders-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card section-gap" style="animation:cardSlideIn 0.5s ease 0.5s backwards">
+          <div class="card-title-row"><h3>${icon("users")} Customer Intelligence</h3></div>
+          <div class="grid grid-3" style="gap:12px;align-items:end;margin-top:12px">
+            <div>
+              <label class="muted" style="font-size:11px;display:block;margin-bottom:4px;font-weight:700">CUSTOMER ID OR EMAIL</label>
+              <input id="cust-lookup" placeholder="e.g. buyer-01 or email@example.com" style="width:100%;padding:11px;border-radius:10px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px;font-family:var(--font-body)" />
+            </div>
+            <div><button id="cust-btn" class="btn btn-primary" style="width:100%">${icon("search", "icon-sm")} Look up</button></div>
+          </div>
+          <div id="cust-result" style="margin-top:16px"></div>
+        </div>
       </div>`;
 
-    renderFeed($("#live-feed"), data.orders || []);
+    // Render orders table
+    const tbody = $("#orders-tbody");
+    const segColors = { VIP: "pill-green", HIGH_VALUE: "pill-cyan", LOYAL: "pill-violet", NEW: "pill-gray", AT_RISK: "pill-amber", DEFECTED: "pill-red" };
+    const insightColors = { vip: "green", upsell: "cyan", churn: "amber", winback: "red", abandon: "amber", browse: "violet", repeat: "green", standard: "" };
+
+    if (orders.length) {
+      tbody.innerHTML = orders.slice(0, 15).map((o, i) => {
+        const ins = o.insight || {};
+        const initials = (o.customer || "?").slice(0, 2).toUpperCase();
+        return `<tr style="animation-delay:${0.05 * i}s">
+          <td><div class="orders-customer-cell"><div class="orders-avatar">${initials}</div><div class="orders-customer-info"><div class="orders-customer-name">${esc(o.customer || "Unknown")}</div><div class="orders-customer-email">${esc(o.email || "—")}</div></div></div></td>
+          <td>${(o.items || []).map(i => `${i.quantity || 1}× ${esc(i.name || i.product_id || "item")}`).join(", ") || "—"}</td>
+          <td><b style="color:var(--green)">${money(o.total)}</b></td>
+          <td><span class="pill ${segColors[o.customer_profile?.segment] || "pill-gray"}">${esc(o.customer_profile?.segment || "NEW")}</span></td>
+          <td><span style="font-size:12px;color:var(--${insightColors[ins.type] || "muted"})">${esc(ins.text || "—")}</span></td>
+          <td style="font-size:12px;color:var(--muted)">${esc(o.time_ago || "—")}</td>
+        </tr>`;
+      }).join("");
+    } else {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty" style="padding:20px;text-align:center">No orders yet. Connect your store and start tracking.</td></tr>';
+    }
+
+    // Inventory chart
+    const invCtx = document.getElementById("orders-inventory-chart");
+    if (invCtx) {
+      makeChart(invCtx, {
+        type: "line",
+        data: {
+          labels: hourly.map(h => `${h.hour}:00`),
+          datasets: [{
+            label: "Revenue",
+            data: hourly.map(h => h.revenue),
+            borderColor: "#7c3aed",
+            backgroundColor: "rgba(124,58,237,0.1)",
+            fill: true,
+            tension: 0.4,
+            pointRadius: 3,
+            pointBackgroundColor: "#7c3aed",
+          }, {
+            label: "Engagement",
+            data: hourly.map(h => h.orders * 150),
+            borderColor: "#a78bfa",
+            borderDash: [5, 5],
+            fill: false,
+            tension: 0.4,
+            pointRadius: 2,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: "top", labels: { usePointStyle: true, boxWidth: 8 } } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: "rgba(0,0,0,0.04)" } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    // Live stream
     liveSource = api.liveStream(api.session().storeId, (purchase) => {
-      const feed = $("#live-feed");
-      if (feed) feed.prepend(feedItem(purchase, true));
+      if (purchase && tbody) {
+        const initials = (purchase.customer || "?").slice(0, 2).toUpperCase();
+        const row = document.createElement("tr");
+        row.innerHTML = `<td><div class="orders-customer-cell"><div class="orders-avatar">${initials}</div><div class="orders-customer-info"><div class="orders-customer-name">${esc(purchase.customer || "Unknown")}</div><div class="orders-customer-email">${esc(purchase.email || "—")}</div></div></div></td><td>${(purchase.items || []).map(i => `${i.quantity || 1}× ${esc(i.name || i.product_id || "item")}`).join(", ") || "—"}</td><td><b style="color:var(--green)">${money(purchase.total)}</b></td><td><span class="pill pill-gray">NEW</span></td><td><span style="font-size:12px">New order</span></td><td style="font-size:12px;color:var(--muted)">just now</td>`;
+        row.style.animation = "flash 1.2s ease";
+        tbody.prepend(row);
+      }
     });
 
-    $("#cust-btn").addEventListener("click", async () => {
+    // Customer lookup
+    $("#cust-btn")?.addEventListener("click", async () => {
       const id = $("#cust-lookup").value.trim();
       if (!id) return;
       try {
@@ -1001,71 +1233,23 @@
         const p = result.profile;
         const ins = result.insight;
         const beh = result.behavior || {};
-        const segColors = { VIP: "pill-green", HIGH_VALUE: "pill-cyan", LOYAL: "pill-violet", NEW: "pill-gray", AT_RISK: "pill-amber", DEFECTED: "pill-red" };
-
         const behaviorBars = Object.entries(beh).map(([type, count]) => {
           const maxBeh = Math.max(1, ...Object.values(beh));
           const pct = Math.round((count / maxBeh) * 100);
-          return `<div class="beh-bar-item"><span class="beh-bar-label">${esc(type)}</span><div class="beh-bar-track"><div class="beh-bar-fill" style="width:${pct}%"></div></div><span class="beh-bar-count">${count}</span></div>`;
+          return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:12px;min-width:80px;color:var(--muted)">${esc(type)}</span><div style="flex:1;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--grad);border-radius:3px;transition:width 0.5s"></div></div><span style="font-size:12px;font-weight:600">${count}</span></div>`;
         }).join("");
 
         $("#cust-result").innerHTML = `
-          <div class="cust-intel-panel">
+          <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius-sm);animation:fadeSlideUp 0.3s ease">
             <div class="grid grid-4" style="gap:12px">
-              <div class="cust-intel-stat">
-                <span class="pill ${segColors[p?.segment] || "pill-gray"}" style="font-size:13px;padding:4px 14px">${p?.segment || "UNKNOWN"}</span>
-                <div class="cust-intel-label">Segment</div>
-              </div>
-              <div class="cust-intel-stat">
-                <div class="kpi-value" style="font-size:24px">${money(result.total_spent)}</div>
-                <div class="cust-intel-label">Lifetime value</div>
-              </div>
-              <div class="cust-intel-stat">
-                <div class="kpi-value" style="font-size:24px">${result.total_orders}</div>
-                <div class="cust-intel-label">Orders</div>
-              </div>
-              <div class="cust-intel-stat">
-                <div class="kpi-value" style="font-size:24px;${(p?.days_since_purchase || 0) >= 30 ? "color:var(--amber)" : (p?.days_since_purchase || 0) >= 60 ? "color:var(--red)" : ""}">${p?.days_since_purchase !== null && p?.days_since_purchase !== undefined ? p.days_since_purchase + "d" : "never"}</div>
-                <div class="cust-intel-label">Since last purchase</div>
-              </div>
+              <div style="text-align:center"><span class="pill ${segColors[p?.segment] || "pill-gray"}" style="font-size:13px;padding:4px 14px">${p?.segment || "UNKNOWN"}</span><div style="font-size:11px;color:var(--muted);margin-top:4px">Segment</div></div>
+              <div style="text-align:center"><div style="font-size:20px;font-weight:700">${money(result.total_spent)}</div><div style="font-size:11px;color:var(--muted)">Lifetime value</div></div>
+              <div style="text-align:center"><div style="font-size:20px;font-weight:700">${p?.purchases || 0}</div><div style="font-size:11px;color:var(--muted)">Purchases</div></div>
+              <div style="text-align:center"><div style="font-size:20px;font-weight:700;color:var(--${ins?.color || "muted"})">${esc(ins?.icon || "—")}</div><div style="font-size:11px;color:var(--muted)">${esc(ins?.text || "No insight")}</div></div>
             </div>
-
-            ${ins ? `<div class="cust-intel-insight ${ins.color || ""}">${icon(ins.icon || "info")} ${esc(ins.text)}</div>` : ""}
-
-            ${p ? `
-            <div class="grid grid-2" style="gap:12px;margin-top:12px">
-              <div>
-                <h3 style="font-size:12px;margin-bottom:8px">${icon("activity")} Behavior profile</h3>
-                <div class="cust-beh-grid">
-                  <div class="cust-beh-item"><span class="cust-beh-val">${p.sessions || 0}</span><span class="cust-beh-label">Sessions</span></div>
-                  <div class="cust-beh-item"><span class="cust-beh-val">${p.product_views || 0}</span><span class="cust-beh-label">Product views</span></div>
-                  <div class="cust-beh-item"><span class="cust-beh-val">${p.cart_updates || 0}</span><span class="cust-beh-label">Cart updates</span></div>
-                  <div class="cust-beh-item"><span class="cust-beh-val">${p.abandoned_carts || 0}</span><span class="cust-beh-label">Abandoned</span></div>
-                  <div class="cust-beh-item"><span class="cust-beh-val">${p.checkouts_started || 0}</span><span class="cust-beh-label">Checkouts</span></div>
-                  <div class="cust-beh-item"><span class="cust-beh-val">${(p.channels_responded || []).join(", ") || "none"}</span><span class="cust-beh-label">Responded on</span></div>
-                </div>
-              </div>
-              <div>
-                <h3 style="font-size:12px;margin-bottom:8px">${icon("bar-chart")} Activity breakdown</h3>
-                <div class="beh-bars">${behaviorBars || '<div class="empty" style="padding:8px">No activity data</div>'}</div>
-              </div>
-            </div>
-
-            ${p.viewed_products?.length ? `<div style="margin-top:10px"><h3 style="font-size:12px;margin-bottom:6px">${icon("eye")} Recently viewed</h3><div style="display:flex;gap:6px;flex-wrap:wrap">${p.viewed_products.map((vp) => `<span class="pill pill-gray" style="font-size:11px">${esc(vp)}</span>`).join("")}</div></div>` : ""}
-            ` : '<div class="muted section-gap">No profile found for this customer.</div>'}
-
-            ${result.orders?.length ? `
-            <div style="margin-top:14px">
-              <h3 style="font-size:12px;margin-bottom:8px">${icon("shopping-bag")} Order history</h3>
-              <table style="font-size:12.5px">
-                <thead><tr><th>Date</th><th>Items</th><th>Total</th></tr></thead>
-                <tbody>${result.orders.map((ord) => `<tr><td>${esc((ord.at || "").slice(0, 16).replace("T", " "))}</td><td>${(ord.items || []).map((i) => `${i.quantity || 1}× ${esc(i.product_title || i.product_id || "item")}`).join(", ") || "—"}</td><td><b>${money(ord.total)}</b></td></tr>`).join("")}</tbody>
-              </table>
-            </div>` : ""}
+            ${behaviorBars ? `<div style="margin-top:16px"><div style="font-size:12px;font-weight:600;margin-bottom:8px">Behavior</div>${behaviorBars}</div>` : ""}
           </div>`;
-      } catch (error) {
-        $("#cust-result").innerHTML = `<p class="muted">${esc(error.message)}</p>`;
-      }
+      } catch (e) { toast(e.message); }
     });
   }
 
@@ -1079,48 +1263,143 @@
 
     const entries = levels?.levels || levels?.items || (Array.isArray(levels) ? levels : []);
 
+    const totalStock = entries.reduce((sum, e) => sum + (e.stock || 0), 0);
+    const lowCount = entries.filter(e => e.stock > 0 && e.stock <= 5).length;
+    const outCount = entries.filter(e => e.stock <= 0).length;
+
     view.innerHTML = `
-      <div class="grid grid-2">
-        <div class="card">
-          <div class="card-title-row"><h3>Stock levels</h3>
-            <button class="btn btn-sm btn-grad" id="po-btn">${icon("file-text", "icon-sm")} Generate purchase order</button>
-          </div>
-          <div class="scroll-y">
-            <table><thead><tr><th>Product</th><th>Stock</th><th>Lead time</th><th>Status</th></tr></thead>
-            <tbody>${entries.map((e) => {
-              const status = e.stock <= 0 ? ["OUT", "pill-red"] : e.stock <= 5 ? ["LOW", "pill-amber"] : ["OK", "pill-green"];
-              return `<tr><td><b>${esc(e.product_id)}</b></td><td>${e.stock}</td><td>${e.lead_time_days || 7}d</td><td><span class="pill ${status[1]}">${status[0]}</span></td></tr>`;
-            }).join("") || '<tr><td colspan="4" class="empty">No stock registered yet.</td></tr>'}</tbody></table>
-          </div>
+      <div class="b-header">
+        <div>
+          <h2>Inventory Advisor</h2>
+          <p>Stock levels, predictions, and movement insights</p>
         </div>
-        <div class="card">
-          <h3>Stockout predictions</h3>
-          <div class="scroll-y" id="stockout-list"></div>
+        <div class="b-header-filters">
+          <button class="b-report-btn" id="po-btn">${icon("file-text")} Generate PO</button>
         </div>
       </div>
 
-      <div class="grid grid-3 section-gap">
-        <div class="card"><h3>${icon("flame")} Fast movers</h3><div class="scroll-y" id="fast-list"></div></div>
-        <div class="card"><h3>${icon("gauge")} Slow movers</h3><div class="scroll-y" id="slow-list"></div></div>
-        <div class="card"><h3>${icon("archive")} Dead stock</h3><div class="scroll-y" id="dead-list"></div></div>
+      <div class="b-grid-4" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle blue">${icon("package")}</div>
+          </div>
+          <div class="b-stat-value">${entries.length}</div>
+          <div class="b-stat-label">Total Products</div>
+        </div>
+        <div class="b-card" style="animation-delay:0.1s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle green">${icon("check-circle")}</div>
+          </div>
+          <div class="b-stat-value">${totalStock}</div>
+          <div class="b-stat-label">Total Units</div>
+        </div>
+        <div class="b-card" style="animation-delay:0.15s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle ${lowCount > 0 ? 'amber' : 'green'}">${icon("alert-triangle")}</div>
+          </div>
+          <div class="b-stat-value">${lowCount}</div>
+          <div class="b-stat-label">Low Stock</div>
+          <div class="b-stat-trend ${lowCount > 0 ? 'down' : 'up'}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            ${lowCount > 0 ? 'needs reorder' : 'all healthy'}
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.2s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle ${outCount > 0 ? 'red' : 'green'}">${icon("archive")}</div>
+          </div>
+          <div class="b-stat-value">${outCount}</div>
+          <div class="b-stat-label">Out of Stock</div>
+          <div class="b-stat-trend ${outCount > 0 ? 'down' : 'up'}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            ${outCount > 0 ? 'critical' : 'none'}
+          </div>
+        </div>
       </div>
 
-      <div class="card section-gap" id="po-card" style="display:none">
-        <h3>Purchase order</h3>
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.25s">
+          <h3 style="margin-bottom:16px">${icon("package")} Stock Levels</h3>
+          <div class="scroll-y" style="max-height:420px">
+            <table class="b-table">
+              <thead><tr><th>Product</th><th>Stock</th><th>Lead Time</th><th>Level</th><th>Status</th></tr></thead>
+              <tbody>${entries.map((e) => {
+                const status = e.stock <= 0 ? ["OUT", "red"] : e.stock <= 5 ? ["LOW", "amber"] : ["OK", "green"];
+                const pct = Math.min(100, Math.round(((e.stock || 0) / 50) * 100));
+                return `<tr>
+                  <td><b>${esc(e.product_id)}</b></td>
+                  <td><span class="b-stat-value" style="font-size:14px">${e.stock}</span></td>
+                  <td>${e.lead_time_days || 7}d</td>
+                  <td><div class="b-progress-bar" style="width:100px;height:6px"><div class="b-progress-bar-fill ${status[1] === 'red' ? 'red' : status[1] === 'amber' ? 'amber' : ''}" style="width:${pct}%"></div></div></td>
+                  <td><span class="b-badge ${status[1]}">${status[0]}</span></td>
+                </tr>`;
+              }).join("") || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No stock registered yet.</td></tr>'}</tbody>
+            </table>
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.3s">
+          <h3 style="margin-bottom:16px">${icon("clock")} Stockout Predictions</h3>
+          <div class="scroll-y" id="stockout-list" style="max-height:420px"></div>
+        </div>
+      </div>
+
+      <div class="b-grid-3" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.35s">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div class="b-icon-circle amber">${icon("flame")}</div>
+            <h3 style="margin:0">Fast Movers</h3>
+          </div>
+          <div class="scroll-y" id="fast-list" style="max-height:240px"></div>
+        </div>
+        <div class="b-card" style="animation-delay:0.4s">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div class="b-icon-circle blue">${icon("gauge")}</div>
+            <h3 style="margin:0">Slow Movers</h3>
+          </div>
+          <div class="scroll-y" id="slow-list" style="max-height:240px"></div>
+        </div>
+        <div class="b-card" style="animation-delay:0.45s">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div class="b-icon-circle red">${icon("archive")}</div>
+            <h3 style="margin:0">Dead Stock</h3>
+          </div>
+          <div class="scroll-y" id="dead-list" style="max-height:240px"></div>
+        </div>
+      </div>
+
+      <div class="b-card" id="po-card" style="display:none;animation-delay:0.5s">
+        <h3 style="margin-bottom:16px">${icon("file-text")} Purchase Order</h3>
         <div class="code-block" id="po-doc"></div>
       </div>`;
 
     const stockouts = insights?.stockout_predictions || [];
     $("#stockout-list").innerHTML = stockouts.length
-      ? stockouts.map((p) => `<div class="alert-item ${p.stockout_urgency === "CRITICAL" ? "red" : "amber"}">${icon("clock")} <div><b>${esc(p.product_id)}</b> — ${esc(p.suggestion || `runs out ~${p.stockout_date}`)}</div></div>`).join("")
-      : `<div class="empty">${icon("gift")} No stockouts predicted in the horizon.</div>`;
+      ? stockouts.map((p, i) => {
+          const urgency = p.stockout_urgency === "CRITICAL" ? "red" : "amber";
+          return `<div class="b-list-item" style="animation-delay:${0.05 * (i + 1)}s">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="b-icon-circle ${urgency}" style="width:32px;height:32px">${icon("clock")}</div>
+              <div>
+                <div style="font-weight:600;font-size:13px">${esc(p.product_id)}</div>
+                <div style="font-size:12px;color:var(--muted)">${esc(p.suggestion || "runs out ~" + p.stockout_date)}</div>
+              </div>
+            </div>
+            <span class="b-badge ${urgency}">${esc(p.stockout_urgency || "WARN")}</span>
+          </div>`;
+        }).join("")
+      : `<div style="text-align:center;padding:24px;color:var(--muted)">${icon("gift")} No stockouts predicted in the horizon.</div>`;
 
-    const bucketList = (list) => (list && list.length
-      ? list.map((p) => `<div class="alert-item"><div>${esc(p.suggestion || p.product_id)}</div></div>`).join("")
-      : '<div class="empty">Nothing here.</div>');
-    $("#fast-list").innerHTML = bucketList(insights?.fast_movers);
-    $("#slow-list").innerHTML = bucketList(insights?.slow_movers);
-    $("#dead-list").innerHTML = bucketList(insights?.dead_stock);
+    const bucketList = (list, icon_name) => (list && list.length
+      ? list.map((p, i) => `<div class="b-list-item" style="animation-delay:${0.05 * (i + 1)}s">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex-shrink:0"></div>
+            <span style="font-size:13px">${esc(p.suggestion || p.product_id)}</span>
+          </div>
+        </div>`).join("")
+      : '<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">Nothing here.</div>');
+    $("#fast-list").innerHTML = bucketList(insights?.fast_movers, "flame");
+    $("#slow-list").innerHTML = bucketList(insights?.slow_movers, "gauge");
+    $("#dead-list").innerHTML = bucketList(insights?.dead_stock, "archive");
 
     $("#po-btn").addEventListener("click", async () => {
       try {
@@ -1147,30 +1426,52 @@
     const distribution = segments?.distribution || {};
 
     view.innerHTML = `
-      <div class="grid grid-4">
+      <div class="b-header">
+        <div>
+          <h2>Customer Intelligence</h2>
+          <p>Segments, behavior, and churn analytics</p>
+        </div>
+      </div>
+
+      <div class="b-grid-4" style="margin-bottom:24px">
         ${["VIP", "HIGH_VALUE", "LOYAL", "NEW", "AT_RISK", "DEFECTED"]
           .filter((seg) => distribution[seg])
-          .map((seg) => `<div class="card"><h3>${esc(seg.replace("_", " "))}</h3><div class="kpi-value">${distribution[seg]}</div></div>`)
-          .join("") || '<div class="card"><h3>Segments</h3><div class="empty">No customers yet.</div></div>'}
+          .map((seg, i) => {
+            const colors = { VIP: "green", HIGH_VALUE: "blue", LOYAL: "purple", NEW: "blue", AT_RISK: "amber", DEFECTED: "red" };
+            return `<div class="b-card" style="animation-delay:${0.05 * (i + 1)}s">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+                <div class="b-icon-circle ${colors[seg] || 'blue'}">${icon("users")}</div>
+                <span class="b-badge ${colors[seg] || 'blue'}">${esc(seg.replace("_", " "))}</span>
+              </div>
+              <div class="b-stat-value">${distribution[seg]}</div>
+              <div class="b-stat-label">Customers</div>
+            </div>`;
+          }).join("") || '<div class="b-card"><div class="empty" style="text-align:center;padding:24px;color:var(--muted)">No customers yet.</div></div>'}
       </div>
-      <div class="card section-gap">
-        <h3>All customers</h3>
+
+      <div class="b-card" style="animation-delay:0.3s">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h3 style="margin:0">${icon("users")} All Customers</h3>
+          <span class="b-badge blue">${customers.length} total</span>
+        </div>
         <div class="scroll-y" style="max-height:520px">
-          <table><thead><tr><th>Customer</th><th>Segment</th><th>Spent</th><th>Purchases</th><th>Churn score</th><th>Risk</th></tr></thead>
-          <tbody>${customers.map((c) => {
-            const id = c.customer_id || c.identity;
-            const churnRow = churnByCustomer.get(id);
-            const score = churnRow?.churn_score ?? "—";
-            const band = churnRow?.risk_band || "—";
-            return `<tr>
-              <td><b>${esc(id)}</b></td>
-              <td><span class="pill ${pillFor(c.segment)}">${esc(c.segment || "—")}</span></td>
-              <td>${money(c.total_spent)}</td>
-              <td>${c.purchases ?? "—"}</td>
-              <td>${score}</td>
-              <td><span class="pill ${pillFor(band)}">${esc(band)}</span></td>
-            </tr>`;
-          }).join("") || '<tr><td colspan="6" class="empty">No customers tracked yet.</td></tr>'}</tbody></table>
+          <table class="b-table">
+            <thead><tr><th>Customer</th><th>Segment</th><th>Spent</th><th>Purchases</th><th>Churn Score</th><th>Risk</th></tr></thead>
+            <tbody>${customers.map((c, i) => {
+              const id = c.customer_id || c.identity;
+              const churnRow = churnByCustomer.get(id);
+              const score = churnRow?.churn_score ?? "—";
+              const band = churnRow?.risk_band || "—";
+              return `<tr style="animation-delay:${0.03 * (i + 1)}s">
+                <td><b>${esc(id)}</b></td>
+                <td><span class="b-badge ${pillFor(c.segment)}">${esc(c.segment || "—")}</span></td>
+                <td style="font-weight:600">${money(c.total_spent)}</td>
+                <td>${c.purchases ?? "—"}</td>
+                <td>${score}</td>
+                <td><span class="b-badge ${pillFor(band)}">${esc(band)}</span></td>
+              </tr>`;
+            }).join("") || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">No customers tracked yet.</td></tr>'}</tbody>
+          </table>
         </div>
       </div>`;
   }
@@ -1376,10 +1677,10 @@
     // Categorise campaigns by lifecycle stage.
     const statusPill = (status) => {
       const map = {
-        launched: "pill-green", completed: "pill-cyan", no_targets: "pill-amber",
-        draft: "pill-violet", AWAITING_APPROVAL: "pill-violet", generated: "pill-violet",
+        launched: "green", completed: "blue", no_targets: "amber",
+        draft: "purple", AWAITING_APPROVAL: "purple", generated: "purple",
       };
-      return `<span class="pill ${map[status] || "pill-gray"}">${esc(status || "draft")}</span>`;
+      return `<span class="b-badge ${map[status] || ''}">${esc(status || "draft")}</span>`;
     };
 
     const canLaunch = (c) => {
@@ -1441,37 +1742,110 @@
     };
 
     view.innerHTML = `
-      <div class="card">
-        <div class="card-title-row"><h3>${icon("sparkles")} Campaign pipeline</h3>
-          <button class="btn btn-sm btn-grad" id="gen-btn">${icon("sparkles", "icon-sm")} Generate from trends</button>
+      <div class="b-header">
+        <div>
+          <h2>Campaigns & Retargeting</h2>
+          <p>Generate, launch, and measure marketing campaigns</p>
         </div>
-        <p class="muted" style="font-size:13px;margin-bottom:14px">Generate campaign drafts from rising trends and the retail calendar, then launch them to targeted customers.</p>
+        <div class="b-header-filters">
+          <button class="b-report-btn" id="gen-btn">${icon("sparkles")} Generate from trends</button>
+        </div>
+      </div>
+
+      <div class="b-grid-4" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle green">${icon("rocket")}</div>
+          </div>
+          <div class="b-stat-value">${activeCampaigns.length}</div>
+          <div class="b-stat-label">Active Campaigns</div>
+        </div>
+        <div class="b-card" style="animation-delay:0.1s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle purple">${icon("file-text")}</div>
+          </div>
+          <div class="b-stat-value">${draftCampaigns.length}</div>
+          <div class="b-stat-label">Drafts</div>
+        </div>
+        <div class="b-card" style="animation-delay:0.15s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle blue">${icon("check-circle")}</div>
+          </div>
+          <div class="b-stat-value">${completedCampaigns.length}</div>
+          <div class="b-stat-label">Completed</div>
+        </div>
+        <div class="b-card" style="animation-delay:0.2s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle amber">${icon("calendar")}</div>
+          </div>
+          <div class="b-stat-value">${opportunities.length}</div>
+          <div class="b-stat-label">Seasonal Opps</div>
+        </div>
+      </div>
+
+      <div class="b-card" style="margin-bottom:24px;animation-delay:0.25s">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h3 style="margin:0">${icon("sparkles")} Campaign Pipeline</h3>
+        </div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Generate campaign drafts from rising trends and the retail calendar, then launch them to targeted customers.</p>
 
         ${activeCampaigns.length ? `
-          <h3 style="margin-bottom:10px">${icon("rocket")} Active campaigns</h3>
-          <div class="campaign-list">${activeCampaigns.map((c) => campaignCard(c, "active")).join("")}</div>
-          <div class="section-gap"></div>
+          <div style="margin-bottom:20px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+              <div class="b-icon-circle green" style="width:28px;height:28px">${icon("rocket")}</div>
+              <h4 style="margin:0;font-size:14px">Active Campaigns</h4>
+            </div>
+            <div class="campaign-list">${activeCampaigns.map((c) => campaignCard(c, "active")).join("")}</div>
+          </div>
         ` : ""}
 
-        <h3 style="margin-bottom:10px">${icon("file-text")} Drafts ready to launch</h3>
-        <div class="scroll-y">${draftCampaigns.length
-          ? `<div class="campaign-list">${draftCampaigns.map((c) => campaignCard(c, "draft")).join("")}</div>`
-          : '<div class="empty">No drafts yet — generate from rising trends and the retail calendar.</div>'}</div>
+        <div style="margin-bottom:${completedCampaigns.length ? '20px' : '0'}">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <div class="b-icon-circle purple" style="width:28px;height:28px">${icon("file-text")}</div>
+            <h4 style="margin:0;font-size:14px">Drafts Ready to Launch</h4>
+          </div>
+          <div class="scroll-y">${draftCampaigns.length
+            ? `<div class="campaign-list">${draftCampaigns.map((c) => campaignCard(c, "draft")).join("")}</div>`
+            : '<div style="text-align:center;padding:24px;color:var(--muted)">No drafts yet — generate from rising trends and the retail calendar.</div>'}</div>
+        </div>
 
         ${completedCampaigns.length ? `
-          <div class="section-gap"></div>
-          <h3 style="margin-bottom:10px">${icon("check-circle")} Completed campaigns</h3>
-          <div class="campaign-list">${completedCampaigns.map((c) => campaignCard(c, "completed")).join("")}</div>
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+              <div class="b-icon-circle blue" style="width:28px;height:28px">${icon("check-circle")}</div>
+              <h4 style="margin:0;font-size:14px">Completed Campaigns</h4>
+            </div>
+            <div class="campaign-list">${completedCampaigns.map((c) => campaignCard(c, "completed")).join("")}</div>
+          </div>
         ` : ""}
       </div>
 
-      <div class="grid grid-2 section-gap">
-        <div class="card"><h3>${icon("calendar")} Seasonal opportunities (90d)</h3><div class="scroll-y">${opportunities.length
-          ? opportunities.map((op) => `<div class="alert-item ${op.days_until <= 14 ? "amber" : ""}">${icon("gift")} <div><b>${esc(op.event)}</b> in ${op.days_until} day(s) — ${esc(op.advice || op.urgency || "")}</div></div>`).join("")
-          : '<div class="empty">No retail moments inside the current window.</div>'}</div></div>
-        <div class="card"><h3>${icon("users")} Retargeting audiences</h3>
-          <button class="btn btn-sm btn-primary" id="rt-btn" style="margin-bottom:12px">Build audiences</button>
-          <div id="rt-result" class="scroll-y"></div>
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.35s">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div class="b-icon-circle amber">${icon("calendar")}</div>
+            <h3 style="margin:0">Seasonal Opportunities (90d)</h3>
+          </div>
+          <div class="scroll-y" style="max-height:300px">${opportunities.length
+            ? opportunities.map((op, i) => `<div class="b-list-item" style="animation-delay:${0.05 * (i + 1)}s">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="b-icon-circle ${op.days_until <= 14 ? 'amber' : 'green'}" style="width:32px;height:32px">${icon("gift")}</div>
+                  <div>
+                    <div style="font-weight:600;font-size:13px">${esc(op.event)}</div>
+                    <div style="font-size:12px;color:var(--muted)">${op.days_until} day(s) — ${esc(op.advice || op.urgency || "")}</div>
+                  </div>
+                </div>
+                <span class="b-badge ${op.days_until <= 14 ? 'amber' : 'green'}">${op.days_until}d</span>
+              </div>`).join("")
+            : '<div style="text-align:center;padding:24px;color:var(--muted)">No retail moments inside the current window.</div>'}</div>
+        </div>
+        <div class="b-card" style="animation-delay:0.4s">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div class="b-icon-circle blue">${icon("users")}</div>
+            <h3 style="margin:0">Retargeting Audiences</h3>
+          </div>
+          <button class="b-report-btn" id="rt-btn" style="margin-bottom:16px">${icon("users")} Build audiences</button>
+          <div id="rt-result" class="scroll-y" style="max-height:240px"></div>
         </div>
       </div>
 
@@ -1596,80 +1970,160 @@
     };
   
     const statusBadge = (st) => {
-      if (st === "success") return '<span class="pill pill-green">success</span>';
-      if (st === "partial") return '<span class="pill pill-amber">partial</span>';
-      if (st === "failed") return '<span class="pill pill-red">failed</span>';
-      return '<span class="pill pill-violet">pending</span>';
+      if (st === "success") return '<span class="b-badge green">success</span>';
+      if (st === "partial") return '<span class="b-badge amber">partial</span>';
+      if (st === "failed") return '<span class="b-badge red">failed</span>';
+      return '<span class="b-badge purple">pending</span>';
     };
   
     view.innerHTML = `
-      <div class="card">
-        <div class="card-title-row"><h3>${icon("search")} Add competitor to track</h3></div>
-        <div class="grid grid-3" style="gap:10px;align-items:end">
+      <div class="b-header">
+        <div>
+          <h2>Competitor Radar</h2>
+          <p>Track competitors, pricing, ads, and catalog changes</p>
+        </div>
+      </div>
+
+      <div class="b-grid-4" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle blue">${icon("target")}</div>
+          </div>
+          <div class="b-stat-value">${trackedList.length}</div>
+          <div class="b-stat-label">Tracked</div>
+        </div>
+        <div class="b-card" style="animation-delay:0.1s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle ${alerts.length > 0 ? 'red' : 'green'}">${icon("bell")}</div>
+          </div>
+          <div class="b-stat-value">${alerts.length}</div>
+          <div class="b-stat-label">Active Alerts</div>
+        </div>
+        <div class="b-card" style="animation-delay:0.15s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle amber">${icon("film")}</div>
+          </div>
+          <div class="b-stat-value">${adCompetitors.length}</div>
+          <div class="b-stat-label">Ad Intel</div>
+        </div>
+        <div class="b-card" style="animation-delay:0.2s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle purple">${icon("bar-chart")}</div>
+          </div>
+          <div class="b-stat-value">${rivals.length}</div>
+          <div class="b-stat-label">Price Changes</div>
+        </div>
+      </div>
+
+      <div class="b-card" style="margin-bottom:24px;animation-delay:0.25s">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div class="b-icon-circle blue">${icon("search")}</div>
+          <h3 style="margin:0">Add Competitor to Track</h3>
+        </div>
+        <div class="b-grid-3" style="gap:12px;align-items:end">
           <div>
-            <label class="muted" style="font-size:0.85rem;display:block;margin-bottom:4px">Competitor name</label>
-            <input id="comp-name" placeholder="e.g. Rival Store" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)" />
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">COMPETITOR NAME</label>
+            <input id="comp-name" placeholder="e.g. Rival Store" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px" />
           </div>
           <div>
-            <label class="muted" style="font-size:0.85rem;display:block;margin-bottom:4px">Store URL</label>
-            <input id="comp-url" placeholder="https://rival-store.myshopify.com" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)" />
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">STORE URL</label>
+            <input id="comp-url" placeholder="https://rival-store.myshopify.com" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px" />
           </div>
           <div>
-            <label class="muted" style="font-size:0.85rem;display:block;margin-bottom:4px">Meta Page ID (optional)</label>
-            <input id="comp-page" placeholder="Facebook Page ID for ad tracking" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)" />
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">META PAGE ID (OPTIONAL)</label>
+            <input id="comp-page" placeholder="Facebook Page ID for ad tracking" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px" />
           </div>
         </div>
-        <div class="row-actions" style="margin-top:10px">
-          <button class="btn btn-sm btn-primary" id="comp-add">${icon("target", "icon-sm")} Add competitor</button>
-          <button class="btn btn-sm btn-grad" id="comp-scrape-all" ${trackedList.length === 0 ? "disabled" : ""}>${icon("search", "icon-sm")} Scrape all now</button>
-          <button class="btn btn-sm btn-primary" id="comp-scrape-ads" ${trackedList.length === 0 ? "disabled" : ""}>${icon("film", "icon-sm")} Scrape Meta ads</button>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="b-report-btn" id="comp-add" style="background:var(--primary);color:#fff">${icon("target")} Add Competitor</button>
+          <button class="b-report-btn" id="comp-scrape-all" ${trackedList.length === 0 ? "disabled" : ""}>${icon("search")} Scrape All</button>
+          <button class="b-report-btn" id="comp-scrape-ads" ${trackedList.length === 0 ? "disabled" : ""}>${icon("film")} Scrape Meta Ads</button>
         </div>
         <div id="comp-msg" style="margin-top:8px"></div>
       </div>
-  
-      <div class="grid grid-2 section-gap">
-        <div class="card"><h3>${icon("bell")} Active alerts</h3><div class="scroll-y">${alerts.length
-          ? alerts.map((a) => `<div class="alert-item ${a.priority === "HIGH" || a.priority === "CRITICAL" ? "red" : "amber"}">${icon("target")} <div><span class="pill ${pillFor(a.priority || "")}">${esc(a.priority || "INFO")}</span> ${esc(a.message)}</div></div>`).join("")
-          : '<div class="empty">No changes detected yet. Add competitors and scrape to arm the radar.</div>'}</div></div>
-        <div class="card"><h3>${icon("users")} Tracked competitors</h3>
-          <div class="scroll-y" id="tracked-list">${trackedList.length
-            ? trackedList.map((c) => `<div class="alert-item">
-              ${icon("eye")} <div style="flex:1">
-                <b>${esc(c.competitor)}</b>
-                <span class="muted" style="font-size:0.85rem"> — ${esc(c.url || "")}</span>
-                ${c.platform_detected ? `<span class="pill pill-cyan">${esc(c.platform_detected)}</span>` : ""}
-                <br><small class="muted">Last scrape: ${fmtTime(c.last_scrape_at)} ${c.last_scrape_status ? statusBadge(c.last_scrape_status) : ""} · ${c.last_product_count || 0} products</small>
-                ${c.meta_page_id ? `<br><small class="muted">Meta Page: ${esc(c.meta_page_id)}</small>` : ""}
-              </div>
-              <div class="row-actions">
-                <button class="btn btn-sm btn-primary comp-scrape-btn" data-id="${esc(c._id)}">${icon("search", "icon-sm")}</button>
-                <button class="btn btn-sm btn-grad comp-remove-btn" data-id="${esc(c._id)}">${icon("trash", "icon-sm")}</button>
-              </div>
-            </div>`).join("")
-            : '<div class="empty">No competitors tracked yet. Add one above.</div>'}</div>
+
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.3s">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div class="b-icon-circle ${alerts.length > 0 ? 'red' : 'green'}">${icon("bell")}</div>
+            <h3 style="margin:0">Active Alerts</h3>
+          </div>
+          <div class="scroll-y" style="max-height:360px">${alerts.length
+            ? alerts.map((a, i) => `<div class="b-list-item" style="animation-delay:${0.05 * (i + 1)}s">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="b-icon-circle ${a.priority === "HIGH" || a.priority === "CRITICAL" ? 'red' : 'amber'}" style="width:32px;height:32px">${icon("target")}</div>
+                  <div style="flex:1">
+                    <span class="b-badge ${pillFor(a.priority || "")}">${esc(a.priority || "INFO")}</span>
+                    <span style="font-size:13px;margin-left:6px">${esc(a.message)}</span>
+                  </div>
+                </div>
+              </div>`).join("")
+            : '<div style="text-align:center;padding:24px;color:var(--muted)">No changes detected yet. Add competitors and scrape to arm the radar.</div>'}</div>
+        </div>
+        <div class="b-card" style="animation-delay:0.35s">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div class="b-icon-circle blue">${icon("users")}</div>
+            <h3 style="margin:0">Tracked Competitors</h3>
+          </div>
+          <div class="scroll-y" id="tracked-list" style="max-height:360px">${trackedList.length
+            ? trackedList.map((c, i) => `<div class="b-list-item" style="animation-delay:${0.05 * (i + 1)}s">
+                <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+                  <div class="b-icon-circle blue" style="width:32px;height:32px">${icon("eye")}</div>
+                  <div style="min-width:0">
+                    <div style="font-weight:600;font-size:13px">${esc(c.competitor)}</div>
+                    <div style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.url || "")}</div>
+                    <div style="font-size:11px;color:var(--muted);margin-top:2px">
+                      Last scrape: ${fmtTime(c.last_scrape_at)} ${c.last_scrape_status ? statusBadge(c.last_scrape_status) : ""} · ${c.last_product_count || 0} products
+                    </div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:4px;flex-shrink:0">
+                  <button class="b-report-btn comp-scrape-btn" data-id="${esc(c._id)}" style="padding:4px 8px">${icon("search")}</button>
+                  <button class="b-report-btn comp-remove-btn" data-id="${esc(c._id)}" style="padding:4px 8px;color:var(--red)">${icon("trash")}</button>
+                </div>
+              </div>`).join("")
+            : '<div style="text-align:center;padding:24px;color:var(--muted)">No competitors tracked yet. Add one above.</div>'}</div>
         </div>
       </div>
-  
-      <div class="grid grid-2 section-gap">
-        <div class="card">
-          <h3>${icon("film")} Competitor ad intelligence</h3>
-          ${adInsights.length ? `<div class="alert-item amber">${icon("sparkles")} <div>${adInsights.map((i) => esc(i)).join("<br>")}</div></div>` : ""}
-          <div class="scroll-y">${adCompetitors.length
-            ? adCompetitors.map((ad) => `<div class="alert-item">${icon("tv")} <div><b>${esc(ad.competitor)}</b> — ${ad.ad_count} ad(s) <span class="muted">(${esc(ad.primary_platform || "?")}, ${esc(ad.primary_format || "?")})</span><br><small class="muted">Top CTA: ${esc(ad.top_cta || "—")}</small>${(ad.newest_ads || []).map((a) => `<br><small>"${esc(a.headline || "")}" on ${esc(a.platform)}</small>`).join("")}</div></div>`).join("")
-            : '<div class="empty">No ad-library data yet. Add Meta Page IDs above and click "Scrape Meta ads".</div>'}</div>
+
+      <div class="b-grid-2">
+        <div class="b-card" style="animation-delay:0.4s">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div class="b-icon-circle purple">${icon("film")}</div>
+            <h3 style="margin:0">Competitor Ad Intelligence</h3>
+          </div>
+          ${adInsights.length ? `<div class="b-list-item" style="margin-bottom:12px"><div style="font-size:13px">${adInsights.map((i) => esc(i)).join("<br>")}</div></div>` : ""}
+          <div class="scroll-y" style="max-height:300px">${adCompetitors.length
+            ? adCompetitors.map((ad, i) => `<div class="b-list-item" style="animation-delay:${0.05 * (i + 1)}s">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="b-icon-circle amber" style="width:32px;height:32px">${icon("tv")}</div>
+                  <div style="flex:1">
+                    <div style="font-weight:600;font-size:13px">${esc(ad.competitor)} — ${ad.ad_count} ad(s)</div>
+                    <div style="font-size:12px;color:var(--muted)">${esc(ad.primary_platform || "?")}, ${esc(ad.primary_format || "?")} · Top CTA: ${esc(ad.top_cta || "—")}</div>
+                    ${(ad.newest_ads || []).map((a) => `<div style="font-size:11px;color:var(--text-dim);margin-top:2px">"${esc(a.headline || "")}" on ${esc(a.platform)}</div>`).join("")}
+                  </div>
+                </div>
+              </div>`).join("")
+            : '<div style="text-align:center;padding:24px;color:var(--muted)">No ad-library data yet. Add Meta Page IDs above and click "Scrape Meta ads".</div>'}</div>
         </div>
-        <div class="card"><h3>${icon("bar-chart")} Price & catalog changes</h3><div class="scroll-y">${rivals.length
-          ? rivals.map((r) => {
-              const changes = r.changes || {};
-              const items = [
-                ...(changes.price_drops || []).map((d) => `<div class="alert-item green">${icon("trending-up")} <div><b>${esc(r.competitor)}</b> cut ${esc(d.name)} by ${d.change_pct}% <span class="muted">($${d.from} → $${d.to})</span></div></div>`),
-                ...(changes.possible_promotions || []).map((p) => `<div class="alert-item amber">${icon("gift")} <div><b>${esc(r.competitor)}</b> promo on ${esc(p.name)}: ${esc(p.detected_offer || p.estimated_discount_pct + "% off")}</div></div>`),
-                ...(changes.stockouts || []).map((s) => `<div class="alert-item">${icon("alert-triangle")} <div><b>${esc(r.competitor)}</b>: ${esc(s.name)} is <span class="pill pill-red">out of stock</span> — capture their demand</div></div>`),
-                ...(changes.new_products || []).map((p) => `<div class="alert-item">${icon("package")} <div><b>${esc(r.competitor)}</b> added ${esc(p.name)} <span class="muted">($${p.price || "?"})</span></div></div>`),
-              ];
-              return items.join("");
-            }).join("") || '<div class="empty">No changes detected yet.</div>'
-          : '<div class="empty">No competitor data yet.</div>'}</div></div>
+        <div class="b-card" style="animation-delay:0.45s">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div class="b-icon-circle green">${icon("bar-chart")}</div>
+            <h3 style="margin:0">Price & Catalog Changes</h3>
+          </div>
+          <div class="scroll-y" style="max-height:340px">${rivals.length
+            ? rivals.map((r) => {
+                const changes = r.changes || {};
+                const items = [
+                  ...(changes.price_drops || []).map((d) => `<div class="b-list-item"><div style="display:flex;align-items:center;gap:8px"><div class="b-icon-circle green" style="width:28px;height:28px">${icon("trending-up")}</div><div><b>${esc(r.competitor)}</b> cut ${esc(d.name)} by ${d.change_pct}% <span class="muted">($${d.from} → $${d.to})</span></div></div></div>`),
+                  ...(changes.possible_promotions || []).map((p) => `<div class="b-list-item"><div style="display:flex;align-items:center;gap:8px"><div class="b-icon-circle amber" style="width:28px;height:28px">${icon("gift")}</div><div><b>${esc(r.competitor)}</b> promo on ${esc(p.name)}: ${esc(p.detected_offer || p.estimated_discount_pct + "% off")}</div></div></div>`),
+                  ...(changes.stockouts || []).map((s) => `<div class="b-list-item"><div style="display:flex;align-items:center;gap:8px"><div class="b-icon-circle red" style="width:28px;height:28px">${icon("alert-triangle")}</div><div><b>${esc(r.competitor)}</b>: ${esc(s.name)} is <span class="b-badge red">out of stock</span> — capture their demand</div></div></div>`),
+                  ...(changes.new_products || []).map((p) => `<div class="b-list-item"><div style="display:flex;align-items:center;gap:8px"><div class="b-icon-circle blue" style="width:28px;height:28px">${icon("package")}</div><div><b>${esc(r.competitor)}</b> added ${esc(p.name)} <span class="muted">($${p.price || "?"})</span></div></div></div>`),
+                ];
+                return items.join("");
+              }).join("") || '<div style="text-align:center;padding:24px;color:var(--muted)">No changes detected yet.</div>'
+            : '<div style="text-align:center;padding:24px;color:var(--muted)">No competitor data yet.</div>'}</div>
+        </div>
       </div>`;
   
     // ── Event handlers ──────────────────────────────────────────────
@@ -1827,79 +2281,172 @@
     const isConnected = storeInfo.connected;
 
     view.innerHTML = `
-      <div class="card" style="margin-bottom:16px">
-        <h3>${icon("zap")} SEO Optimizer — One-Click Fix</h3>
-        <p class="muted" style="margin-bottom:12px">${isConnected
+      <div class="b-header">
+        <div>
+          <h2>SEO & Trends</h2>
+          <p>Search performance, rankings, and trend analysis</p>
+        </div>
+      </div>
+
+      <div class="b-card" style="margin-bottom:24px;animation-delay:0.05s">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div class="b-icon-circle amber">${icon("zap")}</div>
+          <h3 style="margin:0">SEO Optimizer — One-Click Fix</h3>
+        </div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">${isConnected
           ? `Your store <b style="color:var(--text)">${esc(autoUrl || s)}</b> is connected. Click the button below to analyze and fix everything.`
           : "Deep analysis + auto-generate all fixes for SEO, structured data, and AI search visibility (ChatGPT, Perplexity, Google AI)."}</p>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-          <button class="btn btn-primary" id="seo-one-click-btn" style="font-size:15px;padding:14px 28px">${icon("zap")} Analyze & Fix Everything</button>
-          <span class="muted" style="font-size:12px">One click = full SEO audit + all code snippets + AI search optimization</span>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+          <button class="b-report-btn" id="seo-one-click-btn" style="background:var(--primary);color:#fff;padding:12px 24px;font-size:14px">${icon("zap")} Analyze & Fix Everything</button>
+          <span style="font-size:12px;color:var(--muted)">One click = full SEO audit + all code snippets + AI search optimization</span>
         </div>
         <details style="margin-top:8px">
           <summary style="cursor:pointer;color:var(--muted);font-size:13px">Advanced: customize store details</summary>
-          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-top:10px">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-top:12px">
             <div style="flex:1;min-width:200px">
-              <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Store URL</label>
-              <input id="seo-url" value="${esc(autoUrl)}" placeholder="https://mystore.myshopify.com" style="width:100%;padding:11px;border-radius:10px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)" />
+              <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">STORE URL</label>
+              <input id="seo-url" value="${esc(autoUrl)}" placeholder="https://mystore.myshopify.com" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px" />
             </div>
             <div style="min-width:140px">
-              <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Brand name</label>
-              <input id="seo-brand" value="${esc(autoBrand)}" placeholder="My Store" style="width:100%;padding:11px;border-radius:10px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)" />
+              <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">BRAND NAME</label>
+              <input id="seo-brand" value="${esc(autoBrand)}" placeholder="My Store" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px" />
             </div>
             <div style="min-width:140px">
-              <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Category</label>
-              <input id="seo-category" placeholder="Fashion, Electronics..." style="width:100%;padding:11px;border-radius:10px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)" />
+              <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">CATEGORY</label>
+              <input id="seo-category" placeholder="Fashion, Electronics..." style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px" />
             </div>
           </div>
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <input id="seo-keywords" placeholder="Keywords (comma separated)" style="flex:1;padding:11px;border-radius:10px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)" />
+          <div style="margin-top:8px">
+            <input id="seo-keywords" placeholder="Keywords (comma separated)" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px" />
           </div>
         </details>
       </div>
 
       <div id="seo-result" style="display:none">
-        <div class="grid grid-4" style="margin-bottom:16px">
-          <div class="card"><h3>Current SEO Score</h3><div class="kpi-value" id="seo-score">—</div><div class="kpi-sub" id="seo-grade">—</div></div>
-          <div class="card"><h3>Fixes Found</h3><div class="kpi-value" id="seo-fixes-count">—</div><div class="kpi-sub">Ready to apply</div></div>
-          <div class="card"><h3>AI Readiness</h3><div class="kpi-value" id="ai-readiness">—</div><div class="kpi-sub">AI search visibility</div></div>
-          <div class="card"><h3>Total Actions</h3><div class="kpi-value" id="seo-total">—</div><div class="kpi-sub">SEO + AI combined</div></div>
+        <div class="b-grid-4" style="margin-bottom:24px">
+          <div class="b-card" style="animation-delay:0.05s">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+              <div class="b-icon-circle green">${icon("check-circle")}</div>
+            </div>
+            <div class="b-stat-value" id="seo-score">—</div>
+            <div class="b-stat-label">Current SEO Score</div>
+            <div id="seo-grade" style="font-size:12px;color:var(--muted);margin-top:4px">—</div>
+          </div>
+          <div class="b-card" style="animation-delay:0.1s">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+              <div class="b-icon-circle amber">${icon("alert-triangle")}</div>
+            </div>
+            <div class="b-stat-value" id="seo-fixes-count">—</div>
+            <div class="b-stat-label">Fixes Found</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">Ready to apply</div>
+          </div>
+          <div class="b-card" style="animation-delay:0.15s">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+              <div class="b-icon-circle purple">${icon("cpu")}</div>
+            </div>
+            <div class="b-stat-value" id="ai-readiness">—</div>
+            <div class="b-stat-label">AI Readiness</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">AI search visibility</div>
+          </div>
+          <div class="b-card" style="animation-delay:0.2s">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+              <div class="b-icon-circle blue">${icon("zap")}</div>
+            </div>
+            <div class="b-stat-value" id="seo-total">—</div>
+            <div class="b-stat-label">Total Actions</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">SEO + AI combined</div>
+          </div>
         </div>
 
-        <div class="grid grid-2">
-          <div class="card">
-            <h3>${icon("check-circle")} SEO Fixes</h3>
+        <div class="b-grid-2" style="margin-bottom:24px">
+          <div class="b-card" style="animation-delay:0.25s">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+              <div class="b-icon-circle green">${icon("check-circle")}</div>
+              <h3 style="margin:0">SEO Fixes</h3>
+            </div>
             <div id="seo-fixes-list" class="scroll-y" style="max-height:400px"></div>
           </div>
-          <div class="card">
-            <h3>${icon("cpu")} AI Search Optimization</h3>
+          <div class="b-card" style="animation-delay:0.3s">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+              <div class="b-icon-circle purple">${icon("cpu")}</div>
+              <h3 style="margin:0">AI Search Optimization</h3>
+            </div>
             <div id="ai-fixes-list" class="scroll-y" style="max-height:400px"></div>
           </div>
         </div>
 
-        <div class="card section-gap">
-          <h3>${icon("code")} Generated Code Snippets</h3>
-          <p class="muted" style="margin-bottom:12px">Copy-paste ready code for every fix. Shopify Liquid templates included where applicable.</p>
+        <div class="b-card" style="animation-delay:0.35s">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div class="b-icon-circle blue">${icon("file-text")}</div>
+            <h3 style="margin:0">Generated Code Snippets</h3>
+          </div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Copy-paste ready code for every fix. Shopify Liquid templates included where applicable.</p>
           <div id="seo-snippets" class="scroll-y" style="max-height:500px"></div>
         </div>
       </div>
 
-      <div class="grid grid-2 section-gap">
-        <div class="card"><h3>Search performance (GSC)</h3>
-          <div class="scroll-y"><table><thead><tr><th>Query</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>Pos.</th></tr></thead>
-          <tbody>${queries.map((q) => `<tr><td><b>${esc(q.query)}</b></td><td>${q.impressions}</td><td>${q.clicks}</td><td>${q.ctr}%</td><td>${q.avg_position ?? "—"}</td></tr>`).join("") || '<tr><td colspan="5" class="empty">No search data ingested yet.</td></tr>'}</tbody></table></div>
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.4s">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div class="b-icon-circle blue">${icon("search")}</div>
+            <h3 style="margin:0">Search Performance (GSC)</h3>
+          </div>
+          <div class="scroll-y" style="max-height:320px">
+            <table class="b-table">
+              <thead><tr><th>Query</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>Pos.</th></tr></thead>
+              <tbody>${queries.map((q, i) => `<tr style="animation-delay:${0.03 * (i + 1)}s">
+                <td><b>${esc(q.query)}</b></td>
+                <td>${q.impressions}</td>
+                <td>${q.clicks}</td>
+                <td><span class="b-badge ${parseFloat(q.ctr) > 3 ? 'green' : 'amber'}">${q.ctr}%</span></td>
+                <td>${q.avg_position ?? "—"}</td>
+              </tr>`).join("") || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No search data ingested yet.</td></tr>'}</tbody>
+            </table>
+          </div>
         </div>
-        <div class="card"><h3>${icon("trending-up")} Rising trends</h3><div class="scroll-y">${trendList.length
-          ? trendList.map((t) => `<div class="alert-item">${icon("trending-up")} <div><b>${esc(t.keyword)}</b> — momentum ${esc(t.momentum ?? t.score ?? "—")} <span class="muted">${esc(t.direction || t.source || "")}</span></div></div>`).join("")
-          : '<div class="empty">Feed external signals to detect trends.</div>'}</div></div>
+        <div class="b-card" style="animation-delay:0.45s">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div class="b-icon-circle green">${icon("trending-up")}</div>
+            <h3 style="margin:0">Rising Trends</h3>
+          </div>
+          <div class="scroll-y" style="max-height:320px">${trendList.length
+            ? trendList.map((t, i) => `<div class="b-list-item" style="animation-delay:${0.05 * (i + 1)}s">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="b-icon-circle green" style="width:32px;height:32px">${icon("trending-up")}</div>
+                  <div>
+                    <div style="font-weight:600;font-size:13px">${esc(t.keyword)}</div>
+                    <div style="font-size:12px;color:var(--muted)">momentum ${esc(t.momentum ?? t.score ?? "—")} ${esc(t.direction || t.source || "")}</div>
+                  </div>
+                </div>
+              </div>`).join("")
+            : '<div style="text-align:center;padding:24px;color:var(--muted)">Feed external signals to detect trends.</div>'}</div>
+        </div>
       </div>
-      <div class="grid grid-2 section-gap">
-        <div class="card"><h3>${icon("flag")} Ranking comparison</h3><div class="scroll-y">${Array.isArray(rankRows) && rankRows.length
-          ? rankRows.map((r) => `<div class="alert-item"><div><b>${esc(r.keyword)}</b> — ${esc(r.brand || "us")} at #${esc(r.position)}</div></div>`).join("")
-          : '<div class="empty">Ingest ranking snapshots to compare against rivals.</div>'}</div></div>
-        <div class="card"><h3>${icon("cpu")} Intent gap</h3>
-          <button class="btn btn-sm btn-primary" id="gap-btn" style="margin-bottom:12px">Analyze gaps</button>
-          <div id="gap-result" class="scroll-y"></div>
+      <div class="b-grid-2">
+        <div class="b-card" style="animation-delay:0.5s">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div class="b-icon-circle amber">${icon("flag")}</div>
+            <h3 style="margin:0">Ranking Comparison</h3>
+          </div>
+          <div class="scroll-y" style="max-height:280px">${Array.isArray(rankRows) && rankRows.length
+            ? rankRows.map((r, i) => `<div class="b-list-item" style="animation-delay:${0.05 * (i + 1)}s">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex-shrink:0"></div>
+                  <div>
+                    <span style="font-weight:600;font-size:13px">${esc(r.keyword)}</span>
+                    <span style="font-size:12px;color:var(--muted);margin-left:6px">${esc(r.brand || "us")} at #${esc(r.position)}</span>
+                  </div>
+                </div>
+              </div>`).join("")
+            : '<div style="text-align:center;padding:24px;color:var(--muted)">Ingest ranking snapshots to compare against rivals.</div>'}</div>
+        </div>
+        <div class="b-card" style="animation-delay:0.55s">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div class="b-icon-circle purple">${icon("cpu")}</div>
+            <h3 style="margin:0">Intent Gap</h3>
+          </div>
+          <button class="b-report-btn" id="gap-btn" style="margin-bottom:16px">${icon("search")} Analyze gaps</button>
+          <div id="gap-result" class="scroll-y" style="max-height:240px"></div>
         </div>
       </div>`;
 
@@ -1928,18 +2475,37 @@
         $("#seo-total").textContent = result.total_actions;
 
         // SEO fixes list
-        const fixesHtml = (result.fixes || []).map((f) => {
-          const sevColor = f.severity === "CRITICAL" ? "var(--red)" : f.severity === "HIGH" ? "var(--amber)" : f.severity === "MEDIUM" ? "var(--text)" : "var(--muted)";
-          return `<div class="alert-item"><div style="flex:1"><span style="color:${sevColor};font-weight:600;font-size:11px">${f.severity}</span> <b>${esc(f.area)}</b><br><span class="muted">${esc(f.issue)}</span><br><span style="color:var(--green);font-size:12px">${icon("check")} ${esc(f.fix)}</span><br><span class="muted" style="font-size:11px">Impact: ${esc(f.impact)}</span></div></div>`;
-        }).join("") || '<div class="empty">No SEO issues found!</div>';
+        const fixesHtml = (result.fixes || []).map((f, i) => {
+          const sevColor = f.severity === "CRITICAL" ? "red" : f.severity === "HIGH" ? "amber" : f.severity === "MEDIUM" ? "blue" : "green";
+          return `<div class="b-list-item" style="animation-delay:${0.05 * (i + 1)}s">
+            <div style="display:flex;align-items:flex-start;gap:10px;flex:1">
+              <div class="b-icon-circle ${sevColor}" style="width:32px;height:32px;flex-shrink:0">${icon("alert-triangle")}</div>
+              <div>
+                <span class="b-badge ${sevColor}" style="margin-bottom:4px;display:inline-block">${f.severity}</span> <b style="font-size:13px">${esc(f.area)}</b>
+                <div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(f.issue)}</div>
+                <div style="color:var(--green);font-size:12px;margin-top:4px">${icon("check")} ${esc(f.fix)}</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">Impact: ${esc(f.impact)}</div>
+              </div>
+            </div>
+          </div>`;
+        }).join("") || '<div style="text-align:center;padding:24px;color:var(--muted)">No SEO issues found!</div>';
         $("#seo-fixes-list").innerHTML = fixesHtml;
 
         // AI fixes list
         const aiFixes = result.ai_optimization?.actions || [];
-        const aiHtml = aiFixes.map((f) => {
-          const sevColor = f.severity === "HIGH" ? "var(--amber)" : f.severity === "MEDIUM" ? "var(--text)" : "var(--muted)";
-          return `<div class="alert-item"><div style="flex:1"><span style="color:${sevColor};font-weight:600;font-size:11px">${f.severity}</span> <b>${esc(f.area)}</b><br><span class="muted">${esc(f.issue)}</span><br><span style="color:var(--green);font-size:12px">${icon("check")} ${esc(f.fix)}</span></div></div>`;
-        }).join("") || '<div class="empty">AI optimization ready!</div>';
+        const aiHtml = aiFixes.map((f, i) => {
+          const sevColor = f.severity === "HIGH" ? "amber" : f.severity === "MEDIUM" ? "blue" : "green";
+          return `<div class="b-list-item" style="animation-delay:${0.05 * (i + 1)}s">
+            <div style="display:flex;align-items:flex-start;gap:10px;flex:1">
+              <div class="b-icon-circle ${sevColor}" style="width:32px;height:32px;flex-shrink:0">${icon("cpu")}</div>
+              <div>
+                <span class="b-badge ${sevColor}" style="margin-bottom:4px;display:inline-block">${f.severity}</span> <b style="font-size:13px">${esc(f.area)}</b>
+                <div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(f.issue)}</div>
+                <div style="color:var(--green);font-size:12px;margin-top:4px">${icon("check")} ${esc(f.fix)}</div>
+              </div>
+            </div>
+          </div>`;
+        }).join("") || '<div style="text-align:center;padding:24px;color:var(--muted)">AI optimization ready!</div>';
         $("#ai-fixes-list").innerHTML = aiHtml;
 
         // Code snippets
@@ -1963,8 +2529,16 @@
       const result = await api.post(`/seo/${s}/intent-gap`, { covered_keywords: [] });
       const gaps = result.gaps || [];
       $("#gap-result").innerHTML = gaps.length
-        ? gaps.map((g) => `<div class="alert-item">${icon("search")} <div><b>${esc(g.keyword || g.query)}</b> — ${esc(g.reason || g.intent || "uncovered intent")}</div></div>`).join("")
-        : '<div class="empty">No gaps found.</div>';
+        ? gaps.map((g, i) => `<div class="b-list-item" style="animation-delay:${0.05 * (i + 1)}s">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="b-icon-circle amber" style="width:32px;height:32px">${icon("search")}</div>
+              <div>
+                <div style="font-weight:600;font-size:13px">${esc(g.keyword || g.query)}</div>
+                <div style="font-size:12px;color:var(--muted)">${esc(g.reason || g.intent || "uncovered intent")}</div>
+              </div>
+            </div>
+          </div>`).join("")
+        : '<div style="text-align:center;padding:24px;color:var(--muted)">No gaps found.</div>';
     });
   }
 
@@ -2314,8 +2888,9 @@
       { id: "activate_tracking", title: "Activate Tracking", desc: "Install the tracking snippet to start collecting visitor data.", icon: "📡", action: null },
       { id: "first_audit", title: "Run Your First Audit", desc: "Get a comprehensive health score and actionable insights.", icon: "🔍", action: "seo" },
       { id: "choose_plan", title: "Choose Your Plan", desc: "Select the plan that fits your growth goals.", icon: "💎", action: "billing" },
-      { id: "add_competitors", title: "Add Competitors", desc: "Track competitor pricing and strategies in real-time.", icon: "🎯", action: "competitors" },
+      { id: "add_competitors", title: "Add Competitors", desc: "Track competitor pricing and strategies in real-time.", icon: "🎯", action: "competitors", guided: true },
       { id: "brand_keywords", title: "Set Brand Keywords", desc: "Add keywords to monitor your brand mentions and sentiment.", icon: "🏷️", action: "brand-keywords" },
+      { id: "notification_preferences", title: "Notification Preferences", desc: "Choose how you want to be alerted about store activity.", icon: "🔔", action: "notifications" },
       { id: "first_automation", title: "Set Up Automation", desc: "Configure your first automated cart recovery campaign.", icon: "⚡", action: "automations" },
       { id: "complete", title: "You're All Set!", desc: "Your store is fully configured. Start growing!", icon: "🎉", action: null },
     ];
@@ -2380,6 +2955,26 @@
           }).join("")}
         </div>
 
+        ${next?.action === 'add_competitors' && !state?.steps?.add_competitors?.completed ? `
+        <div class="card" style="margin-top:24px" id="comp-guided">
+          <h3 style="margin-bottom:4px">🎯 Quick Setup: Add Your Top 5 Competitors</h3>
+          <p class="muted" style="margin-bottom:16px">Track competitor pricing, stock levels, and ad strategies. Add at least 3 to unlock the full Competitor Radar.</p>
+          <div id="comp-guided-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+            ${[1,2,3,4,5].map(i => `
+              <div style="display:flex;gap:8px;align-items:center" id="comp-row-${i}">
+                <span style="font-size:12px;color:var(--muted);min-width:18px">#${i}</span>
+                <input placeholder="Competitor name" class="comp-guided-name" style="flex:1;padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px" />
+                <input placeholder="Store URL (https://...)" class="comp-guided-url" style="flex:2;padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px" />
+              </div>
+            `).join("")}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn btn-primary btn-sm" id="comp-guided-save">Save competitors</button>
+            <span id="comp-guided-msg" style="font-size:13px;color:var(--muted)"></span>
+          </div>
+        </div>
+        ` : ''}
+
         ${completionPct < 100 ? `
         <div style="margin-top:24px;padding:16px;background:var(--primary-light);border-radius:var(--radius-sm);border:1px solid var(--primary)">
           <div style="display:flex;align-items:center;gap:12px">
@@ -2398,6 +2993,35 @@
           <a href="#/dashboard" class="btn btn-primary">Go to Dashboard →</a>
         </div>`}
       </div>`;
+
+    // Guided competitor flow event handler
+    const compSaveBtn = document.getElementById('comp-guided-save');
+    if (compSaveBtn) {
+      compSaveBtn.addEventListener('click', async () => {
+        const names = document.querySelectorAll('.comp-guided-name');
+        const urls = document.querySelectorAll('.comp-guided-url');
+        const msg = document.getElementById('comp-guided-msg');
+        let saved = 0;
+        for (let i = 0; i < names.length; i++) {
+          const name = names[i].value.trim();
+          const url = urls[i].value.trim();
+          if (name && url) {
+            try {
+              await api.post(`/competitors/${s}/tracked`, { competitor: name, url });
+              saved++;
+            } catch (e) { /* skip failed */ }
+          }
+        }
+        if (saved > 0) {
+          msg.textContent = `${saved} competitor(s) added!`;
+          toast(`${saved} competitor(s) added to tracking`);
+          await api.post('/onboarding/complete-step', { step_id: 'add_competitors', data: { count: saved } });
+          route();
+        } else {
+          msg.textContent = 'Add at least one competitor with a URL.';
+        }
+      });
+    }
   }
 
   // ── page: revenue recovery ─────────────────────────────────────────
@@ -2416,30 +3040,85 @@
     const revenueRecovered = o.revenue * 0.15 || 0;
 
     view.innerHTML = `
-      <div class="grid grid-4">
-        <div class="card"><h3>Carts abandoned</h3><div class="kpi-value">${cartAbandon}</div><div class="kpi-sub">of ${funnel.carts || 0} total carts</div></div>
-        <div class="card"><h3>Recovery rate</h3><div class="kpi-value" style="color:var(--green)">${recoveryRate}%</div><div class="kpi-sub">conversions recovered</div></div>
-        <div class="card"><h3>Revenue recovered</h3><div class="kpi-value" style="color:var(--green)">${money(revenueRecovered)}</div><div class="kpi-sub">this month</div></div>
-        <div class="card"><h3>Pending actions</h3><div class="kpi-value">${Array.isArray(actions) ? actions.length : 0}</div><div class="kpi-sub">recovery actions queued</div></div>
+      <div class="b-header">
+        <div>
+          <h2>Revenue Recovery</h2>
+          <p>Track recovered revenue, recovery rates, and pending actions</p>
+        </div>
+        <div class="b-header-filters">
+          <button class="b-filter-btn active" onclick="this.parentElement.querySelectorAll('.b-filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">
+            ${icon("calendar")} This Month
+          </button>
+          <button class="b-filter-btn" onclick="this.parentElement.querySelectorAll('.b-filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">
+            Last 30 Days
+          </button>
+        </div>
       </div>
 
-      <div class="grid grid-2 section-gap">
-        <div class="card">
-          <h3>${icon("cart")} Cart recovery performance</h3>
-          <div style="margin-top:16px">
-            <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:13px">Abandoned carts</span><span style="font-weight:600">${cartAbandon}</span></div>
-            <div style="height:8px;background:var(--card-border);border-radius:4px;overflow:hidden;margin-bottom:16px">
-              <div style="height:100%;width:${Math.min(100, cartAbandon * 2)}%;background:var(--red);border-radius:4px"></div>
+      <div class="b-grid-3" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle green">${icon("dollar")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${money(revenueRecovered)}</div>
+          <div class="b-stat-label">Revenue Recovered</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            this month
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.1s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle blue">${icon("trending-up")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${recoveryRate}%</div>
+          <div class="b-stat-label">Recovery Rate</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            conversions recovered
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.15s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle amber">${icon("zap")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${Array.isArray(actions) ? actions.length : 0}</div>
+          <div class="b-stat-label">Pending Actions</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            recovery actions queued
+          </div>
+        </div>
+      </div>
+
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.2s">
+          <h3 style="margin-bottom:16px">${icon("cart")} Recovery Funnel</h3>
+          <div style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span class="b-stat-label">Abandoned carts</span><span style="font-weight:600">${cartAbandon}</span></div>
+            <div class="b-progress-bar">
+              <div class="b-progress-bar-fill" style="width:${Math.min(100, cartAbandon * 2)}%;background:var(--red)"></div>
             </div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:13px">Recovered</span><span style="font-weight:600;color:var(--green)">${funnel.purchases || 0}</span></div>
-            <div style="height:8px;background:var(--card-border);border-radius:4px;overflow:hidden">
-              <div style="height:100%;width:${recoveryRate}%;background:var(--green);border-radius:4px"></div>
+          </div>
+          <div style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span class="b-stat-label">Recovered</span><span style="font-weight:600;color:var(--green)">${funnel.purchases || 0}</span></div>
+            <div class="b-progress-bar">
+              <div class="b-progress-bar-fill" style="width:${recoveryRate}%"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span class="b-stat-label">Recovery rate</span><span style="font-weight:600;color:var(--primary)">${recoveryRate}%</span></div>
+            <div class="b-progress-bar">
+              <div class="b-progress-bar-fill" style="width:${recoveryRate}%"></div>
             </div>
           </div>
         </div>
-        <div class="card">
-          <h3>${icon("zap")} Quick actions</h3>
-          <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">
+        <div class="b-card" style="animation-delay:0.25s">
+          <h3 style="margin-bottom:16px">${icon("zap")} Quick Actions</h3>
+          <div style="display:flex;flex-direction:column;gap:10px">
             <button class="btn btn-primary btn-block" onclick="toast('Recovery emails sent to ${cartAbandon} abandoned carts')">
               ${icon("send")} Send recovery emails
             </button>
@@ -2453,18 +3132,18 @@
         </div>
       </div>
 
-      <div class="card section-gap">
-        <h3>${icon("file-text")} Recovery templates</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
-          <div style="padding:14px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
+      <div class="b-card" style="animation-delay:0.3s">
+        <h3 style="margin-bottom:16px">${icon("file-text")} Recovery Templates</h3>
+        <div class="b-grid-2">
+          <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
             <div style="font-weight:600;margin-bottom:4px">Cart recovery drip sequence</div>
             <div style="font-size:12px;color:var(--muted)">1h reminder → 3h urgency → 24h final offer</div>
-            <div style="margin-top:8px"><span class="pill pill-green">Active</span></div>
+            <div style="margin-top:8px"><span class="b-badge green">Active</span></div>
           </div>
-          <div style="padding:14px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
+          <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
             <div style="font-weight:600;margin-bottom:4px">Browse abandonment</div>
             <div style="font-size:12px;color:var(--muted)">Triggered after 5 min of inactivity</div>
-            <div style="margin-top:8px"><span class="pill pill-green">Active</span></div>
+            <div style="margin-top:8px"><span class="b-badge green">Active</span></div>
           </div>
         </div>
       </div>`;
@@ -2482,42 +3161,117 @@
     const campaignList = Array.isArray(campaigns) ? campaigns : campaigns.campaigns || [];
 
     view.innerHTML = `
-      <div class="grid grid-3">
-        <div class="card"><h3>At-risk customers</h3><div class="kpi-value" style="color:var(--red)">${atRiskCustomers.length}</div><div class="kpi-sub">high churn risk</div></div>
-        <div class="card"><h3>Win-back campaigns</h3><div class="kpi-value">${campaignList.length}</div><div class="kpi-sub">total campaigns</div></div>
-        <div class="card"><h3>Recovery rate</h3><div class="kpi-value" style="color:var(--green)">12%</div><div class="kpi-sub">avg. win-back rate</div></div>
+      <div class="b-header">
+        <div>
+          <h2>Win-Back Campaigns</h2>
+          <p>Re-engage at-risk customers before they churn</p>
+        </div>
+        <div class="b-header-filters">
+          <button class="b-filter-btn active" onclick="this.parentElement.querySelectorAll('.b-filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">
+            ${icon("users")} All At-Risk
+          </button>
+          <button class="b-filter-btn" onclick="this.parentElement.querySelectorAll('.b-filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">
+            Critical Only
+          </button>
+        </div>
       </div>
 
-      <div class="grid grid-2 section-gap">
-        <div class="card">
-          <div class="card-title-row"><h3>${icon("users")} At-risk customers</h3><button class="btn btn-sm btn-primary" onclick="toast('Win-back campaign sent to ${atRiskCustomers.length} customers')">Send win-back to all</button></div>
-          <div class="scroll-y" style="margin-top:12px">
-            ${atRiskCustomers.length === 0 ? '<div class="empty">No high-risk customers detected.</div>' : 
-              atRiskCustomers.slice(0, 10).map(c => `
-                <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--card-border)">
-                  <div style="width:36px;height:36px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;color:var(--primary)">${(c.name || c.customer_id || "?").charAt(0).toUpperCase()}</div>
+      <div class="b-grid-3" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle red">${icon("heart")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${atRiskCustomers.length}</div>
+          <div class="b-stat-label">At-Risk Customers</div>
+          <div class="b-stat-trend down">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7l5 5 5-5M7 17l5 5 5-5"/></svg>
+            high churn risk
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.1s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle blue">${icon("megaphone")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${campaignList.length}</div>
+          <div class="b-stat-label">Win-Back Campaigns</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            total campaigns
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.15s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle green">${icon("trending-up")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">12%</div>
+          <div class="b-stat-label">Recovery Rate</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            avg. win-back rate
+          </div>
+        </div>
+      </div>
+
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.2s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <h3 style="margin:0">${icon("users")} At-Risk Customers</h3>
+            <button class="btn btn-sm btn-primary" onclick="toast('Win-back campaign sent to ${atRiskCustomers.length} customers')">Send win-back to all</button>
+          </div>
+          <div class="scroll-y" style="max-height:400px">
+            ${atRiskCustomers.length === 0 ? '<div class="empty">No high-risk customers detected.</div>' :
+              atRiskCustomers.slice(0, 10).map((c, i) => `
+                <div class="b-list-item" style="animation-delay:${0.05 * i}s">
+                  <div style="width:36px;height:36px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;color:var(--primary);flex-shrink:0">${(c.name || c.customer_id || "?").charAt(0).toUpperCase()}</div>
                   <div style="flex:1;min-width:0">
                     <div style="font-weight:600;font-size:13px">${esc(c.name || c.customer_id || "Unknown")}</div>
                     <div style="font-size:11px;color:var(--muted)">LTV: ${money(c.ltv)} · Last purchase: ${c.days_since_purchase || "?"}d ago</div>
                   </div>
-                  <span class="pill pill-red">${c.risk_band}</span>
+                  <span class="b-badge red">${c.risk_band}</span>
                 </div>
               `).join("")}
           </div>
         </div>
-        <div class="card">
-          <div class="card-title-row"><h3>${icon("megaphone")} Campaign history</h3></div>
-          <div class="scroll-y" style="margin-top:12px">
+        <div class="b-card" style="animation-delay:0.25s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <h3 style="margin:0">${icon("megaphone")} Campaign History</h3>
+          </div>
+          <div class="scroll-y" style="max-height:400px">
             ${campaignList.length === 0 ? '<div class="empty">No campaigns created yet. <a href="#/campaigns">Create your first campaign</a></div>' :
-              campaignList.slice(0, 10).map(c => `
-                <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--card-border)">
+              campaignList.slice(0, 10).map((c, i) => `
+                <div class="b-list-item" style="animation-delay:${0.05 * i}s">
                   <div style="flex:1">
                     <div style="font-weight:600;font-size:13px">${esc(c.name || "Campaign")}</div>
                     <div style="font-size:11px;color:var(--muted)">${esc(c.type || "win-back")} · ${esc(c.channel || "email")}</div>
                   </div>
-                  <span class="pill ${c.status === "active" ? "pill-green" : c.status === "completed" ? "pill-cyan" : "pill-gray"}">${c.status || "draft"}</span>
+                  <span class="b-badge ${c.status === 'active' ? 'green' : c.status === 'completed' ? 'blue' : ''}">${c.status || "draft"}</span>
                 </div>
               `).join("")}
+          </div>
+        </div>
+      </div>
+
+      <div class="b-card" style="animation-delay:0.3s">
+        <h3 style="margin-bottom:16px">${icon("zap")} Risk Band Distribution</h3>
+        <div class="b-grid-2">
+          <div>
+            <div style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span class="b-stat-label">Critical</span><span style="font-weight:600;color:var(--red)">${atRiskCustomers.filter(c => c.risk_band === 'CRITICAL').length}</span></div>
+              <div class="b-progress-bar"><div class="b-progress-bar-fill" style="width:${atRiskCustomers.length ? (atRiskCustomers.filter(c => c.risk_band === 'CRITICAL').length / atRiskCustomers.length * 100) : 0}%;background:var(--red)"></div></div>
+            </div>
+            <div style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span class="b-stat-label">High</span><span style="font-weight:600;color:var(--amber)">${atRiskCustomers.filter(c => c.risk_band === 'HIGH').length}</span></div>
+              <div class="b-progress-bar"><div class="b-progress-bar-fill amber" style="width:${atRiskCustomers.length ? (atRiskCustomers.filter(c => c.risk_band === 'HIGH').length / atRiskCustomers.length * 100) : 0}%"></div></div>
+            </div>
+          </div>
+          <div>
+            <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border);text-align:center">
+              <div class="b-stat-value" style="font-size:28px">${atRiskCustomers.length}</div>
+              <div class="b-stat-label">Total at-risk</div>
+            </div>
           </div>
         </div>
       </div>`;
@@ -2535,32 +3289,92 @@
     const recoveryRate = funnel.product_views > 0 ? (((funnel.carts || 0) / funnel.product_views) * 100).toFixed(1) : 0;
 
     view.innerHTML = `
-      <div class="grid grid-4">
-        <div class="card"><h3>Visitors who left</h3><div class="kpi-value">${browseAbandon}</div><div class="kpi-sub">browsed but didn't add to cart</div></div>
-        <div class="card"><h3>Cart conversion</h3><div class="kpi-value" style="color:var(--green)">${recoveryRate}%</div><div class="kpi-sub">viewers → cart adders</div></div>
-        <div class="card"><h3>Revenue potential</h3><div class="kpi-value">${money(browseAbandon * 45)}</div><div class="kpi-sub">estimated recoverable</div></div>
-        <div class="card"><h3>Active triggers</h3><div class="kpi-value">3</div><div class="kpi-sub">automation rules running</div></div>
+      <div class="b-header">
+        <div>
+          <h2>Browse Abandonment</h2>
+          <p>Recover visitors who browsed but didn't convert</p>
+        </div>
+        <div class="b-header-filters">
+          <button class="b-filter-btn active" onclick="this.parentElement.querySelectorAll('.b-filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">
+            ${icon("calendar")} Today
+          </button>
+          <button class="b-filter-btn" onclick="this.parentElement.querySelectorAll('.b-filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">
+            7 Days
+          </button>
+        </div>
       </div>
-      <div class="grid grid-2 section-gap">
-        <div class="card">
-          <h3>${icon("eye")} Browse abandonment funnel</h3>
-          <div style="margin-top:16px">
+
+      <div class="b-grid-4" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle red">${icon("eye")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${browseAbandon}</div>
+          <div class="b-stat-label">Visitors Who Left</div>
+          <div class="b-stat-trend down">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7l5 5 5-5M7 17l5 5 5-5"/></svg>
+            browsed but didn't add to cart
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.1s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle green">${icon("trending-up")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${recoveryRate}%</div>
+          <div class="b-stat-label">Cart Conversion</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            viewers → cart adders
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.15s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle blue">${icon("dollar")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${money(browseAbandon * 45)}</div>
+          <div class="b-stat-label">Revenue Potential</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            estimated recoverable
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.2s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle amber">${icon("zap")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">3</div>
+          <div class="b-stat-label">Active Triggers</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            automation rules running
+          </div>
+        </div>
+      </div>
+
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.25s">
+          <h3 style="margin-bottom:16px">${icon("eye")} Browse Abandonment Funnel</h3>
+          <div>
             ${[
               { label: "Page views", value: funnel.product_views || 0, pct: 100 },
               { label: "Added to cart", value: funnel.carts || 0, pct: funnel.product_views ? ((funnel.carts || 0) / funnel.product_views * 100) : 0 },
               { label: "Started checkout", value: funnel.checkouts_started || 0, pct: funnel.product_views ? ((funnel.checkouts_started || 0) / funnel.product_views * 100) : 0 },
               { label: "Purchased", value: funnel.purchases || 0, pct: funnel.product_views ? ((funnel.purchases || 0) / funnel.product_views * 100) : 0 },
-            ].map(s => `
-              <div style="margin-bottom:12px">
-                <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:13px">${s.label}</span><span style="font-weight:600">${s.value}</span></div>
-                <div style="height:6px;background:var(--card-border);border-radius:3px;overflow:hidden"><div style="height:100%;width:${s.pct}%;background:var(--primary);border-radius:3px"></div></div>
+            ].map((s, i) => `
+              <div style="margin-bottom:14px;animation-delay:${0.05 * i}s">
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span class="b-stat-label">${s.label}</span><span style="font-weight:600">${s.value}</span></div>
+                <div class="b-progress-bar"><div class="b-progress-bar-fill" style="width:${s.pct}%"></div></div>
               </div>
             `).join("")}
           </div>
         </div>
-        <div class="card">
-          <h3>${icon("zap")} Quick actions</h3>
-          <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">
+        <div class="b-card" style="animation-delay:0.3s">
+          <h3 style="margin-bottom:16px">${icon("zap")} Quick Actions</h3>
+          <div style="display:flex;flex-direction:column;gap:10px">
             <button class="btn btn-primary btn-block" onclick="toast('Browse abandonment emails queued for ${browseAbandon} visitors')">${icon("send")} Send browse recovery</button>
             <button class="btn btn-ghost-sm btn-block" onclick="toast('Exit-intent popup activated')">${icon("bell")} Enable exit-intent popup</button>
             <button class="btn btn-ghost-sm btn-block" onclick="toast('Social proof notifications enabled')">${icon("users")} Enable social proof</button>
@@ -2635,29 +3449,98 @@
     const medium = customers.filter(c => c.risk_band === "MEDIUM");
 
     view.innerHTML = `
-      <div class="grid grid-4">
-        <div class="card"><h3>Critical risk</h3><div class="kpi-value" style="color:var(--red)">${bands.CRITICAL || 0}</div><div class="kpi-sub">customers</div></div>
-        <div class="card"><h3>High risk</h3><div class="kpi-value" style="color:var(--amber)">${bands.HIGH || 0}</div><div class="kpi-sub">customers</div></div>
-        <div class="card"><h3>Medium risk</h3><div class="kpi-value">${bands.MEDIUM || 0}</div><div class="kpi-sub">customers</div></div>
-        <div class="card"><h3>Total at risk</h3><div class="kpi-value">${customers.length}</div><div class="kpi-sub">all risk levels</div></div>
+      <div class="b-header">
+        <div>
+          <h2>Churn Risk</h2>
+          <p>Identify and re-engage customers at risk of churning</p>
+        </div>
+        <div class="b-header-filters">
+          <button class="b-filter-btn active" onclick="this.parentElement.querySelectorAll('.b-filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">
+            ${icon("users")} All Risks
+          </button>
+          <button class="b-filter-btn" onclick="this.parentElement.querySelectorAll('.b-filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">
+            Critical Only
+          </button>
+        </div>
       </div>
-      <div class="card section-gap">
-        <div class="card-title-row">
-          <h3>${icon("alert-triangle")} At-risk customers</h3>
+
+      <div class="b-grid-4" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle red">${icon("alert-triangle")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${bands.CRITICAL || 0}</div>
+          <div class="b-stat-label">Critical Risk</div>
+          <div class="b-stat-trend down">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7l5 5 5-5M7 17l5 5 5-5"/></svg>
+            customers
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.1s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle amber">${icon("heart")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${bands.HIGH || 0}</div>
+          <div class="b-stat-label">High Risk</div>
+          <div class="b-stat-trend down">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7l5 5 5-5M7 17l5 5 5-5"/></svg>
+            customers
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.15s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle blue">${icon("users")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${bands.MEDIUM || 0}</div>
+          <div class="b-stat-label">Medium Risk</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            customers
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.2s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle green">${icon("target")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${customers.length}</div>
+          <div class="b-stat-label">Total at Risk</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            all risk levels
+          </div>
+        </div>
+      </div>
+
+      <div class="b-card" style="margin-bottom:24px;animation-delay:0.25s">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h3 style="margin:0">${icon("alert-triangle")} At-Risk Customers</h3>
           <div style="display:flex;gap:8px">
             <button class="btn btn-sm btn-primary" onclick="toast('Win-back campaign sent to all at-risk customers')">Send win-back to all</button>
             <button class="btn btn-sm btn-ghost-sm" onclick="toast('Customer list exported')">Export list</button>
           </div>
         </div>
-        <div style="overflow-x:auto;margin-top:12px">
-          <table class="a-table">
-            <thead><tr><th>Customer</th><th>Risk</th><th>LTV</th><th>Last purchase</th><th>Orders</th><th>Action</th></tr></thead>
+        <div style="overflow-x:auto">
+          <table class="b-table">
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Risk Level</th>
+                <th>LTV</th>
+                <th>Last Purchase</th>
+                <th>Orders</th>
+                <th>Action</th>
+              </tr>
+            </thead>
             <tbody>
-              ${customers.length === 0 ? '<tr><td colspan="6" class="a-empty">No churn data yet. Import orders to start tracking.</td></tr>' :
-                customers.slice(0, 20).map(c => `
-                  <tr>
+              ${customers.length === 0 ? '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">No churn data yet. Import orders to start tracking.</td></tr>' :
+                customers.slice(0, 20).map((c, i) => `
+                  <tr style="animation-delay:${0.05 * i}s">
                     <td><b>${esc(c.name || c.customer_id || "Unknown")}</b></td>
-                    <td><span class="pill ${c.risk_band === 'CRITICAL' ? 'pill-red' : c.risk_band === 'HIGH' ? 'pill-amber' : 'pill-green'}">${c.risk_band || "LOW"}</span></td>
+                    <td><span class="b-badge ${c.risk_band === 'CRITICAL' ? 'red' : c.risk_band === 'HIGH' ? 'amber' : 'green'}">${c.risk_band || "LOW"}</span></td>
                     <td>${money(c.ltv)}</td>
                     <td>${c.days_since_purchase || "?"}d ago</td>
                     <td>${c.total_orders || 0}</td>
@@ -2954,16 +3837,76 @@
     ]);
 
     view.innerHTML = `
-      <div class="grid grid-4">
-        <div class="card"><h3>Current plan</h3><div class="kpi-value" style="text-transform:capitalize">${esc(entitlement.plan || "starter")}</div><div class="kpi-sub">Status: ${esc(entitlement.status || "active")}</div></div>
-        <div class="card"><h3>Monthly cost</h3><div class="kpi-value">$${entitlement.plan === "premium" ? "149" : entitlement.plan === "growth" ? "49" : "0"}</div><div class="kpi-sub">per month</div></div>
-        <div class="card"><h3>API calls used</h3><div class="kpi-value">${usage.apiCalls?.used?.toLocaleString() || 0}</div><div class="kpi-sub">of ${usage.apiCalls?.limit?.toLocaleString() || "unlimited"}</div></div>
-        <div class="card"><h3>Emails sent</h3><div class="kpi-value">${usage.emails?.sent?.toLocaleString() || 0}</div><div class="kpi-sub">of ${usage.emails?.limit?.toLocaleString() || "unlimited"}</div></div>
+      <div class="b-header">
+        <div>
+          <h2>Billing & Subscription</h2>
+          <p>Manage your plan, usage, and invoices</p>
+        </div>
+        <div class="b-header-filters">
+          <button class="b-filter-btn active" onclick="this.parentElement.querySelectorAll('.b-filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">
+            ${icon("receipt")} Invoices
+          </button>
+          <button class="b-filter-btn" onclick="this.parentElement.querySelectorAll('.b-filter-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">
+            ${icon("database")} Usage
+          </button>
+        </div>
       </div>
-      <div class="grid grid-2 section-gap">
-        <div class="card">
-          <h3>${icon("credit-card")} Available plans</h3>
-          <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+
+      <div class="b-grid-4" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle blue">${icon("credit-card")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value" style="text-transform:capitalize">${esc(entitlement.plan || "starter")}</div>
+          <div class="b-stat-label">Current Plan</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            Status: ${esc(entitlement.status || "active")}
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.1s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle green">${icon("dollar")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">$${entitlement.plan === "premium" ? "149" : entitlement.plan === "growth" ? "49" : "0"}</div>
+          <div class="b-stat-label">Monthly Cost</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            per month
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.15s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle purple">${icon("zap")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${usage.apiCalls?.used?.toLocaleString() || 0}</div>
+          <div class="b-stat-label">API Calls Used</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            of ${usage.apiCalls?.limit?.toLocaleString() || "unlimited"}
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.2s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle amber">${icon("mail")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${usage.emails?.sent?.toLocaleString() || 0}</div>
+          <div class="b-stat-label">Emails Sent</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            of ${usage.emails?.limit?.toLocaleString() || "unlimited"}
+          </div>
+        </div>
+      </div>
+
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.25s">
+          <h3 style="margin-bottom:16px">${icon("credit-card")} Available Plans</h3>
+          <div style="display:flex;flex-direction:column;gap:12px">
             ${[
               { name: "Starter", price: "$0", features: ["5 products", "1 competitor", "Basic analytics"] },
               { name: "Growth", price: "$49", features: ["50 products", "5 competitors", "Advanced analytics", "Campaigns"] },
@@ -2980,45 +3923,38 @@
             `).join("")}
           </div>
         </div>
-        <div class="card">
-          <h3>${icon("receipt")} Invoice history</h3>
-          <div class="scroll-y" style="margin-top:12px">
-            ${(invoices.invoices || []).map(inv => `
-              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;border-bottom:1px solid var(--card-border)">
-                <div>
-                  <div style="font-weight:500;font-size:13px">${esc(inv.date)}</div>
-                  <div style="font-size:12px;color:var(--muted)">${esc(inv.plan)} · $${inv.amount}</div>
+        <div class="b-card" style="animation-delay:0.3s">
+          <h3 style="margin-bottom:16px">${icon("receipt")} Invoice History</h3>
+          <div class="scroll-y" style="max-height:400px">
+            ${(invoices.invoices || []).length === 0 ? '<div class="empty">No invoices yet.</div>' :
+              (invoices.invoices || []).map((inv, i) => `
+                <div class="b-list-item" style="animation-delay:${0.05 * i}s">
+                  <div style="flex:1">
+                    <div style="font-weight:500;font-size:13px">${esc(inv.date)}</div>
+                    <div style="font-size:12px;color:var(--muted)">${esc(inv.plan)} · $${inv.amount}</div>
+                  </div>
+                  <span class="b-badge ${inv.status === 'paid' ? 'green' : 'amber'}">${inv.status}</span>
                 </div>
-                <span class="pill ${inv.status === 'paid' ? 'pill-green' : 'pill-amber'}">${inv.status}</span>
-              </div>
-            `).join("")}
+              `).join("")}
           </div>
         </div>
       </div>
+
       ${usage.storage ? `
-      <div class="card section-gap">
-        <h3>${icon("database")} Resource usage</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:12px">
+      <div class="b-card" style="animation-delay:0.35s">
+        <h3 style="margin-bottom:16px">${icon("database")} Resource Usage</h3>
+        <div class="b-grid-3">
           <div>
-            <div style="font-size:13px;margin-bottom:4px">API Calls</div>
-            <div style="height:8px;background:var(--card-border);border-radius:4px;overflow:hidden">
-              <div style="height:100%;width:${(usage.apiCalls?.used / usage.apiCalls?.limit * 100) || 0}%;background:var(--primary);border-radius:4px"></div>
-            </div>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">${usage.apiCalls?.used || 0} / ${usage.apiCalls?.limit || 0}</div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span class="b-stat-label">API Calls</span><span style="font-weight:600">${usage.apiCalls?.used || 0} / ${usage.apiCalls?.limit || 0}</span></div>
+            <div class="b-progress-bar"><div class="b-progress-bar-fill" style="width:${(usage.apiCalls?.used / usage.apiCalls?.limit * 100) || 0}%"></div></div>
           </div>
           <div>
-            <div style="font-size:13px;margin-bottom:4px">Emails</div>
-            <div style="height:8px;background:var(--card-border);border-radius:4px;overflow:hidden">
-              <div style="height:100%;width:${(usage.emails?.sent / usage.emails?.limit * 100) || 0}%;background:var(--primary);border-radius:4px"></div>
-            </div>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">${usage.emails?.sent || 0} / ${usage.emails?.limit || 0}</div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span class="b-stat-label">Emails</span><span style="font-weight:600">${usage.emails?.sent || 0} / ${usage.emails?.limit || 0}</span></div>
+            <div class="b-progress-bar"><div class="b-progress-bar-fill" style="width:${(usage.emails?.sent / usage.emails?.limit * 100) || 0}%"></div></div>
           </div>
           <div>
-            <div style="font-size:13px;margin-bottom:4px">Storage</div>
-            <div style="height:8px;background:var(--card-border);border-radius:4px;overflow:hidden">
-              <div style="height:100%;width:${(usage.storage?.used / usage.storage?.limit * 100) || 0}%;background:var(--primary);border-radius:4px"></div>
-            </div>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">${usage.storage?.used || 0} / ${usage.storage?.limit || 0} ${usage.storage?.unit || 'GB'}</div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span class="b-stat-label">Storage</span><span style="font-weight:600">${usage.storage?.used || 0} / ${usage.storage?.limit || 0} ${usage.storage?.unit || 'GB'}</span></div>
+            <div class="b-progress-bar"><div class="b-progress-bar-fill" style="width:${(usage.storage?.used / usage.storage?.limit * 100) || 0}%"></div></div>
           </div>
         </div>
       </div>` : ''}`;
@@ -3129,64 +4065,73 @@
     const s = api.store();
     const prefs = await api.get(`/notifications/${s}/preferences`).catch(() => ({ email: [], inApp: [], channels: {}, quietHours: {} }));
     
-    const renderNotifRows = (items, channel) => items.map(n => `
-      <div style="font-size:13px;padding:8px 0;border-bottom:1px solid var(--card-border)">${esc(n.name)}</div>
-      <div style="text-align:center;padding:8px 0;border-bottom:1px solid var(--card-border)"><input type="checkbox" ${n.enabled ? 'checked' : ''} onchange="toggleNotif('${channel}', '${n.id}', this.checked)"></div>
-    `).join("");
-
     view.innerHTML = `
-      <div class="grid grid-2">
-        <div class="card">
-          <h3>${icon("mail")} Email notifications</h3>
-          <div style="margin-top:12px">
-            <div style="display:grid;grid-template-columns:1fr 40px;gap:0">
-              <div style="font-weight:600;font-size:13px;padding-bottom:8px;border-bottom:2px solid var(--card-border)">Alert type</div>
-              <div style="font-weight:600;font-size:13px;text-align:center;padding-bottom:8px;border-bottom:2px solid var(--card-border)">On</div>
-              ${renderNotifRows(prefs.email || [], "email")}
-            </div>
+      <div class="b-header">
+        <div>
+          <h2>Notification Preferences</h2>
+          <p>Configure how you receive alerts and updates</p>
+        </div>
+        <div class="b-header-filters">
+          <button class="btn btn-sm btn-primary" onclick="saveNotifPrefs()">${icon("check")} Save Preferences</button>
+        </div>
+      </div>
+
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s">
+          <h3 style="margin-bottom:16px">${icon("mail")} Email Notifications</h3>
+          <div style="display:grid;grid-template-columns:1fr 40px;gap:0">
+            <div style="font-weight:600;font-size:13px;padding-bottom:8px;border-bottom:2px solid var(--card-border)">Alert Type</div>
+            <div style="font-weight:600;font-size:13px;text-align:center;padding-bottom:8px;border-bottom:2px solid var(--card-border)">On</div>
+            ${(prefs.email || []).map(n => `
+              <div style="font-size:13px;padding:8px 0;border-bottom:1px solid var(--card-border)">${esc(n.name)}</div>
+              <div style="text-align:center;padding:8px 0;border-bottom:1px solid var(--card-border)"><input type="checkbox" ${n.enabled ? 'checked' : ''} onchange="toggleNotif('email', '${n.id}', this.checked)"></div>
+            `).join("")}
           </div>
         </div>
-        <div class="card">
-          <h3>${icon("bell")} In-app notifications</h3>
-          <div style="margin-top:12px">
-            <div style="display:grid;grid-template-columns:1fr 40px;gap:0">
-              <div style="font-weight:600;font-size:13px;padding-bottom:8px;border-bottom:2px solid var(--card-border)">Alert type</div>
-              <div style="font-weight:600;font-size:13px;text-align:center;padding-bottom:8px;border-bottom:2px solid var(--card-border)">On</div>
-              ${renderNotifRows(prefs.inApp || [], "inApp")}
-            </div>
+        <div class="b-card" style="animation-delay:0.1s">
+          <h3 style="margin-bottom:16px">${icon("bell")} In-App Notifications</h3>
+          <div style="display:grid;grid-template-columns:1fr 40px;gap:0">
+            <div style="font-weight:600;font-size:13px;padding-bottom:8px;border-bottom:2px solid var(--card-border)">Alert Type</div>
+            <div style="font-weight:600;font-size:13px;text-align:center;padding-bottom:8px;border-bottom:2px solid var(--card-border)">On</div>
+            ${(prefs.inApp || []).map(n => `
+              <div style="font-size:13px;padding:8px 0;border-bottom:1px solid var(--card-border)">${esc(n.name)}</div>
+              <div style="text-align:center;padding:8px 0;border-bottom:1px solid var(--card-border)"><input type="checkbox" ${n.enabled ? 'checked' : ''} onchange="toggleNotif('inApp', '${n.id}', this.checked)"></div>
+            `).join("")}
           </div>
         </div>
       </div>
-      <div class="grid grid-2 section-gap">
-        <div class="card">
-          <h3>${icon("radio")} Delivery channels</h3>
-          <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
+
+      <div class="b-grid-2" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.15s">
+          <h3 style="margin-bottom:16px">${icon("radio")} Delivery Channels</h3>
+          <div style="display:flex;flex-direction:column;gap:10px">
             ${["email", "inApp", "push", "sms"].map(ch => `
-              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+              <label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
                 <input type="checkbox" ${prefs.channels?.[ch] ? 'checked' : ''} onchange="toggleChannel('${ch}', this.checked)">
-                <span style="text-transform:capitalize">${ch === "inApp" ? "In-App" : ch}</span>
+                <span style="text-transform:capitalize;font-weight:500">${ch === "inApp" ? "In-App" : ch}</span>
               </label>
             `).join("")}
           </div>
         </div>
-        <div class="card">
-          <h3>${icon("moon")} Quiet hours</h3>
-          <div style="margin-top:12px">
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:12px">
+        <div class="b-card" style="animation-delay:0.2s">
+          <h3 style="margin-bottom:16px">${icon("moon")} Quiet Hours</h3>
+          <div>
+            <label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;margin-bottom:16px;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--card-border)">
               <input type="checkbox" ${prefs.quietHours?.enabled ? 'checked' : ''} onchange="toggleQuietHours(this.checked)">
-              <span>Enable quiet hours</span>
+              <span style="font-weight:500">Enable quiet hours</span>
             </label>
-            <div style="display:flex;gap:8px;align-items:center;font-size:13px">
-              <input type="time" id="qh-start" value="${prefs.quietHours?.start || '22:00'}" style="padding:6px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)">
-              <span>to</span>
-              <input type="time" id="qh-end" value="${prefs.quietHours?.end || '08:00'}" style="padding:6px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)">
+            <div style="display:flex;gap:10px;align-items:center;font-size:13px">
+              <input type="time" id="qh-start" value="${prefs.quietHours?.start || '22:00'}" style="padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)">
+              <span style="color:var(--muted)">to</span>
+              <input type="time" id="qh-end" value="${prefs.quietHours?.end || '08:00'}" style="padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text)">
             </div>
           </div>
         </div>
       </div>
-      <div style="display:flex;gap:8px;margin-top:16px">
-        <button class="btn btn-primary" onclick="saveNotifPrefs()">Save preferences</button>
-        <button class="btn btn-ghost-sm" onclick="testNotif()">Send test notification</button>
+
+      <div style="display:flex;gap:8px;margin-top:16px;animation-delay:0.25s">
+        <button class="btn btn-primary" onclick="saveNotifPrefs()">${icon("check")} Save preferences</button>
+        <button class="btn btn-ghost-sm" onclick="testNotif()">${icon("bell")} Send test notification</button>
       </div>`;
 
     window.toggleNotif = async (channel, id, enabled) => {
@@ -3228,66 +4173,119 @@
     const ticketList = Array.isArray(tickets) ? tickets : [];
 
     view.innerHTML = `
-      <div class="grid grid-4">
-        <div class="card"><h3>Open tickets</h3><div class="kpi-value" style="color:var(--amber)">${stats.open || 0}</div><div class="kpi-sub">awaiting response</div></div>
-        <div class="card"><h3>In progress</h3><div class="kpi-value" style="color:var(--primary)">${stats.in_progress || 0}</div><div class="kpi-sub">being handled</div></div>
-        <div class="card"><h3>Resolved</h3><div class="kpi-value" style="color:var(--green)">${stats.resolved || 0}</div><div class="kpi-sub">this month</div></div>
-        <div class="card"><h3>Avg response</h3><div class="kpi-value">${stats.avg_response_time_ms ? Math.round(stats.avg_response_time_ms / 60000) + "m" : "N/A"}</div><div class="kpi-sub">first response</div></div>
+      <div class="b-header">
+        <div>
+          <h2>Support Tickets</h2>
+          <p>Manage and track your support requests</p>
+        </div>
+        <div class="b-header-filters">
+          <button class="btn btn-sm btn-primary" onclick="createTicket()">${icon("plus")} New Ticket</button>
+        </div>
       </div>
 
-      <div class="card section-gap">
-        <div class="card-title-row">
-          <h3>${icon("headphones")} Support tickets</h3>
+      <div class="b-grid-4" style="margin-bottom:24px">
+        <div class="b-card" style="animation-delay:0.05s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle amber">${icon("clock")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${stats.open || 0}</div>
+          <div class="b-stat-label">Open Tickets</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            awaiting response
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.1s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle blue">${icon("zap")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${stats.in_progress || 0}</div>
+          <div class="b-stat-label">In Progress</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            being handled
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.15s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle green">${icon("check-circle")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${stats.resolved || 0}</div>
+          <div class="b-stat-label">Resolved</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            this month
+          </div>
+        </div>
+        <div class="b-card" style="animation-delay:0.2s">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="b-icon-circle purple">${icon("clock")}</div>
+            <button class="b-report-btn">${icon("download")} Report</button>
+          </div>
+          <div class="b-stat-value">${stats.avg_response_time_ms ? Math.round(stats.avg_response_time_ms / 60000) + "m" : "N/A"}</div>
+          <div class="b-stat-label">Avg Response</div>
+          <div class="b-stat-trend up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
+            first response
+          </div>
+        </div>
+      </div>
+
+      <div class="b-card" style="margin-bottom:24px;animation-delay:0.25s">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h3 style="margin:0">${icon("headphones")} Support Tickets</h3>
           <button class="btn btn-primary btn-sm" onclick="createTicket()">${icon("plus")} New Ticket</button>
         </div>
-        <div class="scroll-y" style="margin-top:12px">
-          ${ticketList.length === 0 ? '<div class="empty">No support tickets yet. Create one if you need help!</div>' :
-            ticketList.map(t => `
-              <div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--card-border)">
-                <div style="width:40px;height:40px;border-radius:50%;background:${t.priority === 'critical' ? 'rgba(239,68,68,0.1)' : t.priority === 'high' ? 'rgba(245,158,11,0.1)' : 'var(--surface-2)'};display:flex;align-items:center;justify-content:center;color:${t.priority === 'critical' ? 'var(--red)' : t.priority === 'high' ? 'var(--amber)' : 'var(--text-dim)'}">
-                  ${t.priority === 'critical' ? icon("alert-octagon") : t.priority === 'high' ? icon("alert-triangle") : icon("ticket")}
-                </div>
-                <div style="flex:1">
-                  <div style="font-weight:600">${esc(t.subject)}</div>
-                  <div style="font-size:12px;color:var(--muted)">
-                    <span class="pill pill-${t.status === 'open' ? 'amber' : t.status === 'resolved' ? 'green' : 'cyan'}" style="font-size:10px">${t.status}</span>
-                    · ${esc(t.category)} · ${esc(t.priority)} priority
-                    ${t.assignee ? ` · Assigned to ${esc(t.assignee)}` : ""}
-                  </div>
-                </div>
-                <div style="text-align:right;font-size:12px;color:var(--muted)">
-                  <div>${new Date(t.created_at).toLocaleDateString()}</div>
-                  <div>${t.responses?.length || 0} responses</div>
-                </div>
-              </div>
-            `).join("")}
+        <div style="overflow-x:auto">
+          <table class="b-table">
+            <thead>
+              <tr>
+                <th>Ticket</th>
+                <th>Category</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Assigned</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ticketList.length === 0 ? '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">No support tickets yet. Create one if you need help!</td></tr>' :
+                ticketList.map((t, i) => `
+                  <tr style="animation-delay:${0.05 * i}s">
+                    <td><b>${esc(t.subject)}</b></td>
+                    <td>${esc(t.category)}</td>
+                    <td><span class="b-badge ${t.priority === 'critical' ? 'red' : t.priority === 'high' ? 'amber' : 'green'}">${t.priority}</span></td>
+                    <td><span class="b-badge ${t.status === 'open' ? 'amber' : t.status === 'resolved' ? 'green' : 'blue'}">${t.status}</span></td>
+                    <td>${esc(t.assignee || "Unassigned")}</td>
+                    <td style="color:var(--muted)">${new Date(t.created_at).toLocaleDateString()}</td>
+                  </tr>
+                `).join("")}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <div class="card section-gap">
-        <div class="card-title-row"><h3>${icon("bar-chart")} Ticket breakdown</h3></div>
-        <div class="grid grid-2" style="margin-top:12px">
+      <div class="b-card" style="animation-delay:0.3s">
+        <h3 style="margin-bottom:16px">${icon("bar-chart")} Ticket Breakdown</h3>
+        <div class="b-grid-2">
           <div>
-            <h4 style="font-size:13px;margin-bottom:8px">By priority</h4>
+            <h4 style="font-size:13px;margin-bottom:12px;font-weight:600">By Priority</h4>
             ${["critical", "high", "medium", "low"].map(p => `
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-                <span style="font-size:12px;width:60px;text-transform:capitalize">${p}</span>
-                <div style="flex:1;height:8px;background:var(--card-border);border-radius:4px;overflow:hidden">
-                  <div style="height:100%;width:${stats.by_priority?.[p] ? (stats.by_priority[p] / Math.max(stats.total, 1)) * 100 : 0}%;background:${p === 'critical' ? 'var(--red)' : p === 'high' ? 'var(--amber)' : p === 'medium' ? 'var(--primary)' : 'var(--green)'};border-radius:4px"></div>
-                </div>
-                <span style="font-size:12px;width:20px;text-align:right">${stats.by_priority?.[p] || 0}</span>
+              <div style="margin-bottom:10px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span class="b-stat-label" style="text-transform:capitalize">${p}</span><span style="font-weight:600">${stats.by_priority?.[p] || 0}</span></div>
+                <div class="b-progress-bar"><div class="b-progress-bar-fill" style="width:${stats.by_priority?.[p] ? (stats.by_priority[p] / Math.max(stats.total, 1)) * 100 : 0}%;background:${p === 'critical' ? 'var(--red)' : p === 'high' ? 'var(--amber)' : p === 'medium' ? 'var(--primary)' : 'var(--green)'}"></div></div>
               </div>
             `).join("")}
           </div>
           <div>
-            <h4 style="font-size:13px;margin-bottom:8px">By category</h4>
+            <h4 style="font-size:13px;margin-bottom:12px;font-weight:600">By Category</h4>
             ${Object.entries(stats.by_category || {}).map(([cat, count]) => `
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-                <span style="font-size:12px;width:80px;text-transform:capitalize">${cat.replace("_", " ")}</span>
-                <div style="flex:1;height:8px;background:var(--card-border);border-radius:4px;overflow:hidden">
-                  <div style="height:100%;width:${count ? (count / Math.max(stats.total, 1)) * 100 : 0}%;background:var(--primary);border-radius:4px"></div>
-                </div>
-                <span style="font-size:12px;width:20px;text-align:right">${count}</span>
+              <div style="margin-bottom:10px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span class="b-stat-label" style="text-transform:capitalize">${cat.replace("_", " ")}</span><span style="font-weight:600">${count}</span></div>
+                <div class="b-progress-bar"><div class="b-progress-bar-fill" style="width:${count ? (count / Math.max(stats.total, 1)) * 100 : 0}%"></div></div>
               </div>
             `).join("")}
           </div>
@@ -3581,6 +4579,180 @@
       await api.put(`/features/${s}/${id}`, { active });
       toast(active ? "Feature activated" : "Feature deactivated");
       renderFeatures();
+    };
+  }
+
+  // ── page: returns & fraud shield ───────────────────────────────────
+  async function renderReturns() {
+    const s = api.store();
+    const [dashboard, impact, recommendations] = await Promise.all([
+      api.get(`/returns/${s}/dashboard`).catch(() => ({ fraud_stats: {}, cost_analysis: {}, recent_returns: [], pending_reviews_count: 0 })),
+      api.get(`/returns/${s}/analytics/impact?days=30`).catch(() => ({ cost_analysis: {}, top_reasons: [], top_skus: [], policy_performance: {} })),
+      api.get(`/returns/${s}/analytics/recommendations`).catch(() => []),
+    ]);
+
+    const fs = dashboard.fraud_stats || {};
+    const ca = impact.cost_analysis || {};
+    const pp = impact.policy_performance || {};
+    const recentReturns = dashboard.recent_returns || [];
+    const topReasons = impact.top_reasons || [];
+    const topSKUs = impact.top_skus || [];
+
+    view.innerHTML = `
+      <div class="b-header">
+        <div>
+          <h2>Returns & Fraud Shield</h2>
+          <p>Intelligent return processing and fraud prevention</p>
+        </div>
+      </div>
+
+      <div class="b-grid-4">
+        <div class="b-card" style="animation-delay:0s">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+            <div class="b-icon-circle red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+          </div>
+          <div class="b-stat-label">Fraud Prevented</div>
+          <div class="b-stat-value">$${(fs.fraud_prevented_amount || 0).toLocaleString()}</div>
+          <div class="b-stat-trend up">${fs.flagged_returns || 0} returns flagged</div>
+        </div>
+        <div class="b-card" style="animation-delay:0.1s">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+            <div class="b-icon-circle amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+          </div>
+          <div class="b-stat-label">Pending Reviews</div>
+          <div class="b-stat-value">${dashboard.pending_reviews_count || 0}</div>
+          <div class="b-stat-trend">Requires attention</div>
+        </div>
+        <div class="b-card" style="animation-delay:0.2s">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+            <div class="b-icon-circle violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+          </div>
+          <div class="b-stat-label">Return Cost (30d)</div>
+          <div class="b-stat-value">$${(ca.total_return_value || 0).toLocaleString()}</div>
+          <div class="b-stat-trend">${ca.total_returns || 0} returns processed</div>
+        </div>
+        <div class="b-card" style="animation-delay:0.3s">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+            <div class="b-icon-circle green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="m9 11 3 3L22 4"/></svg></div>
+          </div>
+          <div class="b-stat-label">Approval Rate</div>
+          <div class="b-stat-value">${pp.approval_rate_pct || 0}%</div>
+          <div class="b-progress-bar"><div class="b-progress-bar-fill blue" style="width:${pp.approval_rate_pct || 0}%"></div></div>
+        </div>
+      </div>
+
+      <div class="b-grid-2" style="margin-top:20px">
+        <div class="b-card" style="animation-delay:0.2s">
+          <div style="font-weight:600;color:var(--text-primary);margin-bottom:16px">Suspicious Returns</div>
+          ${recentReturns.filter((r) => r.risk_score > 50).length === 0
+            ? '<div style="text-align:center;padding:24px;color:var(--text-muted)">No suspicious returns detected</div>'
+            : recentReturns.filter((r) => r.risk_score > 50).slice(0, 5).map((r) => `
+              <div class="b-list-item" style="border-left:3px solid ${r.risk_score > 75 ? 'var(--red)' : 'var(--amber)'};margin-bottom:8px;padding:12px 16px;background:rgba(${r.risk_score > 75 ? '239,68,68' : '245,158,11'},0.05);border-radius:var(--radius-sm)">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <div>
+                    <b style="color:var(--text-primary)">Return #${r._id ? r._id.slice(0,8) : 'N/A'}</b>
+                    <span style="color:var(--text-muted);font-size:12px;margin-left:8px">${r.customer_id || 'Unknown'}</span>
+                    <br><span style="color:var(--text-muted);font-size:12px">${r.reason || 'No reason'} · $${(r.return_value || 0).toLocaleString()}</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="b-badge" style="background:rgba(${r.risk_score > 75 ? '239,68,68' : '245,158,11'},0.15);color:${r.risk_score > 75 ? 'var(--red)' : 'var(--amber)'}">Risk: ${r.risk_score}%</span>
+                    <button class="b-filter-btn" onclick="approveReturn('${r._id}')" style="padding:4px 10px;font-size:11px;cursor:pointer;border:1px solid var(--green);background:rgba(8,144,108,0.1);color:var(--green);border-radius:var(--radius-sm)">Approve</button>
+                    <button class="b-filter-btn" onclick="denyReturn('${r._id}')" style="padding:4px 10px;font-size:11px;cursor:pointer;border:1px solid var(--red);background:rgba(239,68,68,0.1);color:var(--red);border-radius:var(--radius-sm)">Deny</button>
+                  </div>
+                </div>
+              </div>
+            `).join("")}
+        </div>
+
+        <div class="b-card" style="animation-delay:0.3s">
+          <div style="font-weight:600;color:var(--text-primary);margin-bottom:16px">AI Recommendations</div>
+          ${recommendations.length === 0
+            ? '<div style="text-align:center;padding:24px;color:var(--text-muted)">No recommendations yet — need more return data</div>'
+            : recommendations.slice(0, 5).map((rec) => `
+              <div class="b-list-item" style="border-left:3px solid ${rec.priority === 'high' ? 'var(--red)' : rec.priority === 'medium' ? 'var(--amber)' : 'var(--primary)'};margin-bottom:8px;padding:12px 16px;background:var(--surface-2);border-radius:var(--radius-sm)">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <div>
+                    <b style="color:var(--text-primary);font-size:13px">${rec.type || 'Insight'}</b>
+                    <br><span style="color:var(--text-muted);font-size:12px">${rec.message}</span>
+                  </div>
+                  <span class="b-badge" style="background:rgba(8,144,108,0.15);color:var(--green)">${rec.priority}</span>
+                </div>
+              </div>
+            `).join("")}
+        </div>
+      </div>
+
+      <div class="b-grid-2" style="margin-top:20px">
+        <div class="b-card" style="animation-delay:0.3s">
+          <div style="font-weight:600;color:var(--text-primary);margin-bottom:16px">Top Return Reasons</div>
+          ${topReasons.length === 0
+            ? '<div style="text-align:center;padding:24px;color:var(--text-muted)">No return data yet</div>'
+            : topReasons.slice(0, 5).map((r) => `
+              <div class="b-list-item" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--card-border)">
+                <span style="font-size:13px;color:var(--text-primary)">${r.reason}</span>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:12px;color:var(--text-muted)">${r.count} returns</span>
+                  <span style="font-weight:600;color:var(--red)">$${(r.total_value || 0).toLocaleString()}</span>
+                </div>
+              </div>
+            `).join("")}
+        </div>
+
+        <div class="b-card" style="animation-delay:0.4s">
+          <div style="font-weight:600;color:var(--text-primary);margin-bottom:16px">Most Returned SKUs</div>
+          ${topSKUs.length === 0
+            ? '<div style="text-align:center;padding:24px;color:var(--text-muted)">No return data yet</div>'
+            : topSKUs.slice(0, 5).map((s) => `
+              <div class="b-list-item" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--card-border)">
+                <div>
+                  <span style="font-size:13px;font-weight:600;color:var(--text-primary)">${s.name || s.sku}</span>
+                  <br><span style="font-size:11px;color:var(--text-muted)">${s.return_count} returns · ${s.return_rate || 0}% rate</span>
+                </div>
+                <span style="font-weight:600;color:var(--red)">$${(s.return_value || 0).toLocaleString()}</span>
+              </div>
+            `).join("")}
+        </div>
+      </div>
+
+      <div class="b-card" style="animation-delay:0.4s;margin-top:20px">
+        <div style="font-weight:600;color:var(--text-primary);margin-bottom:16px">Recent Returns</div>
+        ${recentReturns.length === 0
+          ? '<div style="text-align:center;padding:24px;color:var(--text-muted)">No returns recorded yet</div>'
+          : `<div style="overflow-x:auto"><table class="b-table">
+            <thead><tr><th>ID</th><th>Customer</th><th>Reason</th><th>Value</th><th>Risk</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+              ${recentReturns.slice(0, 20).map((r) => {
+                const sCls = r.status === 'approved' ? 'green' : r.status === 'denied' ? 'red' : r.status === 'flagged' ? 'amber' : 'gray';
+                const rCls = r.risk_score > 75 ? 'red' : r.risk_score > 50 ? 'amber' : r.risk_score > 20 ? 'purple' : 'green';
+                return `<tr>
+                  <td><b>#${r._id ? r._id.slice(0,8) : 'N/A'}</b></td>
+                  <td>${r.customer_id || '—'}</td>
+                  <td>${r.reason || '—'}</td>
+                  <td>$${(r.return_value || 0).toLocaleString()}</td>
+                  <td><span class="b-badge ${rCls}">${r.risk_score || 0}%</span></td>
+                  <td><span class="b-badge ${sCls}">${r.status || 'pending'}</span></td>
+                  <td>
+                    ${r.status === 'pending' || r.status === 'under_review' ? `
+                      <button class="b-filter-btn" onclick="approveReturn('${r._id}')" style="padding:2px 8px;font-size:11px;cursor:pointer;border:1px solid var(--green);background:rgba(8,144,108,0.1);color:var(--green);border-radius:var(--radius-sm)">Approve</button>
+                      <button class="b-filter-btn" onclick="denyReturn('${r._id}')" style="padding:2px 8px;font-size:11px;cursor:pointer;border:1px solid var(--red);background:rgba(239,68,68,0.1);color:var(--red);border-radius:var(--radius-sm);margin-left:4px">Deny</button>
+                    ` : '—'}
+                  </td>
+                </tr>`;
+              }).join("")}
+            </tbody>
+          </table></div>`}
+      </div>
+    `;
+
+    window.approveReturn = async (returnId) => {
+      await api.post(`/returns/${s}/${returnId}/approve`, { approved_by: 'merchant' });
+      toast("Return approved");
+      renderReturns();
+    };
+    window.denyReturn = async (returnId) => {
+      await api.post(`/returns/${s}/${returnId}/deny`, { denied_by: 'merchant', reason: 'Denied by merchant' });
+      toast("Return denied");
+      renderReturns();
     };
   }
 

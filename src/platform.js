@@ -56,6 +56,8 @@ const { createSeasonalAlerts, } = require('./layers/intelligence/seasonalAlerts'
 const { createAdIntelligence, } = require('./layers/intelligence/adIntelligence',);
 const { createCompetitorScraper, } = require('./layers/intelligence/competitorScraper',);
 const { createMetaAdLibrary, } = require('./layers/intelligence/metaAdLibrary',);
+const { createReturnFraudEngine, } = require('./layers/intelligence/returnFraudEngine',);
+const { createReturnAnalytics, } = require('./layers/intelligence/returnAnalytics',);
 
 // Layer 3
 const { createRulesEngine, } = require('./layers/decision/rulesEngine',);
@@ -78,6 +80,7 @@ const { createBillingService, } = require('./layers/execution/billingService',);
 const { createMonitoringService, } = require('./layers/execution/monitoringService',);
 const { createReferralService, } = require('./layers/execution/referralService',);
 const { createTrialService, } = require('./layers/execution/trialService',);
+const { createReturnService, } = require('./layers/execution/returnService',);
 
 // Layer 5
 const { createAttributionEngine, } = require('./layers/reporting/attribution',);
@@ -193,6 +196,8 @@ function createPlatform(overrides = {},) {
   const metaAdLibrary = createMetaAdLibrary({ config: cfg, adIntelligence, },);
   const cacTracker = createCacTracker({ store, },);
   const featureAdoption = createFeatureAdoption({ store, },);
+  const returnFraudEngine = createReturnFraudEngine({ store, config: cfg, },);
+  const returnAnalytics = createReturnAnalytics({ store, },);
 
   // Layer 3
   const rulesEngine = createRulesEngine({ store, },);
@@ -224,6 +229,9 @@ function createPlatform(overrides = {},) {
 
   // Trial Management
   const trialService = createTrialService({ store, config: cfg, },);
+
+  // Return Intelligence & Fraud Shield
+  const returnService = createReturnService({ store, returnFraudEngine, returnAnalytics, notificationService, },);
 
   // Regional Pricing (PPP)
   const regionalPricing = createRegionalPricingService({ store, config: cfg, },);
@@ -304,6 +312,8 @@ function createPlatform(overrides = {},) {
     metaAdLibrary,
     cacTracker,
     featureAdoption,
+    returnFraudEngine,
+    returnAnalytics,
 
     // Layer 3
     rulesEngine,
@@ -328,6 +338,7 @@ function createPlatform(overrides = {},) {
     referralService,
     trialService,
     regionalPricing,
+    returnService,
 
     // Layer 5
     attribution,

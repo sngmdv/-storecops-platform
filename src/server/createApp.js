@@ -531,6 +531,23 @@ function createApp(platform,) {
     },
   );
 
+  // Inbound return/exchange webhooks from connected stores.
+  app.post(
+    '/webhooks/returns/:store_id',
+    webhookVerifier(platform.config.security?.webhookSecret,),
+    async (req, res,) => {
+      try {
+        const result = await platform.returnService.processReturn(
+          req.params.store_id,
+          req.body || {},
+        );
+        res.status(200,).json(result,);
+      } catch (error) {
+        res.status(400,).json({ error: error.message, },);
+      }
+    },
+  );
+
   // Web app: landing page + client dashboard (static SPA).
   const publicDir = path.join(__dirname, '..', '..', 'public',);
   app.use(express.static(publicDir,),);

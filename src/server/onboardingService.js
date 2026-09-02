@@ -24,6 +24,7 @@ const STEPS = [
   { id: 'choose_plan', title: 'Choose Your Plan', description: 'Select the plan that fits your growth goals.', },
   { id: 'add_competitors', title: 'Add Competitors', description: 'Track competitor pricing and strategies.', },
   { id: 'brand_keywords', title: 'Set Brand Keywords', description: 'Add keywords to monitor your brand mentions and sentiment.', },
+  { id: 'notification_preferences', title: 'Notification Preferences', description: 'Choose how you want to be alerted about store activity.', },
   { id: 'first_automation', title: 'Set Up Automation', description: 'Configure your first automated campaign.', },
   { id: 'complete', title: 'You\'re All Set!', description: 'Your store is fully configured for growth.', },
 ];
@@ -36,6 +37,7 @@ const STEP_WEIGHTS = {
   choose_plan: 15,
   add_competitors: 10,
   brand_keywords: 10,
+  notification_preferences: 5,
   first_automation: 10,
   complete: 5,
 };
@@ -189,6 +191,12 @@ function createOnboardingService({ store, },) {
       const customer = await store.customers?.findOne({ store_id, },);
       if (customer?.brand_keywords && customer.brand_keywords.length > 0) {
         updates.push('brand_keywords',);
+      }
+
+      // notification_preferences — user has customized notification settings
+      const notifPrefs = await store.notificationPreferences?.findOne({ store_id, },);
+      if (notifPrefs) {
+        updates.push('notification_preferences',);
       }
 
       // first_automation — automation rules exist

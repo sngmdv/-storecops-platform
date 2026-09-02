@@ -126,6 +126,8 @@
     .brief-banner p { opacity: 0.9; margin: 6px 0 0; font-size: 13px; }
     .brief-banner .brief-kpi { font-size: 32px; font-weight: 800; color: #fff; }
     .brief-banner .brief-sub { opacity: 0.85; font-size: 12px; }
+    @media (max-width: 1100px) { .admin-grid4 { grid-template-columns: repeat(2, 1fr); } .admin-grid3 { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 768px) { .admin-grid2 { grid-template-columns: 1fr; } .admin-grid4 { grid-template-columns: 1fr; } .admin-grid3 { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body class="dark">
@@ -167,6 +169,8 @@
         <a href="#/invoices" data-route="invoices"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span> Invoices</a>
         <a href="#/support" data-route="support"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span> Support Desk</a>
         <a href="#/settings" data-route="settings"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> System Settings</a>
+        <a href="#/return-fraud" data-route="return-fraud"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span> Return Fraud</a>
+        <a href="#/ai-model" data-route="ai-model"><span class="ico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg></span> AI Model</a>
       </nav>
       <div class="side-foot">
         <span style="font-size:12px;color:var(--muted)">Platform Operator</span>
@@ -247,6 +251,8 @@
       "invoices": { title: "Invoice Management", render: renderInvoices },
       "support": { title: "Support Desk", render: renderSupport },
       "settings": { title: "System Settings", render: renderSettings },
+      "return-fraud": { title: "Return Fraud", render: renderReturnFraud },
+      "ai-model": { title: "AI Model", render: renderAiModel },
     };
     function route() {
       const hash = (location.hash || "#/").replace("#/", "") || "";
@@ -1145,6 +1151,78 @@
             `).join("")}
           </div>
         </div>`;
+    }
+
+    /* ── Return Fraud ─────────────────────────────────────── */
+    async function renderReturnFraud() {
+      const [fraudTrends, perfData] = await Promise.all([
+        api("/admin/return-fraud/trends"),
+        api("/admin/return-fraud/model-performance")
+      ]);
+
+      const totalReturns = fraudTrends.total_returns || 0;
+      const flagged = (perfData.flagged_returns || 0);
+      const autoApproved = (perfData.auto_approved || 0);
+      const autoDenied = (perfData.auto_denied || 0);
+      const avgScore = (perfData.avg_risk_score || 0).toFixed(1);
+      const accuracy = (perfData.accuracy_estimate || 0);
+
+      const storeData = fraudTrends.by_store || {};
+      const stores = Object.entries(storeData);
+
+      view.innerHTML = `
+        <div class="b-header">
+          <div><h2>Return Fraud Shield</h2><p>Intelligent return fraud detection and prevention across all stores</p></div>
+        </div>
+        <div class="admin-grid4" style="margin-bottom:24px">
+          <div class="a-card"><div class="a-sub">Total Returns</div><div class="a-kpi">${totalReturns}</div><div class="a-sub">Across ${fraudTrends.store_count || 0} stores</div></div>
+          <div class="a-card"><div class="a-sub">Flagged</div><div class="a-kpi">${flagged}</div><div class="a-sub">Risk score &gt; 50</div></div>
+          <div class="a-card"><div class="a-sub">Auto-Approved</div><div class="a-kpi">${autoApproved}</div><div class="a-sub">Low risk returns</div></div>
+          <div class="a-card"><div class="a-sub">Auto-Denied</div><div class="a-kpi">${autoDenied}</div><div class="a-sub">High risk returns</div></div>
+        </div>
+        <div class="admin-grid4" style="margin-bottom:24px">
+          <div class="a-card"><div class="a-sub">Avg Risk Score</div><div class="a-kpi">${avgScore}</div></div>
+          <div class="a-card"><div class="a-sub">Accuracy Estimate</div><div class="a-kpi">${(accuracy * 100).toFixed(1)}%</div></div>
+          <div class="a-card"><div class="a-sub">Flagged Rate</div><div class="a-kpi">${totalReturns > 0 ? ((flagged / totalReturns) * 100).toFixed(1) : 0}%</div></div>
+          <div class="a-card"><div class="a-sub">Store Count</div><div class="a-kpi">${fraudTrends.store_count || 0}</div></div>
+        </div>
+        ${stores.length > 0 ? `
+        <div class="a-card">
+          <h3>Fraud by Store</h3>
+          <table class="a-table">
+            <thead><tr><th>Store</th><th>Total Returns</th><th>Flagged</th><th>Value</th></tr></thead>
+            <tbody>
+              ${stores.map(([sid, s]) => `<tr>
+                <td style="font-weight:600">${esc(sid)}</td>
+                <td>${s.total}</td>
+                <td><span class="a-pill ${s.flagged > 0 ? 'a-pill-amber' : 'a-pill-green'}">${s.flagged}</span></td>
+                <td>${money(s.value)}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>` : '<div class="a-card"><p class="a-sub" style="text-align:center;padding:40px">No return data yet</p></div>'}`;
+    }
+
+    window.adminReturnAction = async function(id, action) {
+      try { await fetch(API + "/returns/" + id + "/" + action, { method: "POST", headers: { "X-API-Key": API_KEY } }); toast("Return " + action + "d"); route(); } catch(e) { toast("Error: " + e.message); }
+    };
+
+    /* ── AI Model ─────────────────────────────────────── */
+    async function renderAiModel() {
+      const perf = await api("/admin/return-fraud/model-performance");
+      view.innerHTML = `
+        <div class="b-header"><div><h2>AI Model Performance</h2><p>Fraud detection model metrics</p></div></div>
+        <div class="admin-grid4" style="margin-bottom:24px">
+          <div class="a-card"><div class="a-sub">Total Returns</div><div class="a-kpi">${perf.total_returns || 0}</div></div>
+          <div class="a-card"><div class="a-sub">Flagged Returns</div><div class="a-kpi">${perf.flagged_returns || 0}</div></div>
+          <div class="a-card"><div class="a-sub">Auto-Approved</div><div class="a-kpi">${perf.auto_approved || 0}</div></div>
+          <div class="a-card"><div class="a-sub">Auto-Denied</div><div class="a-kpi">${perf.auto_denied || 0}</div></div>
+        </div>
+        <div class="admin-grid2">
+          <div class="a-card"><div class="a-sub">Avg Risk Score</div><div class="a-kpi">${(perf.avg_risk_score || 0).toFixed(1)}</div></div>
+          <div class="a-card"><div class="a-sub">Accuracy Estimate</div><div class="a-kpi">${((perf.accuracy_estimate || 0) * 100).toFixed(1)}%</div></div>
+        </div>
+        <div class="a-card" style="margin-top:14px"><p class="a-sub">Model retraining happens automatically based on incoming return data. Current model is trained on return patterns, customer history, and order metadata.</p></div>`;
     }
 
     /* ── Init ─────────────────────────────────────────────────── */
