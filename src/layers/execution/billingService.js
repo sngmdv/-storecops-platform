@@ -34,6 +34,8 @@ const PLANS = {
       stockout_alerts: true,
       max_stores: 1,
       max_events_per_month: 500,
+      max_emails_per_month: 100,
+      max_whatsapp_per_month: 0,
       cart_recovery: false,
       whatsapp_recovery: false,
       churn_scoring: false,
@@ -53,7 +55,7 @@ const PLANS = {
     id: 'growth',
     name: 'Growth',
     priceMonthly: 49,
-    priceAnnual: 39,
+    priceAnnual: 468, // $39/mo billed annually (39*12)
     currency: 'USD',
     features: {
       live_orders: true,
@@ -62,6 +64,8 @@ const PLANS = {
       stockout_alerts: true,
       max_stores: 1,
       max_events_per_month: 50000,
+      max_emails_per_month: 5000,
+      max_whatsapp_per_month: 1000,
       cart_recovery: true,
       whatsapp_recovery: true,
       churn_scoring: true,
@@ -81,7 +85,7 @@ const PLANS = {
     id: 'scale',
     name: 'Scale',
     priceMonthly: 149,
-    priceAnnual: 119,
+    priceAnnual: 1428, // $119/mo billed annually (119*12)
     currency: 'USD',
     features: {
       live_orders: true,
@@ -90,6 +94,8 @@ const PLANS = {
       stockout_alerts: true,
       max_stores: 5,
       max_events_per_month: 500000,
+      max_emails_per_month: 50000,
+      max_whatsapp_per_month: 10000,
       cart_recovery: true,
       whatsapp_recovery: true,
       churn_scoring: true,
@@ -104,6 +110,8 @@ const PLANS = {
       priority_support: true,
     },
   },
+  // Alias: premium === scale (keeps old config/URLs working)
+  get premium() { return this.scale; },
 };
 
 /**

@@ -42,7 +42,13 @@ async function hasRealCredentials(platform, storeId) {
 
 // Growth loop heartbeat: run a full automation cycle for every
 // active store every 60 minutes.
+// Demo data is ONLY auto-seeded for the demo store or when DEMO_MODE=true.
+// Real merchants must never see fabricated orders mixed with their own data.
 const CYCLE_INTERVAL_MS = 60 * 60 * 1000;
+const DEMO_STORES = new Set(
+  String(process.env.DEMO_STORE_IDS || 'store_demo,demo_store',).split(',').map((s,) => s.trim()).filter(Boolean)
+);
+const isDemoEnabled = () => String(process.env.DEMO_MODE || '').toLowerCase() === 'true' || DEMO_STORES.has('store_demo');
 setInterval(async () => {
   try {
     const allStores = await platform.store.users.find({});
@@ -50,8 +56,14 @@ setInterval(async () => {
     for (const storeId of storeIds) {
       const hasReal = await hasRealCredentials(platform, storeId);
       if (hasReal) continue; // skip stores with real integrations (they re-sync separately)
-      // Ensure demo data exists before running growth cycle
-      await platform.demoSeed.seed(storeId);
+      const isDemoStore = DEMO_STORES.has(storeId) || (isDemoEnabled() && !hasReal && storeId.startsWith('store_'));
+      // Only seed demo data for explicit demo stores, not every orphaned real store
+      if (isDemoStore) {
+        await platform.demoSeed.seed(storeId);
+      } else if ((await platform.store.events.find({ store_id: storeId, },)).length === 0) {
+        // Real store with no data yet — don't fabricate, just skip until they connect
+        continue;
+      }
       const cycle = await platform.runGrowthCycle(storeId);
       console.log(
         `[GROWTH-CYCLE] store=${storeId} queued=${cycle.scan.queued_actions.length} executed=${cycle.execution.delivered} conversions=${cycle.attribution.conversions}`

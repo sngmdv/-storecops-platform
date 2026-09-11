@@ -297,24 +297,29 @@
       "settings": { title: "System Health", render: withTabs(ADMIN_TABS.settings, "settings", renderSettings) },
       "ai-model": { title: "AI Model", render: withTabs(ADMIN_TABS.settings, "ai-model", renderAiModel) },
       "support": { title: "Support & Feedback", render: withTabs(ADMIN_TABS.support, "support", renderSupport) },
+      "store-detail": { title: "Store Detail", render: renderStoreDetail },
     };
     const ADMIN_PARENT = {
       "": "overview", "overview": "overview", "brief": "overview", "forecast": "overview", "conversion": "overview",
-      "stores": "stores", "return-fraud": "stores",
+      "stores": "stores", "return-fraud": "stores", "store-detail": "stores",
       "billing": "billing", "invoices": "billing", "renewals": "billing",
       "features": "features", "campaigns": "features",
       "settings": "settings", "ai-model": "settings",
       "support": "support",
     };
     function route() {
-      const hash = (location.hash || "#/").replace("#/", "") || "";
+      const raw = (location.hash || "#/").replace("#/", "") || "";
+      // Support dynamic store-detail/:id — map to store-detail route
+      const hash = raw.startsWith("store-detail/") ? "store-detail" : raw;
       const target = ROUTES[hash] || ROUTES[""];
       $("#admin-title").textContent = target.title;
       const activeNav = ADMIN_PARENT[hash] ?? (hash || "overview");
       document.querySelectorAll(".side-nav a").forEach(a => a.classList.toggle("active", a.dataset.route === activeNav));
       destroyCharts();
       view.innerHTML = '<div class="a-empty"><span class="spinner"></span> Loading…</div>';
-      target.render().catch(e => { view.innerHTML = `<div class="a-card"><h3>Error</h3><p class="a-sub">${esc(e.message)}</p></div>`; });
+      // Store-detail needs the id param
+      const maybePromise = raw.startsWith("store-detail/") ? target.render(raw.split("/")[1]) : target.render();
+      maybePromise.catch(e => { view.innerHTML = `<div class="a-card"><h3>Error</h3><p class="a-sub">${esc(e.message)}</p></div>`; });
     }
     window.addEventListener("hashchange", route);
 
@@ -490,9 +495,40 @@
         const band = s.health?.risk?.band || "MEDIUM";
         const issue = s.health?.reasons?.[0]?.reason?.replace(/_/g," ") || "none";
         const pillCls = band==="CRITICAL"||band==="HIGH" ? "a-pill-red" : band==="MEDIUM" ? "a-pill-amber" : "a-pill-green";
-        return `<tr><td><b>${esc(s.store_name)}</b></td><td>${esc(s.platform)}</td><td><span class="a-pill a-pill-violet">${esc(s.plan)}</span></td><td><b>${s.health?.score||0}</b>/100</td><td><span class="a-pill ${pillCls}">${band}</span></td><td>${esc(issue)}</td><td><button class="a-btn-sm" onclick="showInterventions('${esc(s.store_id)}')">Intervene</button></td></tr>`;
+        return `<tr style="cursor:pointer" onclick="location.hash='#/store-detail/${esc(s.store_id)}'"><td><b>${esc(s.store_name)}</b><br><small class="a-sub">${esc(s.store_id)}</small></td><td>${esc(s.platform)}</td><td><span class="a-pill a-pill-violet">${esc(s.plan)}</span></td><td><b>${s.health?.score||0}</b>/100</td><td><span class="a-pill ${pillCls}">${band}</span></td><td>${esc(issue)}</td><td><button class="a-btn-sm" onclick="event.stopPropagation();showInterventions('${esc(s.store_id)}')">Intervene</button> <button class="a-btn-sm" onclick="event.stopPropagation();location.hash='#/store-detail/${esc(s.store_id)}'">Detail →</button></td></tr>`;
       }).join("");
     }
+
+    /* ── Store Detail — per-client deep dive ──────────────────────── */
+    async function renderStoreDetail(storeId) {
+      const id = storeId || (location.hash.split("/")[2] || "");
+      if (!id) { view.innerHTML = '<div class="a-card a-empty">No store selected.</div>'; return; }
+      const [onboarding, storesData, retention, health] = await Promise.all([
+        api("/admin/stores/" + id + "/onboarding").catch(() => ({ onboarding: null })),
+        api("/admin/stores").catch(() => ({ stores: [] })),
+        api("/admin/retention/health/" + id).catch(() => null),
+        api("/admin/retention/interventions/" + id).catch(() => ({ interventions: [] })),
+      ]);
+      const storeMeta = (storesData.stores || []).find(s => s.store_id === id) || { store_id: id, store_name: id };
+      const ob = onboarding.onboarding || onboarding;
+      const steps = ob?.steps || {};
+      const completion = ob?.completion_pct ?? 0;
+      const interventions = health?.interventions || health || [];
+      container = view;
+      view.innerHTML = `
+        <div class="a-card"><a href="#/stores" style="font-size:13px;color:var(--primary)">← Back to stores</a><h2 style="margin:8px 0 4px">${esc(storeMeta.store_name || id)}</h2><div class="a-sub">${esc(id)} · ${esc(storeMeta.platform||"—")} · <span class="a-pill a-pill-violet">${esc(storeMeta.plan||"—")}</span> · Health <b>${health?.score ?? storeMeta.health?.score ?? "—"}</b>/100</div></div>
+        <div class="admin-grid2">
+          <div class="a-card"><h3>Onboarding</h3><div class="a-kpi">${completion}%</div><div class="a-sub">${ob?.current_step || "—"} · ${ob?.completed ? "completed" : "in progress"}</div><div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">${Object.entries(steps).map(([k,v]) => `<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 10px;background:var(--surface-2);border-radius:8px"><span>${k}</span><span class="a-pill ${v.completed ? 'a-pill-green' : v.skipped ? 'a-pill-gray' : 'a-pill-amber'}">${v.completed ? 'done' : v.skipped ? 'skipped' : 'pending'}</span></div>`).join("") || '<div class="a-empty">No onboarding data.</div>'}</div><div style="margin-top:12px;display:flex;gap:8px"><button class="a-btn-sm" onclick="resyncStore('${esc(id)}')">Resync store</button><button class="a-btn-sm" onclick="api('/admin/stores/${esc(id)}/onboarding',{method:'POST',body:JSON.stringify({step:'complete',value:true})}).then(()=>toast('Onboarding step updated')).catch(e=>toast(e.message))">Mark complete</button></div></div>
+          <div class="a-card"><h3>Health & Interventions</h3><div style="margin-top:8px">${Array.isArray(interventions) && interventions.length ? interventions.map(iv => `<div class="a-alert a-alert-amber"><div style="flex:1"><b>${esc(iv.title||iv.reason||'Action')}</b><br><small class="a-sub">${esc(iv.detail||iv.action||'')}</small></div></div>`).join("") : '<div class="a-empty">No interventions — store looks healthy.</div>'}</div></div>
+        </div>
+        <div class="a-card"><h3>Connections</h3><div id="conn-detail" class="a-empty">Loading integrations…</div></div>`;
+      try {
+        const integ = await api("/integrations/" + id).catch(() => null);
+        const el = document.getElementById("conn-detail");
+        if (el) el.innerHTML = integ ? `<pre style="font-size:12px;white-space:pre-wrap;word-break:break-word;background:var(--surface-2);padding:12px;border-radius:8px">${esc(JSON.stringify(integ,null,2))}</pre>` : '<div class="a-empty">No integration data.</div>';
+      } catch {}
+    }
+    window.resyncStore = async function(id){ try{ const r=await api("/admin/stores/"+id+"/resync",{method:"POST"}); toast("Resync: "+JSON.stringify(r)); }catch(e){ toast(e.message); } };
 
     window.showInterventions = async function (storeId) {
       try {

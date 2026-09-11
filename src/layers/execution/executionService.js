@@ -86,6 +86,32 @@ function createExecutionService({
         }
       }
 
+      // ── Volume cap gate (cost protection) ─────────────────────────────
+      // Starter 100 emails/mo, Growth 5k/1k WA, Scale 50k/10k WA.
+      // Counts the current calendar month's deliveries for this store+channel.
+      if (billingService) {
+        const entitlement = await billingService.getEntitlement(action.store_id,);
+        const channelForCap = action.channel === 'whatsapp' ? 'whatsapp' : 'email';
+        const capKey = channelForCap === 'whatsapp' ? 'max_whatsapp_per_month' : 'max_emails_per_month';
+        const cap = entitlement.features[capKey];
+        if (cap !== undefined && cap !== null) {
+          const monthStart = new Date();
+          monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+          const monthIso = monthStart.toISOString();
+          const allDeliveries = await store.deliveries.find({ store_id: action.store_id, },);
+          const sentThisMonth = allDeliveries.filter((d,) =>
+            d.channel === channelForCap && (d.delivered_at || d.createdAt || '') >= monthIso,
+          ).length;
+          if (sentThisMonth >= cap) {
+            return orchestrator.updateAction(action._id, {
+              status: 'blocked',
+              block_reason: `Monthly ${channelForCap} cap reached (${cap}/mo on ${entitlement.id}). Upgrade to send more.`,
+              blocked_at: new Date().toISOString(),
+            },);
+          }
+        }
+      }
+
       // Channel resolution: explicit or learned.
       let channel = action.channel;
       let channelReason = 'rule';

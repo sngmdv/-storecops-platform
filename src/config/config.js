@@ -120,15 +120,18 @@ const config = {
       keySecret: process.env.RAZORPAY_KEY_SECRET || '',
       webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
     },
-    // Plans
+    // Plans — canonical source is src/layers/execution/billingService.js:23 PLANS
+    // starter=free, growth=$49/mo, scale=$149/mo. `premium` is alias of `scale` for compat.
     plans: {
-      starter: { monthly: 29, annual: 290, currency: 'usd', },
-      growth: { monthly: 49, annual: 490, currency: 'usd', },
-      premium: { monthly: 99, annual: 990, currency: 'usd', },
-      // INR pricing for Indian customers
-      starter_inr: { monthly: 2499, annual: 24990, currency: 'inr', },
-      growth_inr: { monthly: 4199, annual: 41990, currency: 'inr', },
-      premium_inr: { monthly: 8499, annual: 84990, currency: 'inr', },
+      starter: { monthly: 0, annual: 0, currency: 'usd', },
+      growth: { monthly: 49, annual: 468, currency: 'usd', }, // $39/mo billed annually
+      scale: { monthly: 149, annual: 1428, currency: 'usd', }, // $119/mo billed annually
+      premium: { monthly: 149, annual: 1428, currency: 'usd', }, // alias: premium === scale
+      // INR pricing (Razorpay) — mirrors billingService REGIONAL_PRICING
+      starter_inr: { monthly: 0, annual: 0, currency: 'inr', },
+      growth_inr: { monthly: 3999, annual: 39990, currency: 'inr', },
+      scale_inr: { monthly: 11999, annual: 119990, currency: 'inr', },
+      premium_inr: { monthly: 11999, annual: 119990, currency: 'inr', }, // alias
     },
     // GST for Indian customers
     gstRate: Number(process.env.GST_RATE || 18,),
