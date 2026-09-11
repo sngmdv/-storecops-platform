@@ -11,3 +11,8 @@ Thumbs.db
 .env.production
 fix-output.txt
 lint-final.txt
+
+# local work
+.workbuddy-ai/
+STORECOPS_ASSESSMENT.html
+tmp_verify.js
