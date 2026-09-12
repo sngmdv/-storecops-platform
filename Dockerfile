@@ -11,8 +11,8 @@ RUN npm ci --omit=dev
 # Copy application source
 COPY . .
 
-# Create data directory for SQLite (persistent volume mounts here)
-RUN mkdir -p data
+# Create data directory for SQLite (persistent volume mounts here) and ensure writable by non-root user
+RUN mkdir -p data && chown -R node:node /app
 
 # Expose the port (overridden by hosting platform)
 EXPOSE 4000

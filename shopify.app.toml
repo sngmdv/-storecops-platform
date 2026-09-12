@@ -52,7 +52,7 @@ client_id = "REPLACE_WITH_PARTNER_DASHBOARD_CLIENT_ID"
 # but it does not serve this application. Every route in this repo 404s there
 # (/health, /app, /proxy/tracker.js, /api/*). Point this at wherever the Express
 # server in this repo is actually deployed, or deploy it there first.
-application_url = "https://storecops.com"
+application_url = "https://storecops-production.up.railway.app"
 
 # REQUIRED. Renders the app inside the Shopify admin via App Bridge.
 embedded = true
@@ -87,7 +87,7 @@ scopes = "read_products,read_orders,read_customers,read_inventory"
 # in-admin landing page and a different thing entirely.
 [auth]
 redirect_urls = [
-  "https://storecops.com/connect/shopify/callback"
+  "https://storecops-production.up.railway.app/connect/shopify/callback"
 ]
 
 # ─── App Proxy ───────────────────────────────────────────────────────────────
@@ -102,7 +102,7 @@ redirect_urls = [
 [app_proxy]
 prefix = "apps"
 subpath = "storecops"
-url = "https://storecops.com/proxy"
+url = "https://storecops-production.up.railway.app/proxy"
 
 # ─── Webhooks ────────────────────────────────────────────────────────────────
 # Only topics that have a real route in src/server/createApp.js are declared.
