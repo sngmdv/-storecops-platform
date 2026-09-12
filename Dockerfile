@@ -17,9 +17,13 @@ RUN mkdir -p data
 # Expose the port (overridden by hosting platform)
 EXPOSE 4000
 
-# Increase heap size for memory-constrained environments
+# Production defaults
+ENV NODE_ENV=production
 ENV NODE_OPTIONS="--max-old-space-size=256"
 # STORAGE defaults to sqlite; override with STORAGE=memory for ephemeral environments
+
+# Create non-root user (node image already provides 'node' user)
+USER node
 
 # Health check - longer interval for cold starts
 HEALTHCHECK --interval=60s --timeout=10s --start-period=60s --retries=3 \

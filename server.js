@@ -7,6 +7,16 @@
  * growth-cycle scheduler.
  */
 
+// DEP-001: Load .env file if present (Railway injects env directly, so this is optional for local prod-like runs).
+// Node 20+ has process.loadEnvFile; fallback to dotenv if installed.
+try {
+  if (typeof process.loadEnvFile === 'function') {
+    try { process.loadEnvFile('.env.production'); } catch (_) { try { process.loadEnvFile('.env'); } catch (_) {} }
+  } else {
+    require('dotenv').config();
+  }
+} catch (_) {}
+
 const { createPlatform } = require("./src/platform");
 const { createApp } = require("./src/server/createApp");
 
@@ -27,14 +37,18 @@ app.listen(PORT, "0.0.0.0", async () => {
 /** Check if a store has real integration credentials (Shopify/WooCommerce/BigCommerce). */
 async function hasRealCredentials(platform, storeId) {
   try {
-    const connectors = await platform.store.get("connectors") || {};
-    if (connectors.shopify?.access_token || connectors.woocommerce?.consumer_key || connectors.bigcommerce?.access_token) {
-      return true;
-    }
-    // Also check integrations collection
-    const integration = await platform.store.findOne("integrations", { store_id: storeId });
+    // platform.store is a collection facade (users, events, integrations, etc.)
+    // Check connectors via integrations collection - the facade has no .get()
+    const integration = await platform.store.integrations.findOne({ store_id: storeId });
     if (integration?.shopify?.access_token || integration?.woocommerce?.consumer_key || integration?.bigcommerce?.access_token) {
       return true;
+    }
+    // Also check connectors collection if it exists
+    if (platform.store.connectors) {
+      const connector = await platform.store.connectors.findOne({ store_id: storeId });
+      if (connector?.shopify?.access_token || connector?.woocommerce?.consumer_key || connector?.bigcommerce?.access_token) {
+        return true;
+      }
     }
   } catch (_) {}
   return false;
@@ -48,7 +62,8 @@ const CYCLE_INTERVAL_MS = 60 * 60 * 1000;
 const DEMO_STORES = new Set(
   String(process.env.DEMO_STORE_IDS || 'store_demo,demo_store',).split(',').map((s,) => s.trim()).filter(Boolean)
 );
-const isDemoEnabled = () => String(process.env.DEMO_MODE || '').toLowerCase() === 'true' || DEMO_STORES.has('store_demo');
+// DEMO_MODE must be explicitly true to auto-seed non-demo stores; DEMO_STORE_IDS alone is not enough to seed real merchants
+const isDemoEnabled = () => String(process.env.DEMO_MODE || '').toLowerCase() === 'true';
 setInterval(async () => {
   try {
     const allStores = await platform.store.users.find({});
@@ -56,7 +71,7 @@ setInterval(async () => {
     for (const storeId of storeIds) {
       const hasReal = await hasRealCredentials(platform, storeId);
       if (hasReal) continue; // skip stores with real integrations (they re-sync separately)
-      const isDemoStore = DEMO_STORES.has(storeId) || (isDemoEnabled() && !hasReal && storeId.startsWith('store_'));
+      const isDemoStore = DEMO_STORES.has(storeId);
       // Only seed demo data for explicit demo stores, not every orphaned real store
       if (isDemoStore) {
         await platform.demoSeed.seed(storeId);

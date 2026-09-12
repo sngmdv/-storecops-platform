@@ -1,167 +1,142 @@
-# Storecops - AI-Driven E-Commerce Growth Platform
-# Shopify App Store Configuration
+# Storecops — Shopify App Store configuration.
+#
+# Schema reference:
+#   https://shopify.dev/docs/apps/build/cli-for-apps/app-configuration
+#
+# ─── What changed in this file and why ───────────────────────────────────────
+# The previous version used several keys and sections that are not part of the
+# documented schema. Shopify CLI silently ignores unknown keys, so the file
+# looked fine while the app could not actually be deployed:
+#
+#   id = "storecops-growth-platform"   -> not a field. The CLI needs
+#                                         `client_id` (required), which was
+#                                         absent entirely.
+#   app_url = "..."                    -> renamed to `application_url`.
+#   (missing)                          -> `embedded = true` is required for an
+#                                         App Bridge app and was absent.
+#   (missing)                          -> `extension_directories`. The CLI
+#                                         defaults to `extensions/` at the repo
+#                                         root; this repo keeps extensions under
+#                                         `shopify-app/extensions/`. Without
+#                                         this key, `shopify app deploy` finds
+#                                         ZERO extensions.
+#   [app_bridge]                       -> not a section. The redirect URL belongs
+#                                         in [auth].redirect_urls, and must be an
+#                                         absolute URL, not "/app".
+#   [[extensions]] / [[theme_extensions]]
+#                                      -> not sections. Extensions are
+#                                         auto-discovered from disk.
+#   [posix]                            -> not a section. ([pos] exists, but that
+#                                         is for Shopify POS embedding — unrelated.)
+#   [billing] / categories             -> not fields in this schema. Billing is
+#                                         configured in the Partner Dashboard.
+#   [[webhooks]] with topic/format     -> wrong shape. It is
+#                                         [[webhooks.subscriptions]] with
+#                                         `topics` (array) or `compliance_topics`.
+#
+# Also removed: four declarative webhooks (orders/create, products/update,
+# inventory_levels/update, refunds/create) that pointed at routes this codebase
+# does not implement. See the note above the webhook block below.
+# ─────────────────────────────────────────────────────────────────────────────
 
 name = "Storecops"
-id = "storecops-growth-platform"
 handle = "storecops"
-app_url = "https://storecops.com"
-developer_name = "Storecops"
-developer_email = "support@storecops.com"
-developer_url = "https://storecops.com"
 
-# App description (max 200 characters)
-description = "AI-driven e-commerce growth platform: recover abandoned carts, track competitors, optimize SEO, and automate revenue generation with intelligent analytics."
+# REQUIRED. Copy from Partner Dashboard -> your app -> Client credentials.
+# Until this is set, the app cannot authenticate anything.
+client_id = "REPLACE_WITH_PARTNER_DASHBOARD_CLIENT_ID"
 
-# Privacy policy URL (required)
-privacy_url = "https://storecops.com/privacy"
+# REQUIRED. Must be the public HTTPS origin that actually serves THIS codebase.
+#
+# ⚠ VERIFY BEFORE DEPLOY: https://storecops.com currently resolves and responds,
+# but it does not serve this application. Every route in this repo 404s there
+# (/health, /app, /proxy/tracker.js, /api/*). Point this at wherever the Express
+# server in this repo is actually deployed, or deploy it there first.
+application_url = "https://storecops.com"
 
-# Terms of service URL
-terms_of_service_url = "https://storecops.com/terms"
+# REQUIRED. Renders the app inside the Shopify admin via App Bridge.
+embedded = true
 
-# Support URL
-support_url = "https://storecops.com/support"
-
-# App category
-categories = ["-store-operations", "marketing", "analytics"]
-
-# Pricing
-# pricing = { monthly = { amount = "0.00", currency_code = "USD" } }
+# Where the CLI searches for extensions. This repo does not use the default
+# `extensions/` location at the repo root.
+extension_directories = ["shopify-app/extensions"]
 
 # ─── Scopes ──────────────────────────────────────────────────────────────────
-# Required permissions for the app to function.
-# Read more: https://shopify.dev/docs/apps/build/cli/configuration/scopes
-
+# Narrowed to what the code demonstrably calls:
+#   products.json, orders.json, customers.json  (src/server/integrations.js)
+#   inventory feed for the stock ledger
+#
+# The previous list was much broader. Removed because nothing in the codebase
+# reads or writes them: read_analytics, read_content, write_content, read_themes,
+# write_themes, read_checkouts, read_shipping, write_products, write_orders,
+# write_customers, read_script_tags, write_script_tags, and the legacy
+# unauthenticated_read_* Storefront scopes.
+#
+# Requesting scopes you do not use is the most common cause of App Store
+# rejection. If you add a feature that writes back to Shopify, add the scope
+# here and in .env at the same time.
 [access_scopes]
-# Read scopes (data collection)
-scopes = [
-  "read_products",
-  "read_orders",
-  "read_customers",
-  "read_inventory",
-  "read_analytics",
-  "read_content",
-  "read_themes",
-  "read_script_tags",
-  "read_checkouts",
-  "read_shipping",
-  
-  # Write scopes (actions)
-  "write_products",
-  "write_orders",
-  "write_customers",
-  "write_inventory",
-  "write_script_tags",
-  "write_content",
-  "write_themes",
-  
-  # Unauthenticated (for checkout extensibility)
-  "unauthenticated_read_product_inventory",
-  "unauthenticated_read_product_listings",
-  "unauthenticated_read_checkouts",
-  "unauthenticated_read_content",
+scopes = "read_products,read_orders,read_customers,read_inventory"
+
+# ─── OAuth ───────────────────────────────────────────────────────────────────
+# REQUIRED. Absolute URLs on the application_url origin.
+#
+# This path must match what the code actually serves. The OAuth callback is
+# built in src/server/oauthConnectors.js as `${baseUrl()}/connect/{platform}/callback`,
+# so the Shopify entry is /connect/shopify/callback — not /app, which is the
+# in-admin landing page and a different thing entirely.
+[auth]
+redirect_urls = [
+  "https://storecops.com/connect/shopify/callback"
 ]
 
-# Use online access mode (per-user tokens)
-online_access_scopes = [
-  "read_products",
-  "read_orders",
-  "read_customers",
-  "read_inventory",
-  "read_analytics",
-]
+# ─── App Proxy ───────────────────────────────────────────────────────────────
+# Required by the theme app extension. The storefront loads
+# /apps/storecops/* and Shopify forwards it to /proxy/* on this app, where the
+# signature is verified (src/server/appProxy.js).
+#
+#   storefront: https://{shop}/apps/storecops/tracker.js
+#   forwarded:  https://storecops.com/proxy/tracker.js
+#
+# Requires a publicly reachable HTTPS origin that serves this codebase.
+[app_proxy]
+prefix = "apps"
+subpath = "storecops"
+url = "https://storecops.com/proxy"
 
-# ─── App Bridge ───────────────────────────────────────────────────────────────
-# Enable App Bridge for embedded app experience in Shopify Admin.
+# ─── Webhooks ────────────────────────────────────────────────────────────────
+# Only topics that have a real route in src/server/createApp.js are declared.
+#
+# The previous file also declared orders/create -> /webhooks/shopify/orders,
+# products/update -> /webhooks/shopify/products, inventory_levels/update ->
+# /webhooks/shopify/inventory, and refunds/create -> /webhooks/shopify/refunds.
+# None of those routes exist. Shopify would have POSTed to four dead endpoints
+# on every order, product change, inventory change and refund.
+#
+# Note on orders: real-time order flow is registered at RUNTIME via the Admin
+# API (integrations.registerShopifyWebhook -> `${baseUrl()}/webhooks/orders/{store_id}`,
+# which IS a real route at createApp.js:601). The same is true of the compliance
+# topics below via registerComplianceWebhooks. That means these declarative
+# entries may duplicate the runtime registration. Shopify dedupes on
+# topic + address, so identical pairs are harmless, but if you change an address
+# in one place, change it in the other.
+[webhooks]
+api_version = "2026-07"
 
-[app_bridge]
-# Redirect URL after OAuth completion
-redirect_url = "/app"
-
-# ─── Webhooks ─────────────────────────────────────────────────────────────────
-# Register webhooks declaratively. These are registered when the app is installed.
-
-[[webhooks]]
-topic = "orders/create"
-uri = "/webhooks/shopify/orders"
-format = "json"
-
-[[webhooks]]
-topic = "app/uninstalled"
+[[webhooks.subscriptions]]
+topics = ["app/uninstalled"]
 uri = "/webhooks/shopify/app-uninstalled"
-format = "json"
 
-# GDPR compliance webhooks (required for all public apps)
-
-[[webhooks]]
-topic = "customers/data_request"
+# GDPR/compliance topics are mandatory for public apps. Declared here so they
+# exist even if the runtime registration call fails.
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/data_request"]
 uri = "/webhooks/shopify/data-request"
-format = "json"
 
-[[webhooks]]
-topic = "customers/redact"
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/redact"]
 uri = "/webhooks/shopify/customer-redact"
-format = "json"
 
-[[webhooks]]
-topic = "shop/redact"
+[[webhooks.subscriptions]]
+compliance_topics = ["shop/redact"]
 uri = "/webhooks/shopify/shop-redact"
-format = "json"
-
-# Additional webhooks for revenue intelligence
-
-[[webhooks]]
-topic = "products/update"
-uri = "/webhooks/shopify/products"
-format = "json"
-
-[[webhooks]]
-topic = "inventory_levels/update"
-uri = "/webhooks/shopify/inventory"
-format = "json"
-
-[[webhooks]]
-topic = "refunds/create"
-uri = "/webhooks/shopify/refunds"
-format = "json"
-
-# ─── Billing ──────────────────────────────────────────────────────────────────
-# Subscription plans using Shopify App Pricing.
-
-[billing]
-# Use Shopify App Billing (preferred for public apps)
-use_shopify_billing = true
-
-# ─── App Proxy ────────────────────────────────────────────────────────────────
-# Optional: proxy requests through Shopify for storefront access.
-
-# [app_proxy]
-# prefix = "apps/storecops"
-# path = "proxy"
-# url = "https://storecops.com/proxy"
-
-# ─── Theme Extension ──────────────────────────────────────────────────────────
-# Theme extension for consent banner and tracker disclosure.
-
-[[theme_extensions]]
-uuid = "storecops-tracker"
-type = "theme"
-title = "Storecops Tracker"
-description = "GDPR-compliant consent banner and tracker disclosure"
-api_version = "2025-01"
-
-# ─── Extensions ───────────────────────────────────────────────────────────────
-# Admin and checkout extensions.
-
-# [[extensions]]
-# uuid = "storecops-admin-block"
-# type = "ui_extension"
-# title = "Storecops Dashboard"
-# description = "In-admin dashboard block for quick insights"
-# api_version = "2025-01"
-
-# ─── POSIX Compliance ─────────────────────────────────────────────────────────
-# Ensure the app responds to webhooks within 5 seconds.
-
-[posix]
-# Webhook timeout protection: offload heavy work to background jobs
-webhook_timeout_ms = 4500

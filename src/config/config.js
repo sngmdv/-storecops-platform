@@ -8,34 +8,49 @@
  *
  * In production, sensitive values MUST be set via environment variables.
  * The app will throw on startup if required secrets are missing.
+ *
+ * Beyond the required secrets, production also runs a readiness check
+ * (src/config/readiness.js). That exists because the app previously booted
+ * successfully while PUBLIC_URL pointed at an unreplaced hosting placeholder
+ * and no outbound delivery credential existed — faults that are invisible at
+ * runtime and only appear when a real merchant installs. See that module for
+ * the full rationale.
  */
+
+const { buildReadinessReport, formatReport, } = require('./readiness.js',);
 
 // ─── Environment Validation ─────────────────────────────────────────────────
 
 const isProduction = (process.env.NODE_ENV || 'development') === 'production';
 
-const requiredInProduction = [
-  'API_KEY',
-  'WEBHOOK_SECRET',
-  'TOKEN_ENCRYPTION_KEY',
-];
-
 if (isProduction) {
-  const missing = requiredInProduction.filter((key,) => !process.env[key],);
-  if (missing.length > 0) {
-    console.error(`[FATAL] Missing required environment variables for production: ${missing.join(', ',)}`,);
-    console.error('[FATAL] Set these in your deployment environment before starting the server.',);
-    process.exit(1,);
-  }
-  
-  // Warn about default fallback values
-  if (process.env.API_KEY === 'dev-key') {
-    console.error('[FATAL] API_KEY cannot be \'dev-key\' in production',);
-    process.exit(1,);
-  }
-  if (process.env.TOKEN_ENCRYPTION_KEY === 'storecops-default-key-do-not-use-in-prod') {
-    console.error('[FATAL] TOKEN_ENCRYPTION_KEY cannot be the default value in production',);
-    process.exit(1,);
+  // Emergency escape hatch, documented and logged. Prefer fixing the config.
+  if (process.env.SKIP_READINESS_CHECK === 'true') {
+    console.warn(
+      '[WARN] SKIP_READINESS_CHECK=true — startup configuration checks are disabled. ' +
+      'Unset this once the deployment is correct.',
+    );
+  } else {
+    const report = buildReadinessReport(process.env, { env: process.env.NODE_ENV, },);
+
+    if (report.blocking.length > 0) {
+      console.error(formatReport(report,),);
+      console.error(
+        '\n[FATAL] Refusing to start with a misconfigured deployment. ' +
+        'Fix the BLOCKING items above, or set SKIP_READINESS_CHECK=true to override ' +
+        '(not recommended — the app will serve broken URLs to merchants).',
+      );
+      process.exit(1,);
+    }
+
+    // Non-fatal, but the operator must know which features are inert.
+    if (report.warnings.length > 0) {
+      console.warn(formatReport(report,),);
+      console.warn(
+        '[WARN] The app will start, but the features above will not deliver anything. ' +
+        'A merchant who installs and receives no message will treat the app as broken.',
+      );
+    }
   }
 }
 
@@ -49,8 +64,9 @@ const config = {
   // return URLs, Script Tag src, webhook addresses).
   publicUrl: process.env.PUBLIC_URL || '',
 
-  // Shopify API version (Task 63: keep current)
-  shopifyApiVersion: process.env.SHOPIFY_API_VERSION || '2025-01',
+  // Shopify API version (Task 63: keep current). 2025-01 is unsupported by
+  // Shopify — use a supported version (2026-07). Override via SHOPIFY_API_VERSION.
+  shopifyApiVersion: process.env.SHOPIFY_API_VERSION || '2026-07',
 
   // Persistence: "sqlite" survives restarts; tests default to memory.
   storage:
@@ -98,6 +114,9 @@ const config = {
   security: {
     // HMAC secret for inbound webhooks (empty = verification disabled).
     webhookSecret: process.env.WEBHOOK_SECRET || '',
+    // Shopify app CLIENT SECRET — used to verify Shopify's webhook HMAC
+    // (X-Shopify-Hmac-Sha256, base64). Distinct from webhookSecret above.
+    shopifyClientSecret: process.env.SHOPIFY_CLIENT_SECRET || '',
     // Sliding-window API rate limit per key/IP.
     rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 60000,),
     rateLimitMax: Number(process.env.RATE_LIMIT_MAX || 300,),
