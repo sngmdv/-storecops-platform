@@ -96,7 +96,7 @@ function createExecutionService({
         const cap = entitlement.features[capKey];
         if (cap !== undefined && cap !== null) {
           const monthStart = new Date();
-          monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+          monthStart.setDate(1,); monthStart.setHours(0,0,0,0,);
           const monthIso = monthStart.toISOString();
           const allDeliveries = await store.deliveries.find({ store_id: action.store_id, },);
           const sentThisMonth = allDeliveries.filter((d,) =>

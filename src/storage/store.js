@@ -136,7 +136,7 @@ function createCollection(name,) {
       const filterKeys = Object.entries(filter,);
       let count = 0;
       for (const [key, record,] of records) {
-        if (filterKeys.every(([k, v,]) => record[k] === v,)) {
+        if (filterKeys.every(([k, v,],) => record[k] === v,)) {
           records.delete(key,);
           count++;
         }

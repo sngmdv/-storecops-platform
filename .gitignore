@@ -16,3 +16,4 @@ lint-final.txt
 .workbuddy-ai/
 STORECOPS_ASSESSMENT.html
 tmp_verify.js
+*.bak

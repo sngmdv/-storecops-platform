@@ -1,9 +1,14 @@
 'use strict';
 
 process.env.NODE_ENV = 'test';
+// INT-001 fix: Shopify webhooks are HMAC-verified with the app client secret.
+// Set a deterministic secret so the verifier is active (it fails closed if
+// the secret is empty). This MUST be set before createPlatform() reads config.
+process.env.SHOPIFY_CLIENT_SECRET = 'test-shopify-secret';
 
 const test = require('node:test',);
 const assert = require('node:assert',);
+const crypto = require('crypto',);
 const { createPlatform, } = require('../src/platform',);
 const { createApp, } = require('../src/server/createApp',);
 
@@ -24,12 +29,26 @@ function bootServer() {
   },);
 }
 
-const postWebhook = (base, path, body,) =>
-  fetch(`${base}${path}`, {
+// Every route under test is Shopify-sourced and therefore requires a valid
+// X-Shopify-Hmac-Sha256 signature: base64 HMAC-SHA256 over the raw body,
+// keyed by the app client secret (INT-001 fix).
+const SHOPIFY_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
+const signShopify = (obj,) => {
+  const raw = JSON.stringify(obj,);
+  return crypto.createHmac('sha256', SHOPIFY_SECRET,).update(raw,).digest('base64',);
+};
+
+const postWebhook = (base, path, body,) => {
+  const raw = JSON.stringify(body,);
+  return fetch(`${base}${path}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', },
-    body: JSON.stringify(body,),
+    headers: {
+      'content-type': 'application/json',
+      'X-Shopify-Hmac-Sha256': signShopify(body,),
+    },
+    body: raw,
   },);
+};
 
 test('webhook idempotency: duplicate app-uninstalled is processed only once', async () => {
   const { base, platform, close, } = await bootServer();

@@ -175,6 +175,36 @@ function webhookVerifier(secret, headerName = 'x-storecops-signature',) {
   };
 }
 
+/**
+ * 10.4b — Shopify webhook signature verification.
+ * Shopify signs the RAW request body with HMAC-SHA256 using the app's CLIENT
+ * SECRET and sends it base64-encoded in the `X-Shopify-Hmac-Sha256` header.
+ * (Distinct from `webhookVerifier`, which uses a caller-supplied `WEBHOOK_SECRET`
+ * + hex digest for our own `/track` ingest endpoint.)
+ */
+function shopifyWebhookVerifier(secret,) {
+  return (req, res, next,) => {
+    // Fail closed: without the client secret we cannot verify Shopify signatures.
+    if (!secret) {
+      return res.status(401,).json({ error: 'Shopify webhook verification unavailable.', },);
+    }
+    const provided = req.get('X-Shopify-Hmac-Sha256',);
+    const rawBody = req.rawBody;
+    if (!provided || !rawBody) {
+      return res.status(401,).json({ error: 'Missing Shopify webhook signature.', },);
+    }
+    const expected = crypto.createHmac('sha256', secret,).update(rawBody,).digest('base64',);
+    const received = Buffer.from(provided || '',);
+    const valid =
+      received.length === expected.length &&
+      crypto.timingSafeEqual(received, Buffer.from(expected,),);
+    if (!valid) {
+      return res.status(401,).json({ error: 'Invalid webhook signature.', },);
+    }
+    return next();
+  };
+}
+
 /** 10.3 — GDPR/CCPA: export everything we hold about a customer. */
 async function exportCustomerData({ store, }, store_id, customer_id,) {
   const [profile, events, deliveries,] = await Promise.all([
@@ -249,6 +279,7 @@ module.exports = {
   createRbac,
   createRateLimiter,
   webhookVerifier,
+  shopifyWebhookVerifier,
   signBody,
   exportCustomerData,
   deleteCustomerData,

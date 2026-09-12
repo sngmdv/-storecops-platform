@@ -72,7 +72,7 @@ function isIndianCustomer(customer,) {
 function hasRealCredentials(key,) {
   if (!key || typeof key !== 'string') return false;
   return !/^(sk_|pk_|rzp_|whsec_|rzp_whsec_|wh_|cs_)/i.test(key,) &&
-    !key.includes('test_xxx');
+    !key.includes('test_xxx',);
 }
 
 function formatCurrency(amount, currency,) {

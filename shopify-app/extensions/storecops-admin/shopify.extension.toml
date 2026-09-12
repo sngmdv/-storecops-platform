@@ -1,0 +1,35 @@
+# Storecops — Admin UI extensions.
+#
+# These render inside the Shopify admin, next to the merchant's own
+# data, so insights appear where the work already happens instead of
+# asking them to visit a separate dashboard.
+#
+# Each target is a separate module. `shopify app deploy` bundles them.
+
+api_version = "2026-04"
+
+[[extensions]]
+type = "ui_extension"
+name = "Storecops Insights"
+handle = "storecops-insights"
+description = "Churn risk, inventory velocity, competitor pricing and win-back actions inside Shopify admin."
+
+  # Customer page: churn score, LTV and win-back eligibility.
+  [[extensions.targeting]]
+  target = "admin.customer-details.block.render"
+  module = "./src/CustomerChurnBlock.jsx"
+
+  # Product page: sales velocity, stockout projection, reorder qty.
+  [[extensions.targeting]]
+  target = "admin.product-details.block.render"
+  module = "./src/ProductInsightsBlock.jsx"
+
+  # Customer page "More actions": send a win-back message.
+  [[extensions.targeting]]
+  target = "admin.customer-details.action.render"
+  module = "./src/SendWinbackAction.jsx"
+
+  # Customer list bulk action: export the selected customers.
+  [[extensions.targeting]]
+  target = "admin.customer-index.selection-action.render"
+  module = "./src/ExportCustomersAction.jsx"

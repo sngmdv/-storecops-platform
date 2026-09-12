@@ -17,6 +17,10 @@
 
 const crypto = require('crypto',);
 
+// Shopify Admin API version. 2025-01 is unsupported; use a supported version.
+// Override via SHOPIFY_API_VERSION (kept in sync with config.shopifyApiVersion).
+const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || '2026-07';
+
 // ── Token encryption for stored credentials ──────────────────────────
 // Uses AES-256-GCM so tokens can be stored in the database for re-sync.
 const DEFAULT_KEY = 'storecops-default-key-do-not-use-in-prod';
@@ -296,7 +300,7 @@ function createIntegrations({ platform, },) {
     async syncShopify(store_id, { shopDomain, accessToken, } = {},) {
       const domain = String(shopDomain || '',).replace(/^https?:\/\//, '',).replace(/\/$/, '',);
       if (!domain || !accessToken) throw new Error('shopDomain and accessToken are required.',);
-      const base = `https://${domain.endsWith('.myshopify.com',) ? domain : domain + '.myshopify.com'}/admin/api/2025-01`;
+      const base = `https://${domain.endsWith('.myshopify.com',) ? domain : domain + '.myshopify.com'}/admin/api/${SHOPIFY_API_VERSION}`;
       const headers = { 'X-Shopify-Access-Token': accessToken, };
 
       // Paginate through all products (Shopify caps at 250/page, max 10 pages)
@@ -316,6 +320,9 @@ function createIntegrations({ platform, },) {
               name: `${p.title}${v.title && v.title !== 'Default Title' ? ' — ' + v.title : ''}`,
               stock: Number(v.inventory_quantity ?? 0,),
               price: Number(v.price || 0,),
+              // Stored so the storefront recommendation widget can link
+              // straight to /products/{handle} instead of guessing.
+              handle: p.handle,
               lead_time_days: 7,
             },);
           }
@@ -544,7 +551,7 @@ function createIntegrations({ platform, },) {
       try {
         const domain = String(shopDomain || '',).replace(/^https?:\/\//, '',).replace(/\/$/, '',);
         const res = await fetchWithRetry(
-          `https://${domain.endsWith('.myshopify.com',) ? domain : domain + '.myshopify.com'}/admin/api/2025-01/webhooks.json`,
+          `https://${domain.endsWith('.myshopify.com',) ? domain : domain + '.myshopify.com'}/admin/api/${SHOPIFY_API_VERSION}/webhooks.json`,
           {
             method: 'POST',
             headers: { 'X-Shopify-Access-Token': accessToken, 'Content-Type': 'application/json', },
@@ -558,42 +565,36 @@ function createIntegrations({ platform, },) {
       }
     },
 
-    // ── Task ob2: Script Tag auto-injection ────────────────────────
+    // ── Storefront tracking installation ───────────────────────────
     /**
-     * Inject the Storecops tracker into a Shopify store via the
-     * Script Tag API. The tracker loads from our server and sends
-     * storefront events to /track using the write-only ingest key.
+     * Report how storefront tracking gets installed.
+     *
+     * This used to POST to Shopify's Script Tag API. That API is deprecated,
+     * and the scopes it needs (read/write_script_tags) are exactly the kind of
+     * broad permission App Store review rejects. Storefront tracking is now
+     * delivered by the theme app extension (`shopify-app/extensions/storecops-tracker`),
+     * which is the supported mechanism and needs no write scope.
+     *
+     * The extension is an app embed the merchant enables once in the Theme
+     * Editor. It cannot be toggled programmatically, so this returns the
+     * instruction rather than pretending to install something.
+     *
+     * Note: whether tracking is *active* is derived from whether events have
+     * actually arrived (see onboardingService.js), not from this call. That
+     * keeps the onboarding state honest — a merchant who never enables the
+     * embed never sees "tracking active".
      */
-    async injectShopifyScriptTag(shopDomain, accessToken, storeId, ingestKey,) {
-      try {
-        const domain = String(shopDomain || '',).replace(/^https?:\/\//, '',).replace(/\/$/, '',);
-        const apiBase = `https://${domain.endsWith('.myshopify.com',) ? domain : domain + '.myshopify.com'}/admin/api/2025-01`;
-        const src = `${baseUrl()}/tracker.js?store=${encodeURIComponent(storeId,)}&key=${encodeURIComponent(ingestKey,)}`;
-
-        // Check if our tracker is already installed.
-        const existing = await fetchWithRetry(
-          `${apiBase}/script_tags.json?src=${encodeURIComponent(src.slice(0, 128,),)}`,
-          { headers: { 'X-Shopify-Access-Token': accessToken, }, signal: AbortSignal.timeout(10000,), },
-        );
-        if (existing.ok) {
-          const { script_tags = [], } = await existing.json();
-          if (script_tags.some((t,) => t.src && t.src.includes('tracker.js',) && t.src.includes(storeId,),)) {
-            return { installed: true, existing: true, };
-          }
-        }
-
-        const res = await fetchWithRetry(`${apiBase}/script_tags.json`, {
-          method: 'POST',
-          headers: { 'X-Shopify-Access-Token': accessToken, 'Content-Type': 'application/json', },
-          body: JSON.stringify({ script_tag: { event: 'onload', src, }, },),
-          signal: AbortSignal.timeout(15000,),
-        },);
-        if (!res.ok) return { installed: false, error: `HTTP ${res.status}`, };
-        const data = await res.json();
-        return { installed: true, script_tag_id: data.script_tag?.id, };
-      } catch (error) {
-        return { installed: false, error: error.message, };
-      }
+    storefrontTrackingStatus() {
+      return {
+        installed: false,
+        method: 'theme_extension',
+        extension: 'storecops-tracker',
+        reason:
+          'Storefront tracking is enabled by turning on the Storecops app embed ' +
+          'in Online Store -> Themes -> Customize -> App embeds. Shopify removed ' +
+          'the Script Tag API, so it cannot be injected programmatically.',
+        docs: 'https://shopify.dev/docs/apps/build/online-store/theme-app-extensions',
+      };
     },
 
     // ── Task ob7: Compliance webhooks (uninstalled, data redaction) ─
@@ -603,7 +604,7 @@ function createIntegrations({ platform, },) {
      */
     async registerComplianceWebhooks(shopDomain, accessToken,) {
       const domain = String(shopDomain || '',).replace(/^https?:\/\//, '',).replace(/\/$/, '',);
-      const apiBase = `https://${domain.endsWith('.myshopify.com',) ? domain : domain + '.myshopify.com'}/admin/api/2025-01`;
+      const apiBase = `https://${domain.endsWith('.myshopify.com',) ? domain : domain + '.myshopify.com'}/admin/api/${SHOPIFY_API_VERSION}`;
       const base = baseUrl();
       const topics = [
         { topic: 'app/uninstalled', address: `${base}/webhooks/shopify/app-uninstalled`, },
@@ -689,7 +690,9 @@ function createIntegrations({ platform, },) {
         tracking_active: false,
         billing_approved: false,
         first_sync_done: !!row?.products_synced,
-        script_tag_installed: false,
+        // Was `script_tag_installed`; the Script Tag API is deprecated and
+        // tracking now ships as a theme app extension.
+        tracking_method: null,
         compliance_webhooks_registered: false,
         updated_at: row?.last_sync_at || null,
       };

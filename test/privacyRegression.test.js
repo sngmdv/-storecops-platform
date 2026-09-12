@@ -1,9 +1,13 @@
 'use strict';
 
 process.env.NODE_ENV = 'test';
+// INT-001 fix: /webhooks/shopify/* is HMAC-verified with Shopify's client
+// secret. Set a deterministic secret so the verifier is active.
+process.env.SHOPIFY_CLIENT_SECRET = 'test-shopify-secret';
 
 const test = require('node:test',);
 const assert = require('node:assert',);
+const crypto = require('crypto',);
 const { createPlatform, } = require('../src/platform',);
 const { createApp, } = require('../src/server/createApp',);
 const { deleteCustomerData, exportCustomerData, } = require('../src/server/security',);
@@ -26,6 +30,12 @@ function bootServer() {
     },);
   },);
 }
+
+// Sign a payload exactly as Shopify does: base64 HMAC-SHA256 over the raw body,
+// keyed by the app client secret, in the X-Shopify-Hmac-Sha256 header.
+const SHOPIFY_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
+const signShopify = (obj,) =>
+  crypto.createHmac('sha256', SHOPIFY_SECRET,).update(JSON.stringify(obj,),).digest('base64',);
 
 test('privacy regression: deleteCustomerData anonymizes profile and scrubs all identifiers', async () => {
   const platform = createPlatform();
@@ -145,11 +155,15 @@ test('privacy regression: customer-redact webhook triggers data deletion', async
       timestamp: new Date().toISOString(),
     },);
 
-    // Fire the customer-redact webhook.
+    // Fire the customer-redact webhook (Shopify signs with X-Shopify-Hmac-Sha256).
+    const redactBody = { customer: { id: 'webhook_cust', }, };
     const res = await fetch(`${base}/webhooks/shopify/customer-redact`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', },
-      body: JSON.stringify({ customer: { id: 'webhook_cust', }, },),
+      headers: {
+        'content-type': 'application/json',
+        'X-Shopify-Hmac-Sha256': signShopify(redactBody),
+      },
+      body: JSON.stringify(redactBody,),
     },);
     assert.equal(res.status, 200,);
 

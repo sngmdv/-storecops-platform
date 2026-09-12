@@ -57,7 +57,7 @@ function migrateTable(db, name,) {
   // a missing extension must never take the platform down on boot.
   try {
     const assignments = INDEXED_FIELDS.map(
-      (f) => `"${f}" = json_extract(data, '$.${f}')`,
+      (f,) => `"${f}" = json_extract(data, '$.${f}')`,
     ).join(', ',);
     db.exec(
       `UPDATE "${name}" SET ${assignments}
@@ -90,7 +90,7 @@ function createSqliteCollection(db, name,) {
        _id TEXT PRIMARY KEY,
        createdAt TEXT,
        updatedAt TEXT,
-       ${INDEXED_FIELDS.map((f) => `"${f}" TEXT`,).join(', ')},
+       ${INDEXED_FIELDS.map((f,) => `"${f}" TEXT`,).join(', ',)},
        data TEXT NOT NULL
      )`,
   );
@@ -107,12 +107,12 @@ function createSqliteCollection(db, name,) {
 
   /* ── Prepared statements ─────────────────────────────────────── */
   const insertStmt = db.prepare(
-    `INSERT INTO "${name}" (_id, createdAt, updatedAt, ${INDEXED_FIELDS.join(', ')}, data) VALUES (?, ?, ?, ${INDEXED_FIELDS.map(() => '?',).join(', ')}, ?)`,
+    `INSERT INTO "${name}" (_id, createdAt, updatedAt, ${INDEXED_FIELDS.join(', ',)}, data) VALUES (?, ?, ?, ${INDEXED_FIELDS.map(() => '?',).join(', ',)}, ?)`,
   );
   const byIdStmt = db.prepare(`SELECT data FROM "${name}" WHERE _id = ?`,);
   const allStmt = db.prepare(`SELECT data FROM "${name}"`,);
   const updateStmt = db.prepare(
-    `UPDATE "${name}" SET data = ?, updatedAt = ?, ${INDEXED_FIELDS.map((f) => `"${f}" = ?`,).join(', ')} WHERE _id = ?`,
+    `UPDATE "${name}" SET data = ?, updatedAt = ?, ${INDEXED_FIELDS.map((f,) => `"${f}" = ?`,).join(', ',)} WHERE _id = ?`,
   );
   const countStmt = db.prepare(`SELECT COUNT(*) AS n FROM "${name}"`,);
   const deleteStmt = db.prepare(`DELETE FROM "${name}" WHERE _id = ?`,);
@@ -122,7 +122,7 @@ function createSqliteCollection(db, name,) {
   const parse = (row,) => (row ? JSON.parse(row.data,) : null);
 
   function extractIndexed(doc,) {
-    return INDEXED_FIELDS.map((f) => doc[f] || null,);
+    return INDEXED_FIELDS.map((f,) => doc[f] || null,);
   }
 
   /**
@@ -134,12 +134,12 @@ function createSqliteCollection(db, name,) {
     const entries = Object.entries(filter,);
     if (!entries.length) return null;
 
-    const indexed = entries.filter(([k]) => INDEXED_FIELDS.includes(k,),);
+    const indexed = entries.filter(([k,],) => INDEXED_FIELDS.includes(k,),);
     if (indexed.length === 0) return null;
 
-    const conditions = indexed.map(([k]) => `"${k}" = ?`,);
-    const params = indexed.map(([, v]) => v,);
-    return { sql: ` WHERE ${conditions.join(' AND ')}`, params, };
+    const conditions = indexed.map(([k,],) => `"${k}" = ?`,);
+    const params = indexed.map(([, v,],) => v,);
+    return { sql: ` WHERE ${conditions.join(' AND ',)}`, params, };
   }
 
   return {
@@ -184,7 +184,7 @@ function createSqliteCollection(db, name,) {
       }
 
       const where = buildWhereClause(filter,);
-      const nonIndexed = entries.filter(([k]) => !INDEXED_FIELDS.includes(k,),);
+      const nonIndexed = entries.filter(([k,],) => !INDEXED_FIELDS.includes(k,),);
 
       let rows;
       if (where) {
@@ -196,7 +196,7 @@ function createSqliteCollection(db, name,) {
 
       if (nonIndexed.length > 0) {
         rows = rows.filter((record,) =>
-          nonIndexed.every(([key, value,]) => record[key] === value,),
+          nonIndexed.every(([key, value,],) => record[key] === value,),
         );
       }
 

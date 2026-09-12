@@ -1,0 +1,10 @@
+{
+  "name": "storecops-admin",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Storecops admin UI extensions — churn risk, inventory velocity and win-back actions inside Shopify admin.",
+  "type": "module",
+  "dependencies": {
+    "preact": "^10.24.0"
+  }
+}

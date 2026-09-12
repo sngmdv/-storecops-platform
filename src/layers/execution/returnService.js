@@ -113,7 +113,7 @@ function createReturnService({ store, returnFraudEngine, returnAnalytics, notifi
     if (filters.status) results = results.filter((r,) => r.status === filters.status,);
     if (filters.risk_level) results = results.filter((r,) => r.risk_level === filters.risk_level,);
     if (filters.customer_id) results = results.filter((r,) => r.customer_id === filters.customer_id,);
-    if (filters.min_risk_score) results = results.filter((r,) => (r.risk_score || 0) >= Number(filters.min_risk_score),);
+    if (filters.min_risk_score) results = results.filter((r,) => (r.risk_score || 0) >= Number(filters.min_risk_score,),);
     if (filters.date_from) results = results.filter((r,) => r.created_at >= filters.date_from,);
     if (filters.date_to) results = results.filter((r,) => r.created_at <= filters.date_to,);
 

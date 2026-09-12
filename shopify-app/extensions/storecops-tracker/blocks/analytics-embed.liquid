@@ -1,0 +1,121 @@
+{% comment %}
+  Storecops — site-wide app embed block.
+
+  This is an *app embed* (target: body), so it renders on every page
+  once the merchant enables it in the Theme Editor. It is invisible: its
+  only job is to load the Storecops tracking snippet.
+
+  Consent handling follows Shopify's Customer Privacy API rather than a
+  second cookie banner, because the storefront may already have one:
+
+    - If the shop exposes `window.Shopify.customerPrivacy`, we ask it
+      before sending analytics or marketing events.
+    - If it does not (no privacy banner installed), we fall back to the
+      merchant's configured defaults below.
+
+  The snippet is loaded through the app proxy (`/apps/storecops/...`),
+  which is signature-verified server-side — no API key is ever exposed
+  to the storefront.
+
+  A guard flag prevents double-loading when the merchant has also added
+  the consent-banner block from this same extension.
+{% endcomment %}
+
+{% assign enable_analytics = block.settings.enable_analytics %}
+{% assign enable_marketing = block.settings.enable_marketing %}
+{% assign track_orders = block.settings.track_orders %}
+
+<script>
+  (function () {
+    // The consent-banner block may have already loaded us.
+    if (window.__storecopsTrackerLoaded) return;
+    window.__storecopsTrackerLoaded = true;
+
+    var CONFIG = {
+      analytics: {{ enable_analytics | default: true }},
+      marketing: {{ enable_marketing | default: false }},
+      trackOrders: {{ track_orders | default: true }},
+      shop: {{ shop.permanent_domain | json }},
+      proxyBase: {{ routes.root_url | append: 'apps/storecops' | json }}
+    };
+
+    function loadTracker() {
+      if (document.querySelector('script[data-storecops-tracker]')) return;
+      var script = document.createElement('script');
+      script.src = CONFIG.proxyBase + '/tracker.js';
+      script.async = true;
+      script.setAttribute('data-storecops-tracker', '1');
+      script.setAttribute('data-store', CONFIG.shop);
+      document.head.appendChild(script);
+    }
+
+    function currentConsent() {
+      var privacy = window.Shopify && window.Shopify.customerPrivacy;
+      if (!privacy) {
+        // No Customer Privacy API on this theme — use the merchant's
+        // configured defaults.
+        return { analytics: CONFIG.analytics, marketing: CONFIG.marketing };
+      }
+      try {
+        return {
+          analytics: privacy.analyticsProcessingAllowed(),
+          marketing: privacy.marketingAllowed()
+        };
+      } catch (e) {
+        return { analytics: CONFIG.analytics, marketing: CONFIG.marketing };
+      }
+    }
+
+    function applyConsent() {
+      var consent = currentConsent();
+      if (consent.analytics || consent.marketing) {
+        loadTracker();
+      }
+    }
+
+    applyConsent();
+
+    // React to the shopper changing their mind in the banner.
+    if (window.Shopify && window.Shopify.customerPrivacy && window.Shopify.customerPrivacy.subscribe) {
+      try {
+        window.Shopify.customerPrivacy.subscribe('visitorConsentCollected', applyConsent);
+      } catch (e) {
+        /* older runtimes omit the event name — the initial check stands. */
+      }
+    }
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Storecops tracking",
+  "target": "body",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Loads the Storecops tracking snippet on every page. If your theme uses Shopify's Customer Privacy API, consent is read from there automatically."
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_analytics",
+      "label": "Collect analytics events",
+      "info": "Product views, cart updates and sessions. Used for recovery and intelligence.",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_marketing",
+      "label": "Collect marketing events",
+      "info": "Only enable if you have consent to use data for marketing.",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "track_orders",
+      "label": "Track completed orders",
+      "info": "Needed for revenue attribution and recovery measurement.",
+      "default": true
+    }
+  ]
+}
+{% endschema %}

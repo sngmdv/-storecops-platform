@@ -10,7 +10,12 @@ const express = require('express',);
 const path = require('path',);
 const crypto = require('crypto',);
 const { createApiRouter, } = require('./apiRoutes',);
-const { createRateLimiter, webhookVerifier, deleteCustomerData, } = require('./security',);
+const {
+  createRateLimiter,
+  webhookVerifier,
+  shopifyWebhookVerifier,
+  deleteCustomerData,
+} = require('./security',);
 const { verifyWebhookSignature, parseStatusUpdates, parseIncomingMessages, } = require('../layers/execution/whatsappService',);
 const {
   securityHeaders,
@@ -19,13 +24,57 @@ const {
   preventSqlInjection,
   preventPathTraversal,
 } = require('./securityHardening',);
+const { createCorsMiddleware, } = require('./cors',);
+const { createAppProxy, } = require('./appProxy',);
+
+/**
+ * Resolve a Shopify shop domain to the tenant that owns it.
+ * @returns {Promise<{store_id: string, user: object}|null>}
+ */
+async function tenantForShop(platform, shopDomain,) {
+  const integrations = await platform.store.integrations.find({ type: 'shopify', },);
+  const match = integrations.find(
+    (row,) => String(row.config?.shopDomain || '',).toLowerCase() === shopDomain,
+  );
+  if (!match?.store_id) return null;
+  const users = await platform.store.users.find({ store_id: match.store_id, },);
+  return { store_id: match.store_id, user: users[0] || null, };
+}
+
+/**
+ * Resolve an App Bridge session token into a tenant identity.
+ *
+ * The returned identity is deliberately NOT a platform operator, so the
+ * normal tenant-isolation guards in apiRoutes still apply: an in-admin
+ * extension can only ever act on the store it was installed on.
+ *
+ * @returns {Promise<object|null>} authUser-shaped object, or null.
+ */
+async function resolveShopifySession(platform, token,) {
+  const verified = await platform.sessionToken.verify(token,);
+  if (!verified) return null;
+
+  const tenant = await tenantForShop(platform, verified.shop_domain,);
+  if (!tenant) return null;
+
+  return {
+    email: tenant.user?.email || `shop:${verified.shop_domain}`,
+    role: tenant.user?.role || 'admin',
+    store_id: tenant.store_id,
+    shop_domain: verified.shop_domain,
+    shopify_user_id: verified.user_id,
+    platform_admin: false, // never an operator
+    via_session_token: true,
+  };
+}
 
 /**
  * API gateway auth. Accepts, in order:
  *   1. the master dev key (X-API-Key / ?api_key= for SSE),
  *   2. a tenant's private API key issued at signup,
  *   3. a bearer session token from login,
- *   4. the write-only public ingest key (tracking snippet) — this one
+ *   4. a Shopify App Bridge session token (JWT) from embedded surfaces,
+ *   5. the write-only public ingest key (tracking snippet) — this one
  *      is locked to /track by the router gate.
  */
 function apiKeyMiddleware(platform,) {
@@ -59,6 +108,17 @@ function apiKeyMiddleware(platform,) {
 
     const bearer = (req.get('Authorization',) || '').replace(/^Bearer\s+/i, '',);
     if (bearer) {
+      // A Shopify App Bridge session token is a JWT — three segments.
+      // Try it before the opaque app session token; if it fails
+      // verification we fall through and ultimately 401, so a bad
+      // token is never trusted.
+      if (platform.sessionToken && bearer.split('.',).length === 3) {
+        const shopifyUser = await resolveShopifySession(platform, bearer,);
+        if (shopifyUser) {
+          req.authUser = shopifyUser;
+          return next();
+        }
+      }
       const session = await platform.auth.verify(bearer,);
       if (session) {
         req.authUser = session.user;
@@ -410,6 +470,18 @@ function createAuditRouter(platform,) {
 function createApp(platform,) {
   const app = express();
 
+  // ── CORS ──────────────────────────────────────────────────────────
+  // Must run first: Admin UI Extensions and storefront widgets call
+  // this API from Shopify's origin, and preflight requests carry no
+  // credentials, so they have to be answered before the auth chain.
+  app.use(
+    createCorsMiddleware({
+      env: process.env,
+      publicUrl: platform.config.publicUrl,
+      warn: (msg,) => console.warn(`[CORS] ${msg}`,),
+    },),
+  );
+
   // ── Security Hardening Middleware ─────────────────────────────────
   // Apply security headers to all responses
   app.use(securityHeaders(),);
@@ -532,7 +604,7 @@ function createApp(platform,) {
   // Public, HMAC-verified when WEBHOOK_SECRET is configured.
   app.post(
     '/webhooks/orders/:store_id',
-    webhookVerifier(platform.config.security?.webhookSecret,),
+    shopifyWebhookVerifier(platform.config.security?.shopifyClientSecret,),
     async (req, res,) => {
       try {
         const result = await platform.integrations.ingestOrderWebhook(
@@ -549,7 +621,7 @@ function createApp(platform,) {
   // Inbound return/exchange webhooks from connected stores.
   app.post(
     '/webhooks/returns/:store_id',
-    webhookVerifier(platform.config.security?.webhookSecret,),
+    shopifyWebhookVerifier(platform.config.security?.shopifyClientSecret,),
     async (req, res,) => {
       try {
         const result = await platform.returnService.processReturn(
@@ -565,6 +637,87 @@ function createApp(platform,) {
 
   // Web app: landing page + client dashboard (static SPA).
   const publicDir = path.join(__dirname, '..', '..', 'public',);
+
+  // ── Shopify app proxy ─────────────────────────────────────────────
+  // Shopify forwards https://{shop}/apps/storecops/* here. This is how
+  // the storefront theme extension reaches the platform without an API
+  // key ever appearing in Liquid.
+  const appProxy = createAppProxy({
+    credentialsFor: (p,) => platform.oauth.credentialsFor(p,),
+    resolveTenant: (shopDomain,) => tenantForShop(platform, shopDomain,),
+    warn: (msg,) => console.warn(`[APP-PROXY] ${msg}`,),
+  },);
+
+  // The storefront tracking snippet.
+  app.get('/proxy/tracker.js', appProxy.requireProxy, (req, res,) => {
+    res.type('application/javascript',);
+    res.sendFile(path.join(publicDir, 'tracker.js',),);
+  },);
+
+  // Consent decisions recorded by the storefront banner.
+  app.post('/proxy/consent', express.json({ limit: '16kb', },), appProxy.requireProxy, async (req, res,) => {
+    try {
+      const body = req.body || {};
+      const status = body.consent === 'accepted' ? 'accepted' : 'declined';
+      const categories = status === 'accepted'
+        ? { analytics: true, marketing: true, recovery: true, essential: true, }
+        : { analytics: false, marketing: false, recovery: false, essential: true, };
+
+      const identity = body.customer_id || body.email || `session:${body.session_id || 'anonymous'}`;
+      await platform.consentService.setConsent(
+        req.proxyStoreId,
+        identity,
+        categories,
+        { source: 'storefront_banner', shop: req.proxyShop, },
+      );
+
+      res.json({ ok: true, status, },);
+    } catch (error) {
+      res.status(400,).json({ error: error.message, },);
+    }
+  },);
+
+  // Product recommendations for the storefront widget.
+  app.get('/proxy/recommendations', appProxy.requireProxy, async (req, res,) => {
+    try {
+      const productId = String(req.query.product_id || '',);
+      const limit = Math.min(Number(req.query.limit,) || 4, 12,);
+      const customerId = req.query.customer_id ? String(req.query.customer_id,) : productId;
+
+      const result = await platform.recommendationEngine.recommend(
+        req.proxyStoreId,
+        customerId,
+        limit,
+      );
+
+      // The engine only knows product ids. Enrich with the descriptive
+      // fields a storefront card needs (name, price, handle) so the
+      // widget can render a real link instead of a bare id.
+      const inventory = await platform.inventoryLedger.levels(req.proxyStoreId,);
+      const byId = new Map(inventory.map((row,) => [String(row.product_id,), row,],),);
+      const recommendations = (result.recommendations || []).map((rec,) => {
+        const row = byId.get(String(rec.product_id,),);
+        return {
+          product_id: rec.product_id,
+          strategy: rec.strategy,
+          name: row?.name || null,
+          price: row?.price ?? null,
+          handle: row?.handle || null,
+          in_stock: row ? Number(row.stock,) > 0 : null,
+        };
+      },);
+
+      res.json({
+        ok: true,
+        product_id: productId || null,
+        strategy: result.strategy,
+        recommendations,
+      },);
+    } catch (error) {
+      res.status(400,).json({ error: error.message, },);
+    }
+  },);
+
   app.use(express.static(publicDir,),);
 
   // Root serves the marketing landing page.
@@ -596,7 +749,7 @@ function createApp(platform,) {
   // Task ob7: Shopify compliance webhook receivers.
   // These are called by Shopify when a merchant uninstalls the app or
   // requests data redaction. HMAC-verified by webhookVerifier.
-  const shopifyComplianceVerifier = webhookVerifier(platform.config.security?.webhookSecret,);
+  const shopifyComplianceVerifier = shopifyWebhookVerifier(platform.config.security?.shopifyClientSecret,);
 
   // Task 7: Idempotency — track processed webhook signatures to prevent
   // duplicate deliveries from causing repeated destructive work.

@@ -81,7 +81,7 @@ const PROVIDERS = {
     const tls = require('tls',);
 
     const host = process.env.SMTP_HOST;
-    const port = Number(process.env.SMTP_PORT) || 587;
+    const port = Number(process.env.SMTP_PORT,) || 587;
     const user = process.env.SMTP_USER;
     const pass = process.env.SMTP_PASS;
     const secure = process.env.SMTP_SECURE === 'true';
@@ -106,20 +106,20 @@ const PROVIDERS = {
         let rejected = false;
 
         const commands = [
-          `EHLO storecops.local`,
-          secure ? null : `STARTTLS`,
+          'EHLO storecops.local',
+          secure ? null : 'STARTTLS',
           `MAIL FROM:<${sender}>`,
-          ...recipients.map((r) => `RCPT TO:<${r}>`),
-          `DATA`,
+          ...recipients.map((r,) => `RCPT TO:<${r}>`,),
+          'DATA',
           `From: ${sender}`,
-          `To: ${recipients.join(', ')}`,
+          `To: ${recipients.join(', ',)}`,
           `Subject: ${subject}`,
-          `MIME-Version: 1.0`,
-          `Content-Type: text/html; charset=UTF-8`,
-          ``,
+          'MIME-Version: 1.0',
+          'Content-Type: text/html; charset=UTF-8',
+          '',
           html || '',
-          `.`,
-          `QUIT`,
+          '.',
+          'QUIT',
         ].filter(Boolean,);
 
         function sendNext() {
@@ -149,11 +149,11 @@ const PROVIDERS = {
               return;
             }
 
-            if (line.startsWith('220 ') || line.startsWith('250 ') || line.startsWith('354 ') || line.match(/^2\d{2}-/)) {
+            if (line.startsWith('220 ',) || line.startsWith('250 ',) || line.startsWith('354 ',) || line.match(/^2\d{2}-/,)) {
               if (step === 0) {
                 /* banner received, check for STARTTLS needed */
                 sendNext();
-              } else if (line.match(/^2\d{2}\s/) || line.match(/^2\d{2}-.*\r?\n2\d{2}\s/)) {
+              } else if (line.match(/^2\d{2}\s/,) || line.match(/^2\d{2}-.*\r?\n2\d{2}\s/,)) {
                 /* multiline reply complete */
                 sendNext();
               }
@@ -171,7 +171,7 @@ const PROVIDERS = {
         },);
 
         socket.on('end', () => {
-          if (!rejected) resolve({ delivered: true, provider: 'smtp', to: recipients, subject, });
+          if (!rejected) resolve({ delivered: true, provider: 'smtp', to: recipients, subject, },);
         },);
 
         sendNext();

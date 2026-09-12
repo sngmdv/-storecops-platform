@@ -1,9 +1,13 @@
 'use strict';
 
 process.env.NODE_ENV = 'test';
+// INT-001 fix: /webhooks/orders/:store_id is HMAC-verified with Shopify's
+// client secret. Set a deterministic secret so the verifier is active.
+process.env.SHOPIFY_CLIENT_SECRET = 'test-shopify-secret';
 
 const test = require('node:test',);
 const assert = require('node:assert',);
+const crypto = require('crypto',);
 const { createPlatform, } = require('../src/platform',);
 const { createApp, } = require('../src/server/createApp',);
 
@@ -25,6 +29,12 @@ function bootServer() {
 }
 
 const JSON_HEADERS = { 'Content-Type': 'application/json', };
+
+// Sign a payload exactly as Shopify does: base64 HMAC-SHA256 over the raw body,
+// keyed by the app client secret, in the X-Shopify-Hmac-Sha256 header.
+const SHOPIFY_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
+const signShopify = (obj,) =>
+  crypto.createHmac('sha256', SHOPIFY_SECRET,).update(JSON.stringify(obj,),).digest('base64',);
 
 async function signupTenant(base, email = 'connect@shop.com',) {
   const res = await fetch(`${base}/api/v1/auth/signup`, {
@@ -94,15 +104,19 @@ test('Integrations: CSV import feeds inventory + events, webhook flows end-to-en
     assert.equal(orderBody.rejected, 0,);
 
     // 3. Shopify-style order webhook → purchase tracked + connection flowing.
+    const orderHookBody = {
+      order_id: 5001,
+      email: 'hook@buyer.com',
+      total_price: '49.00',
+      line_items: [{ sku: 'SKU-2', quantity: 1, price: '49.00', },],
+    };
     const hookRes = await fetch(`${base}/webhooks/orders/${tenant.store_id}`, {
       method: 'POST',
-      headers: JSON_HEADERS,
-      body: JSON.stringify({
-        order_id: 5001,
-        email: 'hook@buyer.com',
-        total_price: '49.00',
-        line_items: [{ sku: 'SKU-2', quantity: 1, price: '49.00', },],
-      },),
+      headers: {
+        ...JSON_HEADERS,
+        'X-Shopify-Hmac-Sha256': signShopify(orderHookBody),
+      },
+      body: JSON.stringify(orderHookBody,),
     },);
     assert.equal(hookRes.status, 200,);
     const hookBody = await hookRes.json();

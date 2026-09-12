@@ -20,7 +20,7 @@ function createInventoryLedger({ store, },) {
     SALE_EVENTS,
 
     /** Set or update the stock level (and lead time) for a product. */
-    async setStock({ store_id, product_id, stock, lead_time_days, name, },) {
+    async setStock({ store_id, product_id, stock, lead_time_days, name, price, handle, },) {
       if (!store_id || product_id === undefined) {
         throw new Error('store_id and product_id are required.',);
       }
@@ -28,12 +28,22 @@ function createInventoryLedger({ store, },) {
         throw new Error('stock must be a non-negative number.',);
       }
 
+      // Descriptive fields are optional and only overwritten when
+      // supplied, so a stock-only update never wipes a known price or
+      // storefront handle. `price` and `handle` are what the storefront
+      // recommendation widget needs to render a real product card.
+      const descriptive = {
+        ...(name ? { name, } : {}),
+        ...(Number.isFinite(Number(price,),) ? { price: Number(price,), } : {}),
+        ...(handle ? { handle, } : {}),
+      };
+
       const existing = await findEntry(store_id, product_id,);
       if (existing) {
         return store.inventory.update(existing._id, {
           stock,
           lead_time_days: lead_time_days ?? existing.lead_time_days,
-          ...(name ? { name, } : {}),
+          ...descriptive,
           updated_at: new Date().toISOString(),
         },);
       }
@@ -43,7 +53,7 @@ function createInventoryLedger({ store, },) {
         product_id: String(product_id,),
         stock,
         lead_time_days: lead_time_days ?? 7,
-        ...(name ? { name, } : {}),
+        ...descriptive,
         oversold: 0,
         updated_at: new Date().toISOString(),
       },);

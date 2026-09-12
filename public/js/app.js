@@ -627,7 +627,7 @@
           .then(() => route())
           .catch(() => {
             // If auto-login fails, show login with pre-filled shop
-            container.innerHTML = `<div class="login"><div class="login-card">
+            view.innerHTML = `<div class="login"><div class="login-card">
               <h3>Connect your Storecops account</h3>
               <p class="muted">Sign in to continue to Storecops.</p>
               <div id="toast" class="toast"></div>
@@ -647,9 +647,9 @@
     );
     closeStream();
     destroyCharts();
-    container.innerHTML = '<div class="empty"><span class="spinner"></span>&nbsp; Loading…</div>';
+    view.innerHTML = '<div class="empty"><span class="spinner"></span>&nbsp; Loading…</div>';
     target.render().catch((error) => {
-      container.innerHTML = `<div class="card"><h3>Something went wrong</h3><p class="muted">${esc(error.message)}</p></div>`;
+      view.innerHTML = `<div class="card"><h3>Something went wrong</h3><p class="muted">${esc(error.message)}</p></div>`;
     });
   }
 

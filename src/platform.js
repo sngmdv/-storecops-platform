@@ -114,6 +114,7 @@ const { createDataExportService, } = require('./server/dataExport',);
 const { createOnboardingService, } = require('./server/onboardingService',);
 const { createWebhookRetryQueue, } = require('./server/webhookRetryQueue',);
 const { createTieredRateLimiter, } = require('./server/tieredRateLimiter',);
+const { createSessionTokenVerifier, } = require('./server/sessionToken',);
 const { createDemoSimulator, } = require('./server/demoSimulator',);
 const { collectAll, } = require('./layers/data/signalCollectors',);
 
@@ -388,6 +389,13 @@ function createPlatform(overrides = {},) {
   platform.integrations = createIntegrations({ platform, },);
   // One-click platform connect (OAuth handshakes + pending connections).
   platform.oauth = createOauthConnectors({ platform, },);
+  // App Bridge session-token (JWT) verification. Admin UI Extensions
+  // authenticate with a Shopify-signed token instead of an API key, so
+  // this is what lets in-admin blocks act on behalf of a merchant.
+  platform.sessionToken = createSessionTokenVerifier({
+    credentialsFor: (p,) => platform.oauth.credentialsFor(p,),
+    warn: (msg,) => console.warn(`[SESSION-TOKEN] ${msg}`,),
+  },);
   // Secret rotation & revocation (Task 27)
   platform.secretRotation = createSecretRotationService({ store, auditLog, },);
   // Task ob9: Pluggable email service (console/resend/smtp).

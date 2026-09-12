@@ -7,7 +7,6 @@ const assert = require('node:assert',);
 const crypto = require('crypto',);
 const { createPlatform, } = require('../src/platform',);
 const { createApp, apiKeyMiddleware, } = require('../src/server/createApp',);
-const { signBody, } = require('../src/server/security',);
 
 const STORE_A = 'store_alpha';
 const STORE_B = 'store_beta';
@@ -105,20 +104,21 @@ test('security regression: HMAC webhook verification rejects tampered payloads',
       defaultStoreId: STORE_A,
       providers: { email: 'console', whatsapp: 'console', },
       intelligence: { churnInactiveDays: 30, forecastWindow: 7, },
-      security: { webhookSecret: secret, },
+      security: { shopifyClientSecret: secret, },
     },
   },);
 
   try {
     const payload = JSON.stringify({ myshopify_domain: 'test.myshopify.com', },);
-    const validSig = signBody(secret, payload,);
+    // Shopify signs the raw body with HMAC-SHA256 (base64) keyed by the client secret.
+    const validSig = crypto.createHmac('sha256', secret,).update(payload,).digest('base64',);
 
     // Valid signature → 200.
     const valid = await fetch(`${base}/webhooks/shopify/app-uninstalled`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-storecops-signature': validSig,
+        'X-Shopify-Hmac-Sha256': validSig,
       },
       body: payload,
     },);

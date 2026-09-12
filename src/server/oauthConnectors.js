@@ -557,17 +557,13 @@ function createOauthConnectors({ platform, },) {
       );
       await platform.integrations.updateOnboardingStep(store_id, 'compliance_webhooks_registered', true,);
 
-      // Task ob2: Auto-inject the tracking Script Tag.
-      const tenant = await store.users.findOne({ store_id, },);
-      const ingestKey = tenant?.ingest_key || platform.config.apiKey;
-      const scriptTag = await platform.integrations.injectShopifyScriptTag(
-        info.domain,
-        info.access_token,
-        store_id,
-        ingestKey,
-      );
-      await platform.integrations.updateOnboardingStep(store_id, 'script_tag_installed', scriptTag.installed,);
-      await platform.integrations.updateOnboardingStep(store_id, 'tracking_active', scriptTag.installed,);
+      // Storefront tracking is delivered by the theme app extension, which the
+      // merchant enables once in the Theme Editor. We deliberately do NOT set
+      // `tracking_active` here — that flag means "events have actually arrived"
+      // and is derived in onboardingService.js. Claiming it at install time
+      // would tell the merchant tracking works before any data exists.
+      const tracking = platform.integrations.storefrontTrackingStatus();
+      await platform.integrations.updateOnboardingStep(store_id, 'tracking_method', tracking.method,);
 
       // Mark onboarding milestones.
       await platform.integrations.updateOnboardingStep(store_id, 'store_connected', true,);
@@ -578,7 +574,7 @@ function createOauthConnectors({ platform, },) {
         store_name: info.store_name,
         ...result,
         compliance_webhooks: compliance,
-        script_tag: scriptTag,
+        tracking,
       };
     }
     if (info.platform === 'bigcommerce') {
@@ -637,6 +633,13 @@ function createOauthConnectors({ platform, },) {
     },
     consumePending,
     finalize,
+    /**
+     * Resolve a platform's OAuth client credentials.
+     *
+     * Exposed so session-token verification can obtain the Shopify
+     * client secret used to sign App Bridge session tokens.
+     */
+    credentialsFor: configFor,
   };
 }
 

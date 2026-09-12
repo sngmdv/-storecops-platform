@@ -5,9 +5,13 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "pretest": "node scripts/check-syntax.js",
     "test": "node --test \"test/**/*.test.js\"",
     "lint": "eslint src/ test/ --ext .js",
     "lint:fix": "eslint src/ test/ --ext .js --fix",
+    "lint:syntax": "node scripts/check-syntax.js",
+    "preflight": "node scripts/preflight.js",
+    "preflight:strict": "node scripts/preflight.js --strict",
     "format": "prettier --write \"src/**/*.js\" \"test/**/*.js\""
   },
   "keywords": [

@@ -2,7 +2,7 @@
 
 const PROCESSING_COST_PER_RETURN = 5;
 
-function createReturnAnalytics({ store, }) {
+function createReturnAnalytics({ store, },) {
   async function getReturnReasonAnalysis(store_id, days = 30,) {
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000,);
     const returns = await store.returns.find(
@@ -130,7 +130,7 @@ function createReturnAnalytics({ store, }) {
     const moving_avg_7d = trend.map((entry, i,) => {
       const windowStart = Math.max(0, i - 6,);
       const window = trend.slice(windowStart, i + 1,);
-      const avg = window.reduce((sum, w,) => sum + w.count, 0) / window.length;
+      const avg = window.reduce((sum, w,) => sum + w.count, 0,) / window.length;
       return Math.round(avg * 100,) / 100;
     },);
 
@@ -235,7 +235,7 @@ function createReturnAnalytics({ store, }) {
       ? {
         total_days: trend.trend.length,
         avg_daily_returns: Math.round(
-          trend.trend.reduce((s, d,) => s + d.count, 0) / trend.trend.length * 100,
+          trend.trend.reduce((s, d,) => s + d.count, 0,) / trend.trend.length * 100,
         ) / 100,
         peak_day: trend.trend.reduce((max, d,) => d.count > max.count ? d : max,),
       }
@@ -265,7 +265,7 @@ function createReturnAnalytics({ store, }) {
 
     if (reasons.top_reason) {
       const reasonLower = reasons.top_reason.toLowerCase();
-      if (reasonLower.includes('fit') || reasonLower.includes('size')) {
+      if (reasonLower.includes('fit',) || reasonLower.includes('size',)) {
         const topSku = skus.skus.length > 0 ? skus.skus[0].name : 'top products';
         recommendations.push({
           type: 'product_info',
@@ -274,7 +274,7 @@ function createReturnAnalytics({ store, }) {
           action: 'update_size_guide',
         },);
       }
-      if (reasonLower.includes('defect') || reasonLower.includes('quality')) {
+      if (reasonLower.includes('defect',) || reasonLower.includes('quality',)) {
         const topSku = skus.skus.length > 0 ? skus.skus[0].name : 'unknown product';
         recommendations.push({
           type: 'quality_alert',
@@ -283,7 +283,7 @@ function createReturnAnalytics({ store, }) {
           action: 'investigate_supplier',
         },);
       }
-      if (reasonLower.includes('wrong') || reasonLower.includes('incorrect')) {
+      if (reasonLower.includes('wrong',) || reasonLower.includes('incorrect',)) {
         recommendations.push({
           type: 'process_improvement',
           priority: 'high',
@@ -301,7 +301,7 @@ function createReturnAnalytics({ store, }) {
       customerMap[ret.customer_id] += 1;
     }
 
-    for (const [customerId, count] of Object.entries(customerMap)) {
+    for (const [customerId, count,] of Object.entries(customerMap,)) {
       if (count >= 3) {
         recommendations.push({
           type: 'customer_policy',
