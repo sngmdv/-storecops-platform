@@ -78,6 +78,15 @@ the harness could not see until an admin session was seeded, an inline `<code>` 
 admin activity feed used `EventSource`, which cannot send `X-API-Key`, so it 401'd on every load and —
 with no `onerror` handler — retried forever in silence. Two new guard suites, mutation-checked 6/6 and
 4/4. See M10 below.
+**M8 (100/1000 load + DB-kill `/ready`) done 2026-09-18** → 759 tests green, 45 suites. The load test
+passed cleanly (1000 requests @ 100 concurrency, **100% 200**, 793 req/s, p99 206ms), but the thing it
+was pointed at was broken: `/ready` — the deploy healthcheck — called `await store.ping()` with **no
+timeout and no try/catch**, so a throwing `ping()` hung the request *and* killed the process, and a
+non-settling one hung it unbounded. **Item 41 (READY-001).** Fixing it exposed five more app-level async
+handlers in `createApp.js` that could reject unhandled, because Express 4 catches only *synchronous*
+throws. The structural guard that found them uses `espree`, after a hand-written tokenizer mis-lexed a
+regex literal and **silently skipped a handler** — it reported a confident "1 unguarded" while having
+checked only 18 of 19. Mutation-checked 8/8. See M8 below.
 
 ## P0 — Launch blockers
 1. SHOPIFY_CLIENT_ID/SECRET empty + shopify.app.toml:47 placeholder → sessionToken.js:109 fails closed, embedded 401
@@ -622,6 +631,13 @@ immediately: it failed because the page did not name the extension, so the page 
     finding, not in the original audit. See below.
 39. ~~🚨🚨 **SHOP-001 Unauthenticated cross-tenant session mint**~~ **FIXED 2026-09-18** —
     the most severe finding of the engagement; not in the original audit. See below.
+40. ~~**ADMIN-SSE-001** The admin activity stream 401'd on every load and, having no
+    `onerror`, retried forever in silence while looking connected.~~ **FIXED 2026-09-18** —
+    found by M10; not in the original audit. See the M10 write-up below.
+41. ~~**READY-001** `/ready` called `await store.ping()` with no timeout and no try/catch, so a
+    throwing or non-settling `ping()` hung the deploy healthcheck (and the throw killed the
+    process). Five other app-level async handlers in `createApp.js` could reject unhandled.~~
+    **FIXED 2026-09-18** — found by M8; not in the original audit. See the M8 write-up below.
 
 ### Item 33 (OBS-001) — graceful shutdown & fatal-error handling — FIXED 2026-09-18
 
@@ -924,6 +940,11 @@ commented-out call does *not* satisfy it.
 ## Must-run M1-M10 (AUDIT_REPORT.md:174-223)
 M1 UI all pages, M2 test webhooks 200, M3 real billing sub/cancel, M4 embedded load, M5 real email+WA + unsubscribe + SPF/DKIM, M6 tenant isolation adversarial, M7 GDPR zero-rows, M8 100/1000 load + DB-kill /ready, M9 backup restore, M10 browsers 375/768/1440 + keyboard. NOT TESTED: Stripe/Razorpay live, CLI deploy, OAuth round-trip.
 
+> **Status 2026-09-18.** M1, M2, M6, M7 verified; **M8 and M10 run and closed** (both found real
+> defects the ledger line did not describe — see their sections). M3, M4, M5 and M9 remain blocked on
+> credentials or deploy actions only the user can perform (Stripe/Razorpay keys, a real inbox and
+> WhatsApp number, a Railway volume to restore from) — no code is outstanding for them.
+
 ### M1-M7 verification — 2026-09-17 → 581 tests green, 45 suites
 Four new suites; each carries a **control test** so it cannot pass vacuously.
 
@@ -1208,9 +1229,81 @@ first draft of the `EventSource` guard was **over-broad** — it flagged `api.js
 stream. An over-broad guard does not merely annoy: it would have pushed a correct line of code into a
 wrong fix.
 
+### M8 — 100/1000 load + DB-kill `/ready` — FIXED 2026-09-18
+
+Two real defects, both reproduced before any code changed. The ledger line was "100/1000 load + DB-kill
+`/ready`", which describes a *test*, not a defect — and the defect the test was meant to find was in
+the thing being tested.
+
+**The defect.** `/ready` — which `railway.json` points `healthcheckPath` at — did
+`components.storage = await store.ping()` with **no timeout and no try/catch**. Measured:
+
+| `ping()` behaviour | Before | After |
+|---|---|---|
+| returns `{ok:false}` | 503, fine | 503 in 7ms |
+| **throws** | request **hung indefinitely** *and* raised an unhandled rejection (fatal by default) | **503 in 6ms** |
+| **never settles** | `/ready` hung **unbounded** — Railway times out with no diagnostic | **503 in 2012ms** |
+| missing entirely | 503, fine | 503 in 4ms |
+| real SQLite handle closed under a live instance | 503, but only because `ping()` happened to resolve | **503 in 4ms**, `/health` correctly stays **200** |
+
+The hang-and-crash is the interesting half. **Express 4.22.2's `Layer.handle_request` wraps only the
+*synchronous* call**, so a rejected async handler leaves the request unanswered *and* escalates to an
+unhandled rejection, which terminates the process by default. (In production item 33's
+`installProcessHandlers` converts that into a *graceful* exit 1 rather than a bare crash — better, but
+still an outage, and the probe request is still never answered.) `apiRoutes.js` has a `wrap()` helper
+covering all 280 API routes; `createApp.js`'s app-level handlers had no equivalent — of 19 async
+app-level handlers, **4 were unguarded**: `/ready`, `/health/status`, `/connect/:platform/callback`,
+`/api/v1/connect/pending/:token`. A later structural scan found a fifth the manual count had missed,
+`/connect/status`, which was an **expression-bodied** async handler (`async (req, res) => res.json(await
+x())`) — nowhere for a `catch` to live. *A hand count is not a guard; that is the whole argument for the
+scan below.*
+
+**Fixed.** `probeStorage()` races `ping()` against a bound and never throws — a **readiness probe must
+be total and time-bounded**. Fail closed, never throw, never hang. The bound comes from
+`config.security.readinessPingTimeoutMs` (`READINESS_PING_TIMEOUT_MS`, default 2000) because it is
+coupled to a **deploy-time** value: it is only meaningful while it stays inside `railway.json`'s
+`healthcheckTimeout: 120` (seconds), otherwise the orchestrator gives up first and the 503 body is never
+read. A non-positive or non-finite setting falls back to the default rather than becoming 0 — a zero
+bound would fail every probe instantly and drain a healthy instance, which is worse than ignoring the
+setting. The effective bound is returned as `ping_timeout_ms` so a `not_ready` is self-describing.
+
+The three unguarded connect routes were fixed too. **They were not reproduced as failing** — that
+distinction is recorded deliberately: they were fixed because a guard whose meaning depends on an
+allowlist of "the two we know about" is a guard that rots, and their failure mode (process termination)
+is triggered by an **unauthenticated** request.
+
+**Load test** (real seeded SQLite, 100 concurrency / 1000 requests): **100% 200**, 793 req/s, p50 117ms,
+p95 194ms, p99 206ms, max 275ms, event-loop max lag 59ms, RSS +24MB, and the process still served
+`/health` 200 and `/ready` 200 afterwards. The production-rate-limit phase (300 requests) returned
+245×200 + 55×429; the 429s are the **auth** limiter (20/15min) on `/auth/me`, and the SPA never calls
+that endpoint, so it is not a defect.
+
+**Guards** — `test/readinessEndpoint.test.js`, +8 tests, **mutation-checked 8/8**, every file restored
+byte-identical: all five `/ready` scenarios each with a control; the bound honoured from config; an
+unusable bound falling back; the bound staying inside `railway.json`'s window; the **real** DB-kill
+(not a stubbed `ping()`); and a structural scan proving no async app-level handler in `createApp.js`
+can reject unhandled.
+
+**Two defects in my own harness, both caught before shipping a false all-clear:**
+
+1. The first scan was a **hand-written JS tokenizer**. It reported a confident "1 unguarded" while
+   **silently skipping a handler** — it mis-lexed `/^https?:\/\//` (line 1036) as a line comment,
+   swallowed the rest of the line, and permanently offset its paren depth, so `matchDelim` returned
+   `-1` and the `continue` dropped the handler. Only cross-checking the classified count (18) against
+   the raw match count (19) exposed it. **Replaced with `espree`**, the parser ESLint already uses:
+   distinguishing `/` division from `/` regex-start needs a real lexer, not a regex. A guard that skips
+   the thing it is checking is worse than no guard — it certifies safety it never tested.
+2. The detector's self-test was **blind to its own try-detection path**: its only "unguarded" sample was
+   an expression body, which the `BlockStatement` shape check catches on its own, so neutering
+   `containsTry` went undetected. Found by mutation (M8 of 8 was **MISSED** on the first run), fixed by
+   adding a block-body-with-no-try control. **A control that cannot fail is not a control.**
+
 Fix order: P0 → P1 → P2 → M1-M7 verify → P3-P5.
-**All of P1–P6 is now closed, and M10 is done.** Remaining verification: **M8** (100/1000 load +
-DB-kill `/ready`).
+**All of P1–P6 is closed, and M8 and M10 are done.** M1–M10 verification is now complete apart from
+the items blocked on credentials or deploy actions (M3 real billing sub/cancel, M4 embedded load,
+M5 real email+WA, M9 backup restore) — those need the user's Stripe/Razorpay/SMTP/Railway access, not
+code. `npm test` is **759 assertions / 658 tests / 45 suites**, green; `scripts/check-syntax.js` covers
+177 files.
 The **REST→GraphQL migration** is the critical path to submission and is blocked on the billing
 decision.
 User-only blockers unchanged: `SHOPIFY_CLIENT_ID`/`SECRET` (also required for embedded auto-login,
@@ -1218,5 +1311,6 @@ which fails closed without it), delivery credentials, the Railway volume, `store
 Railway cron for `scripts/backup.js`, and listing assets. A signed DPA additionally needs a legal
 entity and jurisdiction.
 **Ledger health warning:** items 33, 35, 36 and 37 were each mis-stated — some overstated, some
-understated, one naming a defect that did not exist while missing four that did. Continue re-deriving
-every item from the tree before acting on it.
+understated, one naming a defect that did not exist while missing four that did. M10's own line
+described a *test* and named one defect where there were three. M8's line likewise. Continue
+re-deriving every item from the tree before acting on it.
