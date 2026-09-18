@@ -1352,7 +1352,18 @@ function createApiRouter(platform,) {
     '/pricing/detect-country',
     wrap(async (req,) => {
       const ip = req.headers['x-forwarded-for'] || req.ip;
-      return platform.subscriptionPricing.detectCountry(ip,);
+      // The edge (Cloudflare / Vercel / CloudFront) resolves the country
+      // already; forward it so detectCountry works when fronted. Headers are
+      // a pricing hint, never an auth signal — see subscriptionPricing.js.
+      const hints = {
+        'cf-ipcountry': req.headers['cf-ipcountry'],
+        'x-vercel-ip-country': req.headers['x-vercel-ip-country'],
+        'cloudfront-viewer-country': req.headers['cloudfront-viewer-country'],
+        'x-appengine-country': req.headers['x-appengine-country'],
+        'x-country-code': req.headers['x-country-code'],
+      };
+      const detected = await platform.subscriptionPricing.detectCountry(ip, hints,);
+      return detected;
     },),
   );
 
@@ -1361,7 +1372,7 @@ function createApiRouter(platform,) {
     '/pricing/validate',
     wrap(async (req,) => {
       const { merchant_id, country, ip, billing_address, } = req.body || {};
-      return platform.subscriptionPricing.validateRegionalPricing(merchant_id, country, ip, billing_address,);
+      return platform.subscriptionPricing.validateRegionalPricing(merchant_id, country, ip, billing_address, req.headers || {},);
     },),
   );
 

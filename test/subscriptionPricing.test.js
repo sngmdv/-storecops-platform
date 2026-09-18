@@ -100,18 +100,20 @@ test('an unknown country falls back to the US base, as documented', () => {
   assert.strictEqual(result.adjusted_price, result.base_price_usd,);
 },);
 
-test('detectCountry is a stub that always answers US', async () => {
+test('detectCountry falls back to US without an edge header, honors it with one', async () => {
   const svc = service();
 
-  // Not a silent stub: it means the PPP discount can only ever be applied when the
-  // caller passes the country explicitly (`/pricing/regional/:country`). The
-  // automatic path (`/pricing/detect-country`) cannot return anything but US, so
-  // the "automatic region detection" and "VPN abuse prevention" in this module's
-  // header do not actually function. Pinned here so implementing real GeoIP is a
-  // deliberate, visible change rather than a quiet behaviour shift.
+  // No GeoIP database is bundled, so a raw IP alone still answers US — the
+  // PPP discount applies when the caller passes the country explicitly
+  // (`/pricing/regional/:country`). When fronted, the edge's country header
+  // is honored without any new dependency.
   for (const ip of ['8.8.8.8', '1.1.1.1', '203.0.113.5', '127.0.0.1', '', undefined,]) {
     assert.strictEqual(await svc.detectCountry(ip,), 'US',);
   }
+  assert.strictEqual(await svc.detectCountry('8.8.8.8', { 'cf-ipcountry': 'IN', },), 'IN',);
+  assert.strictEqual(await svc.detectCountry('8.8.8.8', { 'x-vercel-ip-country': 'de', },), 'DE',);
+  assert.strictEqual(await svc.detectCountry('8.8.8.8', { 'cf-ipcountry': 'USA', },), 'US',);
+  assert.strictEqual(await svc.detectCountry('8.8.8.8', { 'cf-ipcountry': '', },), 'US',);
 },);
 
 test('validateRegionalPricing trusts the billing address over the claim', async () => {

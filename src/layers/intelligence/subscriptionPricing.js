@@ -13,7 +13,9 @@
  * container, and both families lived under the same `/pricing/*` route prefix.
  *
  * Features:
- *   - Automatic region detection via IP geolocation
+ *   - Region detection from the hosting edge's country header when fronted
+ *     (Cloudflare / Vercel / CloudFront / App Engine); raw-IP lookup still
+ *     needs a GeoIP database, so unfrothed IPs fall back to US
  *   - PPP-adjusted pricing for different economic regions
  *   - Currency conversion with real exchange rates
  *   - VPN abuse prevention (IP + billing address cross-reference)
@@ -133,9 +135,32 @@ function createSubscriptionPricingService({ store, config, },) {
   }
 
   /**
-   * Detect country from IP (simplified - use a real GeoIP service in production).
+   * Detect country from the request.
+   *
+   * No GeoIP database is bundled (that is the MaxMind-or-equivalent dependency
+   * decision recorded in the gaps ledger), so a raw IP alone cannot be mapped
+   * to a country here. What IS honored, without any new dependency, is the
+   * country code the hosting edge already resolved: Cloudflare
+   * (`cf-ipcountry`), Vercel (`x-vercel-ip-country`), CloudFront
+   * (`cloudfront-viewer-country`), App Engine (`x-appengine-country`) and the
+   * generic `x-country-code`. Railway sits behind such edges in the usual
+   * setup, so `/pricing/detect-country` now answers correctly when fronted
+   * instead of always US. Direct-exposed deploys still fall back to US —
+   * and these headers are caller-supplied unless the edge overwrites them,
+   * so they are a hint for pricing, never an auth signal.
    */
-  async function detectCountry(ip,) {
+  async function detectCountry(ip, hints = {},) {
+    const headerCountry =
+      hints['cf-ipcountry'] ||
+      hints['x-vercel-ip-country'] ||
+      hints['cloudfront-viewer-country'] ||
+      hints['x-appengine-country'] ||
+      hints['x-country-code'] ||
+      hints.country;
+    if (typeof headerCountry === 'string' && /^[A-Za-z]{2}$/.test(headerCountry.trim(),)) {
+      return headerCountry.trim().toUpperCase();
+    }
+
     // In production, use MaxMind GeoIP2 or similar
     // For now, return US as default
     if (!ip || ip === '127.0.0.1' || ip === '::1') {
@@ -150,15 +175,15 @@ function createSubscriptionPricingService({ store, config, },) {
     // In production, call GeoIP service here
     // const geo = await geoip.lookup(ip);
     // return geo?.country || "US";
-    
+
     return 'US';
   }
 
   /**
    * Validate regional pricing (prevent VPN abuse).
    */
-  async function validateRegionalPricing(merchantId, claimedCountry, ip, billingAddress,) {
-    const detectedCountry = await detectCountry(ip,);
+  async function validateRegionalPricing(merchantId, claimedCountry, ip, billingAddress, hints = {},) {
+    const detectedCountry = await detectCountry(ip, hints,);
     
     // Cross-reference with billing address if provided
     if (billingAddress?.country) {
