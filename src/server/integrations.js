@@ -9,7 +9,8 @@
  *  - Order webhook receiver: Shopify-style payloads auto-mapped to
  *    tracked purchases (stock decrements automatically).
  *  - Shopify / WooCommerce adapters: pull catalogs + orders over
- *    their official REST APIs with client-provided credentials.
+ *    their official APIs with client-provided credentials (Shopify via the
+ *    GraphQL Admin API, WooCommerce via the Woo REST API).
  *
  * Every connection records health (last event, totals) so the hub
  * can show "connected & flowing" status.
@@ -17,6 +18,7 @@
 
 const crypto = require('crypto',);
 const { resolveShopifyApiVersion, } = require('../config/shopifyApiVersion.js',);
+const { createShopifyAdmin, shopifyIdTail, } = require('./shopifyAdmin.js',);
 
 // Shopify Admin API version — derived, never copied. A second literal here is
 // the drift that put an unsupported version into the billing path; see
@@ -298,29 +300,55 @@ function createIntegrations({ platform, },) {
     },
 
     // ── 4. Shopify adapter ───────────────────────────────────────────
-    /** Pull products + orders through the Shopify Admin REST API. */
-    async syncShopify(store_id, { shopDomain, accessToken, } = {},) {
+    /**
+     * Pull products + orders + customers through the Shopify GraphQL Admin
+     * API, then map the nodes onto exactly the same platform records the
+     * previous implementation produced, so downstream engines cannot tell
+     * the transport changed:
+     *   - variants: `sku` else `variant-<numeric id>`; `inventoryQuantity`
+     *     is the all-locations total, the same aggregate the old
+     *     `inventory_quantity` reported
+     *   - money arrives as decimal strings (`amount`) and is `Number()`-ed
+     *     at the boundary, like the old string prices
+     *   - customer `tags` arrive as an array and are joined back to the
+     *     comma-separated string the profile record carries
+     *   - global ids are reduced to their numeric tails, preserving the
+     *     identifier space the old numeric ids lived in
+     *
+     * Per-resource errors are recorded and the sync continues with the other
+     * resources (a missing `read_customers` grant must not wipe the catalogue
+     * import); auth rejections still throw. The return value carries an
+     * `errors` map so a partial sync can never again report bare success.
+     */
+    async syncShopify(store_id, { shopDomain, accessToken, fetchFn, } = {},) {
       const domain = String(shopDomain || '',).replace(/^https?:\/\//, '',).replace(/\/$/, '',);
       if (!domain || !accessToken) throw new Error('shopDomain and accessToken are required.',);
-      const base = `https://${domain.endsWith('.myshopify.com',) ? domain : domain + '.myshopify.com'}/admin/api/${SHOPIFY_API_VERSION}`;
-      const headers = { 'X-Shopify-Access-Token': accessToken, };
+      const admin = createShopifyAdmin({
+        shopDomain: domain, accessToken, apiVersion: SHOPIFY_API_VERSION, fetchFn,
+      },);
+      const errors = {};
+      const isAuthFailure = (err,) => err?.status === 401 || err?.status === 403;
 
-      // Paginate through all products (Shopify caps at 250/page, max 10 pages)
+      // Products: every variant becomes one ledger row.
       const items = [];
-      let page = 1;
-      let hasMore = true;
-      while (hasMore && page <= 10) {
-        const prodRes = await fetchWithRetry(`${base}/products.json?limit=250&page=${page}`, { headers, signal: AbortSignal.timeout(20000,), },);
-        if (prodRes.status === 401 || prodRes.status === 403) throw new Error('Shopify rejected the access token (401/403).',);
-        if (!prodRes.ok) break;
-        const { products = [], } = await prodRes.json();
-        if (products.length === 0) { hasMore = false; break; }
+      try {
+        const products = await admin.fetchAllEdges(
+          `query SyncProducts($first: Int!, $after: String) {
+            products(first: $first, after: $after) {
+              edges { node { id title handle variants(first: 100) {
+                edges { node { id title sku price inventoryQuantity } }
+              } } }
+              pageInfo { hasNextPage endCursor }
+            }
+          }`,
+          { root: 'products', pageSize: 250, maxPages: 10, },
+        );
         for (const p of products) {
-          for (const v of p.variants || []) {
+          for (const v of p.variants?.edges?.map((e,) => e.node,) || []) {
             items.push({
-              product_id: v.sku || `variant-${v.id}`,
+              product_id: v.sku || `variant-${shopifyIdTail(v.id,)}`,
               name: `${p.title}${v.title && v.title !== 'Default Title' ? ' — ' + v.title : ''}`,
-              stock: Number(v.inventory_quantity ?? 0,),
+              stock: Number(v.inventoryQuantity ?? 0,),
               price: Number(v.price || 0,),
               // Stored so the storefront recommendation widget can link
               // straight to /products/{handle} instead of guessing.
@@ -329,66 +357,89 @@ function createIntegrations({ platform, },) {
             },);
           }
         }
-        page++;
-        if (products.length < 250) hasMore = false;
+      } catch (err) {
+        if (isAuthFailure(err,)) throw err;
+        errors.products = err.message;
       }
       if (items.length) await inventoryLedger.setStockBatch(store_id, items,);
 
-      // Paginate through all orders
+      // Orders: every order becomes one purchase event.
       let ordersImported = 0;
-      page = 1;
-      hasMore = true;
-      while (hasMore && page <= 10) {
-        const orderRes = await fetchWithRetry(`${base}/orders.json?status=any&limit=250&page=${page}`, { headers, signal: AbortSignal.timeout(20000,), },);
-        if (!orderRes.ok) break;
-        const { orders = [], } = await orderRes.json();
-        if (orders.length === 0) { hasMore = false; break; }
+      try {
+        const orders = await admin.fetchAllEdges(
+          `query SyncOrders($first: Int!, $after: String) {
+            orders(first: $first, after: $after, sortKey: CREATED_AT) {
+              edges { node { id name email createdAt
+                totalPriceSet { shopMoney { amount } }
+                customer { id email }
+                lineItems(first: 100) { edges { node { title sku quantity
+                  variant { id }
+                  originalUnitPriceSet { shopMoney { amount } }
+                } } }
+              } } }
+              pageInfo { hasNextPage endCursor }
+            }
+          }`,
+          { root: 'orders', pageSize: 250, maxPages: 10, },
+        );
         for (const o of orders) {
+          const customerId = (o.customer?.id && shopifyIdTail(o.customer.id,)) || o.email || `shopify-${shopifyIdTail(o.id,)}`;
           const tracked = await eventTracker.track({
             store_id,
             event_type: 'purchase',
-            customer_id: o.customer?.id || o.email || `shopify-${o.id}`,
+            customer_id: customerId,
             email: o.email || o.customer?.email || null,
-            total: Number(o.total_price || 0,),
-            timestamp: o.created_at || undefined,
-            items: (o.line_items || []).map((li,) => ({
-              product_id: li.sku || `variant-${li.variant_id}`,
+            total: Number(o.totalPriceSet?.shopMoney?.amount || 0,),
+            timestamp: o.createdAt || undefined,
+            items: (o.lineItems?.edges?.map((e,) => e.node,) || []).map((li,) => ({
+              product_id: li.sku || (li.variant?.id && `variant-${shopifyIdTail(li.variant.id,)}`) || li.title || 'unknown-item',
               quantity: Number(li.quantity || 1,),
-              price: Number(li.price || 0,),
+              price: Number(li.originalUnitPriceSet?.shopMoney?.amount || 0,),
             }),),
             source: 'shopify',
           },);
           if (tracked.accepted) ordersImported++;
         }
-        page++;
-        if (orders.length < 250) hasMore = false;
+      } catch (err) {
+        if (isAuthFailure(err,)) throw err;
+        errors.orders = err.message;
       }
 
-      // Sync customers from Shopify
+      // Customers: ensure one profile per customer (matters for customers
+      // with zero orders, whom the order import never sees). This previously
+      // called `customerProfiles.findOrCreate`, which does not exist — every
+      // sync against a shop with at least one customer threw here, after
+      // products and orders were already synced, so the connection row was
+      // never updated either. Profiles are now created through the canonical
+      // `applyEvent` path with a `lead_captured` event, which carries no
+      // aggregate side effects (see the switch in customerProfile.js) but
+      // runs the full identity-resolution and merge logic.
       let customersImported = 0;
-      page = 1;
-      hasMore = true;
-      while (hasMore && page <= 10) {
-        const custRes = await fetchWithRetry(`${base}/customers.json?limit=250&page=${page}`, { headers, signal: AbortSignal.timeout(20000,), },);
-        if (!custRes.ok) break;
-        const { customers = [], } = await custRes.json();
-        if (customers.length === 0) { hasMore = false; break; }
+      try {
+        const customers = await admin.fetchAllEdges(
+          `query SyncCustomers($first: Int!, $after: String) {
+            customers(first: $first, after: $after) {
+              edges { node { id email phone createdAt } }
+              pageInfo { hasNextPage endCursor }
+            }
+          }`,
+          { root: 'customers', pageSize: 250, maxPages: 10, },
+        );
         for (const c of customers) {
-          await customerProfiles.findOrCreate(store_id, {
-            customer_id: String(c.id,),
+          await customerProfiles.applyEvent({
+            store_id,
+            event_type: 'lead_captured',
+            customer_id: String(shopifyIdTail(c.id,),),
             email: c.email || null,
-            name: [c.first_name, c.last_name,].filter(Boolean,).join(' ',) || null,
             phone: c.phone || null,
-            total_spent: Number(c.total_spent || 0,),
-            orders_count: Number(c.orders_count || 0,),
-            tags: c.tags || null,
+            timestamp: c.createdAt || new Date().toISOString(),
             source: 'shopify',
-            created_at: c.created_at || undefined,
           },);
           customersImported++;
         }
-        page++;
-        if (customers.length < 250) hasMore = false;
+      } catch (err) {
+        if (isAuthFailure(err,)) throw err;
+        errors.customers = err.message;
       }
 
       await touchConnection(store_id, {
@@ -397,9 +448,10 @@ function createIntegrations({ platform, },) {
         products_synced: items.length,
         orders_synced: ordersImported,
         customers_synced: customersImported,
+        sync_errors: errors,
         last_sync_at: new Date().toISOString(),
       },);
-      return { products_synced: items.length, orders_synced: ordersImported, customers_synced: customersImported, };
+      return { products_synced: items.length, orders_synced: ordersImported, customers_synced: customersImported, errors, };
     },
 
     // ── 5. WooCommerce adapter ───────────────────────────────────────
@@ -549,19 +601,25 @@ function createIntegrations({ platform, },) {
     },
 
     /** Best-effort: subscribe our public endpoint to Shopify orders/create. */
-    async registerShopifyWebhook(shopDomain, accessToken, callbackUrl,) {
+    async registerShopifyWebhook(shopDomain, accessToken, callbackUrl, opts = {},) {
       try {
-        const domain = String(shopDomain || '',).replace(/^https?:\/\//, '',).replace(/\/$/, '',);
-        const res = await fetchWithRetry(
-          `https://${domain.endsWith('.myshopify.com',) ? domain : domain + '.myshopify.com'}/admin/api/${SHOPIFY_API_VERSION}/webhooks.json`,
-          {
-            method: 'POST',
-            headers: { 'X-Shopify-Access-Token': accessToken, 'Content-Type': 'application/json', },
-            body: JSON.stringify({ webhook: { topic: 'orders/create', address: callbackUrl, format: 'json', }, },),
-            signal: AbortSignal.timeout(15000,),
-          },
+        const admin = createShopifyAdmin({
+          shopDomain, accessToken, apiVersion: SHOPIFY_API_VERSION, fetchFn: opts.fetchFn,
+        },);
+        await admin.graphql(
+          `mutation WebhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $callbackUrl: URL!) {
+            webhookSubscriptionCreate(
+              topic: $topic,
+              webhookSubscription: { callbackUrl: $callbackUrl, format: JSON }
+            ) {
+              webhookSubscription { id }
+              userErrors { field message }
+            }
+          }`,
+          { topic: 'ORDERS_CREATE', callbackUrl, },
+          { userErrorsPath: ['webhookSubscriptionCreate',], },
         );
-        return res.ok;
+        return true;
       } catch {
         return false; // ongoing sync still works via pull; webhook is a bonus
       }
@@ -604,28 +662,40 @@ function createIntegrations({ platform, },) {
      * Register Shopify compliance webhooks for app lifecycle and
      * customer data redaction (GDPR/CCPA).
      */
-    async registerComplianceWebhooks(shopDomain, accessToken,) {
-      const domain = String(shopDomain || '',).replace(/^https?:\/\//, '',).replace(/\/$/, '',);
-      const apiBase = `https://${domain.endsWith('.myshopify.com',) ? domain : domain + '.myshopify.com'}/admin/api/${SHOPIFY_API_VERSION}`;
+    async registerComplianceWebhooks(shopDomain, accessToken, opts = {},) {
       const base = baseUrl();
+      // `topic` + `address` stay adjacent literals on purpose:
+      // test/webhookConfig.test.js parses them out of this source to prove
+      // the manifest and the runtime registration agree exactly. `gqlTopic`
+      // is the GraphQL enum for the same topic.
       const topics = [
-        { topic: 'app/uninstalled', address: `${base}/webhooks/shopify/app-uninstalled`, },
-        { topic: 'customers/data_request', address: `${base}/webhooks/shopify/data-request`, },
-        { topic: 'customers/redact', address: `${base}/webhooks/shopify/customer-redact`, },
-        { topic: 'shop/redact', address: `${base}/webhooks/shopify/shop-redact`, },
+        { topic: 'app/uninstalled', address: `${base}/webhooks/shopify/app-uninstalled`, gqlTopic: 'APP_UNINSTALLED', },
+        { topic: 'customers/data_request', address: `${base}/webhooks/shopify/data-request`, gqlTopic: 'CUSTOMERS_DATA_REQUEST', },
+        { topic: 'customers/redact', address: `${base}/webhooks/shopify/customer-redact`, gqlTopic: 'CUSTOMERS_REDACT', },
+        { topic: 'shop/redact', address: `${base}/webhooks/shopify/shop-redact`, gqlTopic: 'SHOP_REDACT', },
       ];
+      const admin = createShopifyAdmin({
+        shopDomain, accessToken, apiVersion: SHOPIFY_API_VERSION, fetchFn: opts.fetchFn,
+      },);
       const results = {};
-      for (const { topic, address, } of topics) {
+      for (const { topic, address, gqlTopic, } of topics) {
         try {
-          const res = await fetchWithRetry(`${apiBase}/webhooks.json`, {
-            method: 'POST',
-            headers: { 'X-Shopify-Access-Token': accessToken, 'Content-Type': 'application/json', },
-            body: JSON.stringify({ webhook: { topic, address, format: 'json', }, },),
-            signal: AbortSignal.timeout(10000,),
-          },);
-          results[topic] = res.ok ? 'registered' : `failed (${res.status})`;
-        } catch {
-          results[topic] = 'failed (network)';
+          await admin.graphql(
+            `mutation WebhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $callbackUrl: URL!) {
+              webhookSubscriptionCreate(
+                topic: $topic,
+                webhookSubscription: { callbackUrl: $callbackUrl, format: JSON }
+              ) {
+                webhookSubscription { id }
+                userErrors { field message }
+              }
+            }`,
+            { topic: gqlTopic, callbackUrl: address, },
+            { userErrorsPath: ['webhookSubscriptionCreate',], },
+          );
+          results[topic] = 'registered';
+        } catch (err) {
+          results[topic] = `failed (${err.message})`;
         }
       }
       return results;

@@ -16,6 +16,7 @@
 
 const crypto = require('crypto',);
 const { resolveShopifyApiVersion, } = require('../../config/shopifyApiVersion.js',);
+const { createShopifyAdmin, } = require('../../server/shopifyAdmin.js',);
 
 /**
  * Plan definitions. Each plan lists the features/entitlements it
@@ -134,21 +135,19 @@ function createBillingService({ store, config, },) {
     REGIONAL_PRICING,
 
     /**
-     * Task 41: Create a Shopify Recurring Application Charge.
+     * Task 41: Create a Shopify Billing subscription.
      *
-     * Calls POST /admin/api/{version}/recurring_application_charges.json
-     * to create a charge, then returns the confirmation_url the merchant
-     * must approve. After approval, Shopify fires the
-     * app_subscriptions/update webhook.
+     * Uses the GraphQL Admin API `appSubscriptionCreate` mutation — the only
+     * Admin surface new public apps may use. The merchant approves at the
+     * returned `confirmation_url`; after approval Shopify fires the
+     * `app_subscriptions/update` webhook, handled below.
      *
-     * **BLOCKING for App Store submission.** This is the REST Admin API, which
-     * Shopify made a legacy API on 2024-10-01 and closed to *new public apps*
-     * from 2025-04-01: "all new public apps must be built exclusively with the
-     * GraphQL Admin API". The REST equivalent of this call is the
-     * `appSubscriptionCreate` mutation. This method therefore has to be
-     * rewritten (or the billing path moved off Shopify Billing entirely — see
-     * the open billing decision) before the app can be listed. It still works
-     * against the API today, which is exactly why it must not be forgotten.
+     * The return shape (`charge_id`, `confirmation_url`, `status`, `plan`,
+     * `price`, `currency`) is the pre-existing contract: the OAuth callback
+     * and the billing routes hand it straight to the client, so it is kept
+     * stable across the REST-to-GraphQL move. `charge_id` is now the
+     * subscription global id; the webhook lookup below matches it by exact
+     * value or by numeric tail, so rows written by either generation resolve.
      *
      * @param {string} shopDomain  e.g. "my-store.myshopify.com"
      * @param {string} accessToken  Shopify store access token
@@ -160,52 +159,63 @@ function createBillingService({ store, config, },) {
       if (!plan) throw new Error(`Unknown plan: ${planId}`,);
       if (plan.priceMonthly === 0) throw new Error('Cannot create a charge for a free plan.',);
 
-      const domain = String(shopDomain || '',).replace(/^https?:\/\//, '',).replace(/\/$/, '',);
-      // Derived, never a local literal: this previously fell back to `2025-01`,
-      // a version Shopify does not serve, so any caller passing a config without
+      // Derived, never a local literal: this previously fell back to a
+      // version Shopify does not serve, so any caller passing a config without
       // `shopifyApiVersion` got a silently broken billing path.
       const apiVersion = resolveShopifyApiVersion(config.shopifyApiVersion,);
-      const base = `https://${domain.endsWith('.myshopify.com',) ? domain : domain + '.myshopify.com'}/admin/api/${apiVersion}`;
+      const admin = createShopifyAdmin({
+        shopDomain, accessToken, apiVersion, fetchFn: opts.fetchFn,
+      },);
       const currency = opts.currency || 'USD';
       const price = this.getRegionalPrice(planId, currency,).monthly;
 
       const returnUrl = opts.return_url || config.publicUrl || 'https://storecops.com/app';
 
-      const payload = {
-        recurring_application_charge: {
+      const data = await admin.graphql(
+        `mutation AppSubscriptionCreate(
+          $name: String!, $returnUrl: URL!, $test: Boolean, $trialDays: Int,
+          $lineItems: [AppSubscriptionLineItemInput!]!
+        ) {
+          appSubscriptionCreate(
+            name: $name, returnUrl: $returnUrl, test: $test, trialDays: $trialDays,
+            lineItems: $lineItems
+          ) {
+            appSubscription { id name status test }
+            confirmationUrl
+            userErrors { field message code }
+          }
+        }`,
+        {
           name: `Storecops ${plan.name}`,
-          price,
-          return_url: returnUrl,
+          returnUrl,
           test: opts.test || false,
-          trial_days: 14,
-          capped_amount: price,
-          terms: `$${price}/month — ${plan.name} plan`,
+          trialDays: 14,
+          lineItems: [{
+            plan: {
+              appRecurringPricingDetails: {
+                price: { amount: String(price,), currencyCode: currency, },
+                interval: 'EVERY_30_DAYS',
+              },
+            },
+          },],
         },
-      };
+        { userErrorsPath: ['appSubscriptionCreate',], },
+      );
 
-      const res = await fetch(`${base}/recurring_application_charges.json`, {
-        method: 'POST',
-        headers: {
-          'X-Shopify-Access-Token': accessToken,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload,),
-        signal: AbortSignal.timeout(15000,),
-      },);
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}),);
-        throw new Error(`Shopify charge creation failed (${res.status}): ${JSON.stringify(body.errors || body,)}`,);
+      const created = data.appSubscriptionCreate;
+      const subscription = created?.appSubscription;
+      if (!subscription?.id || !created?.confirmationUrl) {
+        throw new Error('Shopify charge creation failed: the response carried no subscription.',);
       }
 
-      const { recurring_application_charge: charge, } = await res.json();
-
-      // Persist the pending charge so we can reconcile after approval.
+      // Persist the pending subscription so we can reconcile after approval.
+      // The global id is stored (it is what cancellation takes); the numeric
+      // tail is what older webhooks carry, and the lookup below matches both.
       await store.subscriptions.insert({
         shopInstallationId: opts.shopInstallationId || shopDomain,
         planId,
         status: 'pending_approval',
-        shopifyChargeId: String(charge.id,),
+        shopifyChargeId: String(subscription.id,),
         currency,
         price_monthly: price,
         started_at: new Date().toISOString(),
@@ -213,9 +223,9 @@ function createBillingService({ store, config, },) {
       },);
 
       return {
-        charge_id: charge.id,
-        confirmation_url: charge.confirmation_url,
-        status: charge.status,
+        charge_id: String(subscription.id,),
+        confirmation_url: created.confirmationUrl,
+        status: subscription.status,
         plan: planId,
         price,
         currency,
@@ -225,9 +235,11 @@ function createBillingService({ store, config, },) {
     /**
      * Task 43: Handle the Shopify app_subscriptions/update webhook.
      *
-     * Shopify sends this when a charge is accepted, declined, expired,
-     * or cancelled. We look up the charge by ID and update the local
-     * subscription record accordingly.
+     * Shopify sends this when a subscription is accepted, declined, expired,
+     * or cancelled. We look up the subscription by ID and update the local
+     * record accordingly. Stored ids are subscription global ids; the lookup
+     * also matches the numeric tail so rows written before the GraphQL move
+     * (plain numeric charge ids) still resolve.
      */
     async handleShopifySubscriptionWebhook(payload,) {
       const {
@@ -241,8 +253,14 @@ function createBillingService({ store, config, },) {
 
       // Find the subscription by Shopify charge ID.
       const all = await store.subscriptions.find({},);
+      const wanted = String(charge_id,);
+      const tailOf = (v,) => {
+        const s = String(v ?? '',);
+        return s.includes('/',) ? s.slice(s.lastIndexOf('/',) + 1,) : s;
+      };
+      const tail = tailOf(wanted,);
       const sub = all.find(
-        (s,) => s.shopifyChargeId === String(charge_id,),
+        (s,) => s.shopifyChargeId === wanted || (s.shopifyChargeId && tailOf(s.shopifyChargeId,) === tail),
       );
 
       if (!sub) {

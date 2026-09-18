@@ -44,7 +44,7 @@ handle = "storecops"
 
 # REQUIRED. Copy from Partner Dashboard -> your app -> Client credentials.
 # Until this is set, the app cannot authenticate anything.
-client_id = "REPLACE_WITH_PARTNER_DASHBOARD_CLIENT_ID"
+client_id = "46e22f0bcb45c408c975876378ee5d9b"
 
 # REQUIRED. Must be the public HTTPS origin that actually serves THIS codebase.
 #
@@ -62,9 +62,9 @@ embedded = true
 extension_directories = ["shopify-app/extensions"]
 
 # ─── Scopes ──────────────────────────────────────────────────────────────────
-# Narrowed to what the code demonstrably calls:
-#   products.json, orders.json, customers.json  (src/server/integrations.js)
-#   inventory feed for the stock ledger
+# Narrowed to what the code demonstrably calls (all via the GraphQL Admin API
+# in src/server/integrations.js syncShopify: the products, orders and
+# customers connections, plus the inventory feed for the stock ledger).
 #
 # The previous list was much broader. Removed because nothing in the codebase
 # reads or writes them: read_analytics, read_content, write_content, read_themes,
@@ -96,7 +96,7 @@ redirect_urls = [
 # signature is verified (src/server/appProxy.js).
 #
 #   storefront: https://{shop}/apps/storecops/tracker.js
-#   forwarded:  https://storecops.com/proxy/tracker.js
+#   forwarded:  https://storecops-production.up.railway.app/proxy/tracker.js
 #
 # Requires a publicly reachable HTTPS origin that serves this codebase.
 [app_proxy]

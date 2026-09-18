@@ -29,9 +29,11 @@ Also fixed along the way:
 
 ### Blocking
 
-- [ ] **Deploy this codebase to a public HTTPS origin.** ⚠️ `https://storecops.com`
+- [ ] **Redeploy HEAD to the public HTTPS origin.** ⚠️ `https://storecops.com`
   currently resolves and returns 200, but it does **not** serve this application.
-  Every route in this repo 404s there:
+  Every route in this repo 404s there (see below). `https://storecops-production.up.railway.app`
+  **does** serve this app (`/health` 200) but the build there is stale (`/ready` 404,
+  so it predates the readiness work) — redeploy HEAD, then verify `/ready` 200:
 
   ```
   404  /health            <- createApp.js:522
@@ -57,9 +59,9 @@ Also fixed along the way:
 - [ ] **Install the Shopify CLI.** It is not on this machine, so `shopify app deploy`
   cannot run yet. Either `npm install -g @shopify/cli@latest`, or add it as a
   devDependency and invoke it via `npx`.
-- [ ] **Fix `PUBLIC_URL` — it is still a Railway placeholder.**
-  `.env.production` has `PUBLIC_URL=https://your-app.up.railway.app`, which resolves to
-  Railway's edge but has no app behind it (404). `config.publicUrl` is the base for
+- [ ] **Confirm `PUBLIC_URL` matches the live origin.**
+  `.env.production` now sets `PUBLIC_URL=https://storecops-production.up.railway.app`,
+  and that host is live (`/health` 200). `config.publicUrl` is the base for
   **every** address the app hands out:
 
   - OAuth callback — `oauthConnectors.js:49` → `${baseUrl()}/connect/shopify/callback`
@@ -68,11 +70,11 @@ Also fixed along the way:
   - Every email CTA button — `emailTemplates.js:90-259` → `${publicUrl}/app`
 
   So a merchant who installs today gets webhooks delivered to a dead host and
-  password-reset / report emails whose buttons point at a dead host. This must match
-  the real deployed origin, and must agree with `application_url` in
-  `shopify.app.toml`. Right now three different origins are in play:
-  `storecops.com` (config), `your-app.up.railway.app` (env), and whatever actually
-  serves this code (nothing, yet).
+  password-reset / report emails whose buttons point at a dead host if this drifts.
+  This must match the real deployed origin, and must agree with `application_url` in
+  `shopify.app.toml`. Right now the deployed build is **stale vs HEAD** (`/ready`
+  404s there, so it predates the readiness work) — redeploy before review, then
+  re-run `npm run preflight`.
 
 - [ ] **Set the outbound delivery credentials — the Execution layer cannot send
   anything without them.** The code reads these; they are absent from `.env.production`:
@@ -151,17 +153,17 @@ declarative block now declares only topics with real routes.
   add the scope here and in `.env` together.
 
   Note: `read_script_tags`/`write_script_tags` are **deprecated by Shopify**.
-  `integrations.js:573` still has an `injectShopifyScriptTag` path that uses them.
-  The theme app extension supersedes it — consider deleting that method rather than
-  re-requesting the scope.
+  The old `injectShopifyScriptTag` path that used them has been removed — see
+  `storefrontTrackingStatus()` in `integrations.js`, which now returns
+  `method: 'theme_extension'` instructions instead. Do not re-request the scope.
 
 ### Billing
 
 - [ ] Plans are consistent across the stack: **starter free / growth $49 / scale $149** (`config.js` and `billingService.js` agree; `premium` is an alias of `scale`).
 - [ ] Regional pricing covers 30+ countries (`subscriptionPricing.js`) — confirm the INR table matches what you advertise.
-- [ ] Decide on Shopify Billing API vs Stripe/Razorpay. For a public App Store
-  listing, **Shopify Billing is expected** — `billingService.js:138` already calls
-  `recurring_application_charges.json`, so the code is on the Shopify path. The
+- [x] Decide on Shopify Billing API vs Stripe/Razorpay. **Decided: Shopify Billing**
+  (2026-09-18) — `billingService.js` `createShopifyCharge` already calls the GraphQL
+  `appSubscriptionCreate` mutation, so the code is on the Shopify path. The
   `[billing] use_shopify_billing = true` key was removed from `shopify.app.toml`
   because it is not part of that schema; this choice lives in the Partner Dashboard.
 
@@ -192,6 +194,30 @@ curl -s "https://{shop}.myshopify.com/apps/storecops/tracker.js" | head -5
 ```
 
 The proxy response must be JavaScript, not an HTML error page. If you get 401, the signature failed — check that `SHOPIFY_CLIENT_SECRET` matches the Partner Dashboard exactly.
+
+### Backups — schedule the script, then alarm on it
+
+`npm run backup` takes a verified snapshot (`VACUUM INTO` + integrity/table-set
+check + prune), but nothing runs it on a schedule — a deployment can go months
+with zero snapshots and the first redeploy wipes the ephemeral filesystem.
+Two commands close that:
+
+```bash
+# Take one now (writes BACKUP_DIR or data/backups, keeps BACKUP_KEEP or 7).
+npm run backup
+
+# Alarm when the newest snapshot is older than 48h (exit 1).
+# Run this from the same cron schedule — a green backup with no alarm is how
+# the gap stayed invisible last time.
+npm run backup:check
+```
+
+Railway has no cron section in `railway.json` — create a scheduled job (service →
+Cron Schedule, e.g. `0 3 * * *`) with command `node scripts/backup.js`, and a
+second schedule shortly after with `node scripts/backup-check.js --max-age-hours 48`
+so a silently failing backup pages instead of rotting. Both commands need the
+volume mounted at the same `SQLITE_PATH`/`BACKUP_DIR` as the app. Optional env:
+`BACKUP_DIR=data/backups`, `BACKUP_KEEP=7`, `BACKUP_MAX_AGE_HOURS=48`.
 
 ### On `npm run preflight`
 
@@ -282,11 +308,11 @@ deployed.
 
 | Where | Key | Current value | Problem |
 |---|---|---|---|
-| `shopify.app.toml` | `application_url` | `https://storecops.com` | serves a different app |
-| `shopify.app.toml` | `[app_proxy].url` | `https://storecops.com/proxy` | 404s |
-| `shopify.app.toml` | `[auth].redirect_urls[0]` | `https://storecops.com/connect/shopify/callback` | 404s |
-| `.env.production` | `PUBLIC_URL` | `https://your-app.up.railway.app` | unreplaced placeholder, 404 |
-| reality | — | *nothing* | this codebase is not deployed |
+| `shopify.app.toml` | `application_url` | `https://storecops-production.up.railway.app` | live host, but deployed build is stale (`/ready` 404) — redeploy |
+| `shopify.app.toml` | `[app_proxy].url` | `https://storecops-production.up.railway.app/proxy` | same — redeploy to verify |
+| `shopify.app.toml` | `[auth].redirect_urls[0]` | `https://storecops-production.up.railway.app/connect/shopify/callback` | same |
+| `.env.production` | `PUBLIC_URL` | `https://storecops-production.up.railway.app` | matches TOML — keep in sync |
+| `storecops.com` | — | serves a *different* app | do not point listing/TOML there |
 
 ### Procedure
 
@@ -368,9 +394,9 @@ verifiably unused — nothing in `src/` reads or writes it.
 
 | Scope | Why it is needed | Where it is used |
 |---|---|---|
-| `read_products` | Build the product catalogue that inventory velocity, stockout projection and reorder recommendations are computed from. | `integrations.js:307` — `GET /admin/api/2025-01/products.json` |
-| `read_orders` | Attribute revenue, compute repeat-purchase rate and LTV, and detect abandonment for cart recovery. | `integrations.js:336` — `GET /admin/api/2025-01/orders.json` |
-| `read_customers` | Score churn risk and decide win-back eligibility per customer. | `integrations.js:366` — `GET /admin/api/2025-01/customers.json` |
+| `read_products` | Build the product catalogue that inventory velocity, stockout projection and reorder recommendations are computed from. | `integrations.js` `syncShopify` — GraphQL `products` connection (variants: sku, price, inventoryQuantity) |
+| `read_orders` | Attribute revenue, compute repeat-purchase rate and LTV, and detect abandonment for cart recovery. | `integrations.js` `syncShopify` — GraphQL `orders` connection (totals, line items, customer) |
+| `read_customers` | Score churn risk and decide win-back eligibility per customer. | `integrations.js` `syncShopify` — GraphQL `customers` connection |
 | `read_inventory` | Track stock levels over time to project stockouts and compute days-of-cover. | inventory ledger (`inventoryLedger.js`) fed by the inventory sync |
 
 **Not requested, and why:**
