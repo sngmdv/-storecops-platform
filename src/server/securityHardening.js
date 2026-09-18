@@ -103,10 +103,10 @@ function securityHeaders() {
       [
         'default-src \'self\'',
         // 'unsafe-inline' is required by the inline <script> blocks in
-        // public/*.html. https://unpkg.com serves the Lucide icon bundle loaded
-        // by app.html and index.html — it should be vendored locally, the way
-        // Chart.js already is.
-        'script-src \'self\' \'unsafe-inline\' https://unpkg.com',
+        // public/*.html. Lucide icons are vendored at
+        // /vendor/lucide.min.js (like Chart.js), so no CDN script origin
+        // is needed here.
+        'script-src \'self\' \'unsafe-inline\'',
         'style-src \'self\' \'unsafe-inline\' https://fonts.googleapis.com',
         'img-src \'self\' data: https:',
         'font-src \'self\' data: https://fonts.gstatic.com',

@@ -47,14 +47,18 @@ SOFTWARE.
 
 ## Lucide 1.47.0
 
-- **Loaded from** `https://unpkg.com/lucide@1.47.0/dist/umd/lucide.min.js` (by `public/index.html`
-  and `public/app.html`)
+- **Vendored at** `public/vendor/lucide.min.js` (loaded by `public/index.html`
+  and `public/app.html` as `/vendor/lucide.min.js`; upstream file
+  `https://unpkg.com/lucide@1.47.0/dist/umd/lucide.min.js`, verified to contain
+  `createIcons` and the ISC banner at vendor time)
 - **License** ISC, with MIT for the icons derived from Feather
 - **Source** https://lucide.dev
 
-**The version is pinned deliberately.** It previously read `lucide@latest`, so every page load
-resolved to whatever version upstream had most recently published — a breaking release would have
-broken the icon layer with no deploy and no diff to review.
+**Vendored deliberately — previously a pinned CDN script, before that `lucide@latest`.**
+Every page load used to resolve upstream at request time, so a breaking release would have
+broken the icon layer with no deploy and no diff to review. Vendoring removes the CDN
+from the page and from the Content-Security-Policy entirely; re-vendor explicitly to
+upgrade, and keep the license banner in the file.
 
 ```
 ISC License

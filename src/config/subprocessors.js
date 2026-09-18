@@ -131,11 +131,12 @@ const SUBPROCESSORS = [
  */
 const THIRD_PARTY_ASSETS = [
   {
-    key: 'unpkg',
-    name: 'unpkg (Lucide icon bundle)',
+    key: 'lucide',
+    name: 'Lucide (vendored icon bundle)',
     category: CATEGORY.ASSETS,
-    purpose: 'Icon set, loaded by app.html and index.html.',
-    hosts: ['unpkg.com',],
+    purpose: 'Icon set, vendored at public/vendor/lucide.min.js and loaded by app.html and index.html.',
+    hosts: [],
+    detection: 'vendored bundle (public/vendor/lucide.min.js) — no remote host is contacted',
   },
   {
     key: 'jsdelivr',

@@ -227,6 +227,7 @@ test('P2: the CSP carries no unsafe-eval and no dead CDN origins', () => {
 
   assert.ok(!csp.includes('unsafe-eval',), 'unsafe-eval must not appear',);
   assert.ok(!csp.includes('cdn.jsdelivr.net',), 'Chart.js is vendored locally',);
+  assert.ok(!csp.includes('unpkg.com',), 'Lucide is vendored locally',);
   assert.ok(!/script-src[^;]*myshopify\.com/.test(csp,), 'no merchant-hosted scripts',);
 },);
 

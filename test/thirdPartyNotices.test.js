@@ -13,6 +13,8 @@ process.env.NODE_ENV = 'test';
  *   2. **An unpinned CDN dependency.** Both `public/index.html` and `public/app.html` loaded
  *      `lucide@latest`. Every page load resolved to whatever upstream had most recently published,
  *      so a breaking release would have broken the icon layer with no deploy and no diff to review.
+ *      Fixed by vendoring: `public/vendor/lucide.min.js`, so no CDN script origin
+ *      remains on the pages or in the Content-Security-Policy.
  *
  * The asset list is **derived from the HTML**, not hand-maintained: add a `<script src>` for a new
  * library and this fails until it is documented. Same reasoning as `shopifyScopeParity`,
@@ -82,7 +84,7 @@ const TOKENS = [...new Set(ASSETS.map((a,) => a.token.toLowerCase(),),),];
 
 test('the asset scan actually found the known third-party dependencies', () => {
   assert.ok(ASSETS.length >= 4, `expected to find the third-party assets, found ${ASSETS.length}`,);
-  assert.ok(TOKENS.includes('lucide',), 'the Lucide CDN script must be detected',);
+  assert.ok(TOKENS.includes('lucide',), 'the vendored Lucide bundle must be detected',);
   assert.ok(TOKENS.includes('chart',), 'the vendored Chart.js bundle must be detected',);
   assert.ok(TOKENS.includes('fonts',), 'the Google Fonts link must be detected',);
   assert.ok(NOTICES.length > 1000, 'THIRD_PARTY_NOTICES.md must have been read',);
@@ -119,6 +121,16 @@ test('DOC-003: the vendored Chart.js bundle retains its license banner', () => {
   assert.match(banner, /Chart\.js v\d+\.\d+\.\d+/,);
   assert.match(banner, /Released under the MIT License/,);
   assert.match(banner, /\(c\) \d{4} Chart\.js Contributors/,);
+},);
+
+test('DOC-003: the vendored Lucide bundle retains its license banner', () => {
+  // Same reasoning as Chart.js above: the banner is what proves the file's
+  // origin after minification. A re-vendor that drops it ships unattributed code.
+  const bundle = fs.readFileSync(path.join(PUBLIC_DIR, 'vendor', 'lucide.min.js',), 'utf8',);
+  const banner = bundle.slice(0, 400,);
+
+  assert.match(banner, /lucide v\d+\.\d+\.\d+/,);
+  assert.match(banner, /ISC/,);
 },);
 
 // ── Pinning ─────────────────────────────────────────────────────────────────
