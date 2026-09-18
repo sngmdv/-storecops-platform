@@ -1303,7 +1303,7 @@ Fix order: P0 → P1 → P2 → M1-M7 verify → P3-P5.
 the items blocked on credentials or deploy actions (M3 real billing sub/cancel, M4 embedded load,
 M5 real email+WA, M9 backup restore) — those need the user's Stripe/Razorpay/SMTP/Railway access, not
 code. `npm test` is **759 assertions / 658 tests / 45 suites**, green; `scripts/check-syntax.js` covers
-177 files.
+169 files.
 The **REST→GraphQL migration** is the critical path to submission and is blocked on the billing
 decision.
 User-only blockers unchanged: `SHOPIFY_CLIENT_ID`/`SECRET` (also required for embedded auto-login,
