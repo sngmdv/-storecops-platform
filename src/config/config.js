@@ -183,6 +183,15 @@ const config = {
     // doubles per further failure, capped at 24h).
     loginMaxAttempts: Number(process.env.LOGIN_MAX_ATTEMPTS || 5,),
     loginLockoutMs: Number(process.env.LOGIN_LOCKOUT_MS || 900000,),
+    // How long `/ready` waits for `store.ping()` before declaring the storage
+    // backend unreachable. Configurable because it is coupled to a *deploy-time*
+    // value: `railway.json` sets `healthcheckTimeout: 120` (seconds) against
+    // `healthcheckPath: /ready`, so this bound must stay well inside it or the
+    // orchestrator gives up first and the probe's diagnostic is never seen.
+    // test/readinessEndpoint.test.js asserts that relationship directly.
+    // A value that is not a positive finite number falls back to the default
+    // rather than becoming 0, which would fail every probe instantly.
+    readinessPingTimeoutMs: Number(process.env.READINESS_PING_TIMEOUT_MS || 2000,),
     // Retry configuration for external API calls (Task 64)
     maxRetries: Number(process.env.MAX_RETRIES || 3,),
     retryBaseDelayMs: Number(process.env.RETRY_BASE_DELAY_MS || 1000,),

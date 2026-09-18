@@ -647,17 +647,39 @@ function createApp(platform,) {
   // so a deploy is only promoted once storage actually answers. 503 (not 500)
   // because the instance is not broken — it is not yet able to take traffic.
   app.get('/ready', async (req, res,) => {
-    const result = await healthProbe.check();
-    res.status(result.ready ? 200 : 503,).json({ ...result, build: healthProbe.build, },);
+    // `check()` is total and time-bounded, but this is the endpoint Railway's
+    // healthcheck depends on, and Express 4 does not catch a rejected async
+    // handler — `Layer.handle_request` wraps only the synchronous call, so a
+    // rejection here would leave the probe unanswered *and* raise an unhandled
+    // rejection, which terminates the process. Always answer.
+    try {
+      const result = await healthProbe.check();
+      res.status(result.ready ? 200 : 503,).json({ ...result, build: healthProbe.build, },);
+    } catch (error) {
+      res.status(503,).json({
+        ready: false,
+        status: 'not_ready',
+        error: error?.message || 'readiness probe failed',
+        ping_timeout_ms: healthProbe.pingTimeoutMs,
+        build: healthProbe.build,
+      },);
+    }
   },);
 
   // Detailed health status (for monitoring dashboards)
   app.get('/health/status', async (req, res,) => {
-    if (platform.monitoringService) {
-      const health = await platform.monitoringService.getHealthStatus();
-      res.json(health,);
-    } else {
-      res.json({ status: 'ok', message: 'Monitoring service not initialized', },);
+    // Same Express-4 hazard as /ready above: an async handler that rejects is
+    // never answered and raises an unhandled rejection. A monitoring endpoint
+    // must not be able to take the process down.
+    try {
+      if (platform.monitoringService) {
+        const health = await platform.monitoringService.getHealthStatus();
+        res.json(health,);
+      } else {
+        res.json({ status: 'ok', message: 'Monitoring service not initialized', },);
+      }
+    } catch (error) {
+      res.status(503,).json({ status: 'unavailable', error: error?.message || 'health status failed', },);
     }
   },);
 
@@ -684,7 +706,18 @@ function createApp(platform,) {
   // One-click platform connect — pre-login by design:
   // status, OAuth start/callback, Woo keys handoff, custom catalog crawl,
   // and the sanitized view of a pending (authorized) connection.
-  app.get('/connect/status', rateLimiter, async (req, res,) => res.json(await platform.oauth.status(),),);
+  app.get('/connect/status', rateLimiter, async (req, res,) => {
+    // Expression-bodied and therefore unguarded: `await platform.oauth.status()`
+    // can reject, and Express 4 cannot catch a rejected async handler. The
+    // request would go unanswered *and* the rejection would terminate the
+    // process — on a route that needs no credentials.
+    try {
+      res.json(await platform.oauth.status(),);
+    } catch (error) {
+      console.error('[OAUTH] status failed:', error.message,);
+      res.status(503,).json({ error: 'Could not read connector status.', },);
+    }
+  },);
   app.get('/connect/:platform/start', rateLimiter, async (req, res,) => {
     try {
       const { redirect_url, } = await platform.oauth.start(req.params.platform, req.query || {},);
@@ -694,8 +727,22 @@ function createApp(platform,) {
     }
   },);
   app.get('/connect/:platform/callback', rateLimiter, async (req, res,) => {
-    const { redirect, } = await platform.oauth.callback(req.params.platform, req.query || {},);
-    res.redirect(redirect,);
+    // A browser navigation, so a failure must land the user back in the app
+    // rather than return JSON. `oauth.callback` converts its own errors into a
+    // `connect_error` redirect, but that is a convention inside another module —
+    // and Express 4 cannot catch a rejected async handler, so a rejection here
+    // would leave the navigation unanswered *and* raise an unhandled rejection,
+    // which terminates the process. Reachable without credentials.
+    try {
+      const { redirect, } = await platform.oauth.callback(req.params.platform, req.query || {},);
+      if (!res.headersSent) res.redirect(redirect,);
+    } catch (error) {
+      console.error('[OAUTH] callback failed:', error.message,);
+      if (!res.headersSent) {
+        const msg = 'The connection could not be completed — please start again.';
+        res.redirect(`/app?connect_error=${encodeURIComponent(msg,)}`,);
+      }
+    }
   },);
   app.post('/connect/woocommerce', rateLimiter, async (req, res,) => {
     try {
@@ -720,9 +767,19 @@ function createApp(platform,) {
     }
   },);
   app.get('/api/v1/connect/pending/:token', rateLimiter, async (req, res,) => {
-    const pending = await platform.oauth.pending(req.params.token,);
-    if (!pending) return res.status(404,).json({ error: 'Connection expired or already used.', },);
-    return res.json(pending,);
+    // Unguarded async handler on a pre-login route — see the OAuth callback note
+    // above. The error message is deliberately generic: this route is reachable
+    // without credentials, and echoing a storage error would disclose internals.
+    // An unknown token is already an explicit 404 below, so anything reaching the
+    // catch is an unexpected failure, not a client mistake.
+    try {
+      const pending = await platform.oauth.pending(req.params.token,);
+      if (!pending) return res.status(404,).json({ error: 'Connection expired or already used.', },);
+      return res.json(pending,);
+    } catch (error) {
+      console.error('[OAUTH] pending connection lookup failed:', error.message,);
+      return res.status(500,).json({ error: 'Could not resolve the connection.', },);
+    }
   },);
 
   app.use(

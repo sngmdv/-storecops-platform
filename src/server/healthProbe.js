@@ -73,11 +73,78 @@ function durabilityWarnings(config, env = process.env,) {
   return warnings;
 }
 
-function createHealthProbe({ store, config, } = {},) {
+/** How long `ping()` may take before readiness is refused. A readiness probe
+ * must answer within a bound: the orchestrator's own timeout is the fallback,
+ * and it fires with no diagnostic at all.
+ *
+ * Overridable via `config.security.readinessPingTimeoutMs`
+ * (`READINESS_PING_TIMEOUT_MS`) because the correct value depends on deployment
+ * topology — a local SQLite file answers in microseconds, a remote Redis across
+ * a region boundary does not — and because the bound is only meaningful while it
+ * stays *inside* `railway.json`'s `healthcheckTimeout`. */
+const DEFAULT_PING_TIMEOUT_MS = 2000;
+
+/**
+ * Resolve the effective bound.
+ *
+ * Only a positive finite number is accepted. `Number('')` is 0 and `Number('abc')`
+ * is NaN; both are misconfiguration, and for a readiness probe the safe reading of
+ * a misconfigured bound is the default, not "zero" — a zero bound would fail every
+ * probe instantly and take a healthy instance out of rotation, which is a worse
+ * outcome than ignoring the setting.
+ */
+function resolvePingTimeoutMs(explicit, configured,) {
+  // A `for` head is grouping parens, so no trailing comma after the iterable.
+  for (const candidate of [explicit, configured,]) {
+    const value = Number(candidate,);
+    if (Number.isFinite(value,) && value > 0) return value;
+  }
+  return DEFAULT_PING_TIMEOUT_MS;
+}
+
+/**
+ * Probe storage without ever throwing and without ever hanging. Both matter.
+ *
+ * Express 4 does not catch a rejected async handler — `Layer.handle_request`
+ * only wraps a *synchronous* call — so a throw here would leave the request
+ * unanswered **and** raise an unhandled rejection, which terminates the
+ * process by default. And a `ping()` that never settles (a blackholed host, an
+ * ioredis command queued behind a reconnect) would hold `/ready` open until the
+ * caller gave up, which is exactly the failure the probe exists to report.
+ *
+ * The adapters each promise never to throw, but that is a convention in a
+ * comment, not a contract this module can rely on.
+ */
+async function probeStorage(store, timeoutMs,) {
+  let timer;
+  try {
+    const expired = new Promise((resolve,) => {
+      timer = setTimeout(
+        () => resolve({ ok: false, error: `ping() did not settle within ${timeoutMs}ms`, },),
+        timeoutMs,
+      );
+      // A pending probe must not by itself keep the process alive.
+      if (typeof timer.unref === 'function') timer.unref();
+    },);
+    // `Promise.resolve().then(...)` converts a *synchronous* throw into a
+    // rejection, so the catch below covers both throwing styles.
+    return await Promise.race([Promise.resolve().then(() => store.ping(),), expired,],);
+  } catch (error) {
+    return { ok: false, error: error?.message || String(error,), };
+  } finally {
+    clearTimeout(timer,);
+  }
+}
+
+function createHealthProbe({ store, config, pingTimeoutMs, } = {},) {
   const startedAt = Date.now();
+  const timeoutMs = resolvePingTimeoutMs(pingTimeoutMs, config?.security?.readinessPingTimeoutMs,);
 
   return {
     build: getBuildInfo(),
+    // Exposed so an operator reading `/ready` can see which bound the probe
+    // actually used, rather than inferring it from the response latency.
+    pingTimeoutMs: timeoutMs,
 
     /**
      * @returns {Promise<{ready: boolean, status: string, components: object,
@@ -95,7 +162,7 @@ function createHealthProbe({ store, config, } = {},) {
         components.storage = { ok: false, error: 'storage adapter does not implement ping()', };
         ready = false;
       } else {
-        components.storage = await store.ping();
+        components.storage = await probeStorage(store, timeoutMs,);
         if (components.storage?.ok !== true) ready = false;
       }
 
@@ -104,6 +171,10 @@ function createHealthProbe({ store, config, } = {},) {
         status: ready ? 'ready' : 'not_ready',
         components,
         warnings: durabilityWarnings(config,),
+        // Surfaced in the payload so a `not_ready` caused by the bound is
+        // self-describing: without it the reader cannot tell a slow backend from
+        // an unreachable one.
+        ping_timeout_ms: timeoutMs,
         uptime_ms: Date.now() - startedAt,
         time: new Date().toISOString(),
       };
@@ -111,4 +182,10 @@ function createHealthProbe({ store, config, } = {},) {
   };
 }
 
-module.exports = { createHealthProbe, getBuildInfo, durabilityWarnings, };
+module.exports = {
+  createHealthProbe,
+  getBuildInfo,
+  durabilityWarnings,
+  resolvePingTimeoutMs,
+  DEFAULT_PING_TIMEOUT_MS,
+};
