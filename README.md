@@ -41,7 +41,9 @@ npm run lint:fix
 npm run format
 ```
 
-The platform boots on port 4000 with an in-memory store by default. For persistent storage, set `STORAGE=sqlite`.
+The platform boots on port 4000. Storage defaults to SQLite (`data/storecops.db`) for every
+environment except `NODE_ENV=test`, which uses an in-memory store so tests start clean. Set
+`STORAGE=memory` for a throwaway local run.
 
 ## API
 
@@ -116,18 +118,45 @@ Copy `.env.example` to `.env` and configure:
 cp .env.example .env
 ```
 
-Key variables: `PORT`, `API_KEY`, `STORAGE`, `DATABASE_URL`, `NODE_ENV`, payment provider keys, WhatsApp/Email provider settings.
+Key variables: `PORT`, `API_KEY`, `PUBLIC_URL`, `STORAGE`, `SQLITE_PATH`, `NODE_ENV`,
+`TOKEN_ENCRYPTION_KEY`, payment provider keys, WhatsApp/Email provider settings, and `REDIS_URL`
+(only under `STORAGE=redis`).
 
 See `.env.example` for all available configuration options.
 
 ## Storage
 
-The platform supports two storage backends:
+Three interchangeable adapters sit behind one async CRUD interface
+(`src/storage/*.js`); every engine talks to the interface, never to an adapter, and
+`test/storageParity.test.js` asserts all three implement the same surface — including `ping()`
+and `close()`.
 
-- **In-memory** (default for tests): Fast, zero-config, data lost on restart
-- **SQLite** (default for production): Persistent, zero external dependencies, WAL mode enabled
+- **SQLite** — the default for every environment except tests. Persistent, zero external
+  dependencies, WAL mode. File path from `SQLITE_PATH` (default `data/storecops.db`).
+- **In-memory** — the default under `NODE_ENV=test`, and available explicitly via
+  `STORAGE=memory`. Fast and zero-config, but data is lost on restart.
+- **Redis** — `STORAGE=redis`. Configure with `REDIS_URL` (or `REDIS_HOST` / `REDIS_PORT` /
+  `REDIS_PASSWORD` / `REDIS_TLS`). Setting `REDIS_URL` alone does **not** select this adapter.
+  Two failures, two outcomes: if `ioredis` is not installed it genuinely falls back to
+  in-memory, but an **unreachable server does not fall back** — the store stays Redis-backed,
+  writes fail, and `/ready` reports `not_ready`. That is deliberate, because quietly serving
+  from memory would accept writes a merchant believes are durable and lose them on restart.
 
-Set `STORAGE=sqlite` and `SQLITE_PATH=data/storecops.db` for production.
+**On a host with an ephemeral filesystem, `STORAGE=sqlite` still loses everything on the next
+deploy unless the data directory is a mounted volume** (on Railway, `RAILWAY_VOLUME_MOUNT_PATH`).
+`/ready` reports that condition in its `warnings` array rather than failing, because a healthy
+instance on a disposable disk is a deploy-time mistake, not a code defect.
+
+Back it up and alarm on it:
+
+```bash
+npm run backup          # consistent hot snapshot (VACUUM INTO) + verify
+npm run backup:verify   # rehearse a restore through the real adapter
+npm run backup:check    # exit 1 if no snapshot, or older than BACKUP_MAX_AGE_HOURS (48h)
+```
+
+Schedule the first two from a cron job, never from the web process; `backup:check` is the
+alarm that tells you the cron stopped.
 
 ## Testing
 
@@ -139,7 +168,15 @@ npm test
 node --test test/layers.test.js
 ```
 
-25 test files covering layers, API integration, auth, security, webhooks, WhatsApp, payments, and more.
+71 test files / 824 tests in 50 suites, covering the six layers, API integration, auth,
+security hardening, webhooks and tenancy, GDPR purge, WhatsApp, payments, storage-backend
+parity, and the frontend render paths.
+
+Several suites are **guards with control tests** rather than feature tests — for example
+`asyncHandlerGuards` scans `src/server/` for unguarded async Express handlers and asserts how
+many it must find, and `privacyPurge` pins a frozen inventory of collection names so a newly
+added collection cannot silently become purgeable on uninstall. If one of those fails, read its
+header before "fixing" it: the failure is usually the assertion working.
 
 ## License
 
