@@ -11,7 +11,6 @@
  * activityLog captures business-level events with richer context.
  */
 
-const crypto = require('crypto',);
 
 const ACTION_TYPES = [
   // Auth

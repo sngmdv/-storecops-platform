@@ -26,7 +26,7 @@ const SEVERITY = {
   CRITICAL: 'critical',
 };
 
-function createMonitoringService({ store, config, },) {
+function createMonitoringService({ store, },) {
   const counters = new Map();
   const MAX_ALERTS = 500;
   const startTime = Date.now();
@@ -39,14 +39,6 @@ function createMonitoringService({ store, config, },) {
   function bumpCounter(key,) {
     const current = counters.get(key,) || 0;
     counters.set(key, current + 1,);
-  }
-
-  function getCounter(key,) {
-    return counters.get(key,) || 0;
-  }
-
-  function resetCounter(key,) {
-    counters.delete(key,);
   }
 
   return {

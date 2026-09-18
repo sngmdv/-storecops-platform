@@ -13,10 +13,6 @@
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-function avg(arr,) {
-  if (!arr || !arr.length) return 0;
-  return arr.reduce((s, v,) => s + v, 0,) / arr.length;
-}
 
 function sum(arr,) {
   return (arr || []).reduce((s, v,) => s + (v || 0), 0,);
@@ -43,7 +39,7 @@ function ago(days,) {
  * Combines retention, revenue, leads, and platform health into
  * actionable priorities.
  */
-function generateAdminBrief({ stores, leads, retentionSnapshots, deliveries, events, campaignActions, },) {
+function generateAdminBrief({ stores, leads, deliveries, },) {
   const now = Date.now();
   const today = new Date().toISOString().slice(0, 10,);
 
@@ -55,7 +51,6 @@ function generateAdminBrief({ stores, leads, retentionSnapshots, deliveries, eve
     .map((s,) => s.mrr || 0,),);
 
   // ── churn risk ──
-  const atRiskStores = stores.filter((s,) => (s.riskBand || 'low') !== 'low',);
   const criticalStores = stores.filter((s,) => s.riskBand === 'critical',);
 
   // ── leads snapshot ──
@@ -187,7 +182,7 @@ function generateAdminBrief({ stores, leads, retentionSnapshots, deliveries, eve
  *  - Pipeline value (weighted by conversion probability)
  *  - Expansion revenue (weighted by likelihood)
  */
-function generateRevenueForecast({ stores, leads, retentionSnapshots, },) {
+function generateRevenueForecast({ stores, leads, },) {
   const currentMRR = sum(stores.map((s,) => s.mrr || 0,),);
 
   // ── churn impact ──
@@ -199,7 +194,7 @@ function generateRevenueForecast({ stores, leads, retentionSnapshots, },) {
   };
 
   let monthlyChurnLoss = 0;
-  for (const [band, { probability, stores: bandStores, },] of Object.entries(churnRiskByBand,)) {
+  for (const [, { probability, stores: bandStores, },] of Object.entries(churnRiskByBand,)) {
     const bandMRR = sum(bandStores.map((s,) => s.mrr || 0,),);
     monthlyChurnLoss += bandMRR * probability;
   }
@@ -349,7 +344,7 @@ function captureLead({ leads, input, },) {
  * Score leads based on behavioral signals.
  * Call this periodically to update scores based on recent activity.
  */
-function scoreLeadsBehavioral({ leads, events, auditResults, },) {
+function scoreLeadsBehavioral({ leads, auditResults, },) {
   const scored = [];
 
   for (const lead of (leads || [])) {
@@ -455,7 +450,7 @@ function detectTrialExpiry({ stores, events, },) {
  * Create a targeted campaign for leads or store segments.
  * Campaigns are structured outreach sequences.
  */
-function createCampaign({ campaignActions, }, input,) {
+function createCampaign({ campaignActions: _campaignActions, }, input,) {
   const { name, type, targetAudience, channel, message, schedule, } = input;
   if (!name || !type) return { error: 'Name and type required', };
 
@@ -486,7 +481,7 @@ function createCampaign({ campaignActions, }, input,) {
  * Suggest campaigns based on current platform state.
  * Analyzes data and recommends high-impact outreach.
  */
-function suggestCampaigns({ stores, leads, retentionSnapshots, },) {
+function suggestCampaigns({ stores, leads, },) {
   const suggestions = [];
 
   // Win-back: stores with declining health

@@ -36,7 +36,7 @@ test('queue shutdown: consent revocation blocks all queued actions', async () =>
   },);
 
   // Execution should suppress the action due to missing consent.
-  const result = await platform.executionService.processStore(STORE,);
+  await platform.executionService.processStore(STORE,);
   // Note: processStore counts all non-erroring actions as "delivered",
   // so we check the action status directly instead.
   const actions = await platform.store.actions.find({ store_id: STORE, },);
@@ -70,6 +70,7 @@ test('queue shutdown: growth cycle skips uninstalled stores', async () => {
   const queuedForDisabled = cycle.scan.queued_actions.filter(
     (a,) => a.store_id === STORE,
   );
+  assert.equal(queuedForDisabled.length, 0, 'no actions should be queued for the uninstalled store',);
   // The cycle may still run scans, but execution should deliver nothing.
   assert.equal(cycle.execution.delivered, 0, 'no deliveries for uninstalled store',);
 },);

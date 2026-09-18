@@ -88,7 +88,6 @@ function statRow(label, value, { color = BRAND.text, } = {},) {
 
 function createEmailTemplates({ config, } = {},) {
   const publicUrl = config?.publicUrl || 'http://localhost:4000';
-  const supportUrl = `${publicUrl}/support`;
 
   return {
     /** Welcome email on signup. */

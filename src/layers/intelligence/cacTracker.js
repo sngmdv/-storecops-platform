@@ -179,10 +179,6 @@ function createCacTracker({ store, },) {
         date.setMonth(date.getMonth() - i,);
         const monthStr = date.toISOString().substring(0, 7,);
 
-        const monthStart = `${monthStr}-01`;
-        const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0,)
-          .toISOString()
-          .split('T',)[0];
 
         const cacData = await this.calculateOverallCac(store_id, 30,);
         trends.push({

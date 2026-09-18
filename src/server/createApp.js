@@ -241,7 +241,7 @@ function createAuthRouter(platform,) {
     }
   },);
 
-  router.post('/login', async (req, res, next,) => {
+  router.post('/login', async (req, res, _next,) => {
     try {
       const result = await platform.auth.login(req.body || {},);
       res.json(result,);
@@ -408,7 +408,7 @@ function createAuthRouter(platform,) {
   },);
 
   // Map service errors to sensible statuses for signup.
-  router.use((error, req, res, next,) => {
+  router.use((error, req, res, _next,) => {
     if (error?.type === 'entity.parse.failed') return res.status(400,).json({ error: 'Invalid JSON body.', },);
     return res.status(400,).json({ error: error.message || 'Auth error.', },);
   },);
@@ -1115,7 +1115,7 @@ function createApp(platform,) {
         severity: 'error',
         message: 'A signed webhook body was replayed against a different store.',
       },);
-    } catch (_) {
+    } catch {
       // Reporting must never change the admission decision.
     }
   }
@@ -1231,7 +1231,7 @@ function createApp(platform,) {
             if (exportData) {
               console.log(`[WEBHOOK] Data export prepared for customer ${safeId} in store ${conn.store_id}`,);
             }
-          } catch (_) {}
+          } catch {}
         }
       }
       if (platform.monitoringService) {
@@ -1466,7 +1466,7 @@ function createApp(platform,) {
   app.get('/app', (req, res,) => res.sendFile(path.join(publicDir, 'app.html',),),);
 
   // Central error handler.
-  app.use((error, req, res, next,) => {
+  app.use((error, req, res, _next,) => {
     if (error?.type === 'entity.parse.failed') {
       return res.status(400,).json({ error: 'Invalid JSON body.', },);
     }

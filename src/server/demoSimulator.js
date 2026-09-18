@@ -79,14 +79,9 @@ function chance(pct,) { return Math.random() * 100 < pct; }
 function createDemoSimulator(platform,) {
   const {
     eventTracker,
-    inventoryLedger,
-    customerProfiles,
     sentimentCollector,
     externalSignals,
     competitorIngestor,
-    competitorIntelligence,
-    live,
-    store,
   } = platform;
 
   const timers = [];
@@ -287,7 +282,7 @@ function createDemoSimulator(platform,) {
         ],
       },);
       eventCount++;
-    } catch (_) { /* ad intelligence is best-effort */ }
+    } catch { /* ad intelligence is best-effort */ }
   }
 
   // ── Main tick: run one simulation cycle ────────────────────────────
@@ -374,22 +369,22 @@ function createDemoSimulator(platform,) {
 
     // Separate slower timers for background activity
     const trendTimer = setInterval(async () => {
-      try { await simulateTrends(store_id,); } catch (_) {}
+      try { await simulateTrends(store_id,); } catch {}
     }, 120_000,);
     timers.push(trendTimer,);
 
     const sentimentTimer = setInterval(async () => {
-      try { await simulateSentiment(store_id,); } catch (_) {}
+      try { await simulateSentiment(store_id,); } catch {}
     }, 30_000,);
     timers.push(sentimentTimer,);
 
     const competitorTimer = setInterval(async () => {
-      try { await simulateCompetitorShift(store_id,); } catch (_) {}
+      try { await simulateCompetitorShift(store_id,); } catch {}
     }, 45_000,);
     timers.push(competitorTimer,);
 
     const adTimer = setInterval(async () => {
-      try { await simulateAdUpdate(store_id,); } catch (_) {}
+      try { await simulateAdUpdate(store_id,); } catch {}
     }, 90_000,);
     timers.push(adTimer,);
   }

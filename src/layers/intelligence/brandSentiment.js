@@ -62,7 +62,7 @@ function label(score,) {
   return 'neutral';
 }
 
-function createBrandSentimentEngine({ store, sentimentCollector, },) {
+function createBrandSentimentEngine({ sentimentCollector, },) {
   return {
     /**
      * Analyze recent mentions for a store. Returns per-sample sentiment

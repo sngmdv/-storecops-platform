@@ -10,7 +10,7 @@
  * ever ships to a storefront.
  */
 
-function createDynamicPricingEngine({ store, competitorIngestor, inventoryIntelligence, demandForecastEngine, },) {
+function createDynamicPricingEngine({ competitorIngestor, inventoryIntelligence, demandForecastEngine, },) {
   const GUARDRAIL = { min_change_pct: -20, max_change_pct: 15, };
 
   function clampChange(pct,) {

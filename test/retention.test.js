@@ -9,7 +9,7 @@ const { createStore, } = require('../src/storage/store',);
 
 function seedStore(store, opts = {},) {
   const storeId = opts.store_id || 'test-store-1';
-  const now = new Date().toISOString();
+  void 0;
   const daysAgo = (d,) => new Date(Date.now() - d * 86400000,).toISOString();
 
   return {

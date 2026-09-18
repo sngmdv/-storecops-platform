@@ -80,7 +80,7 @@ test('privacy regression: deleteCustomerData anonymizes profile and scrubs all i
   assert.ok(result.actions_scrubbed >= 1, 'actions should be scrubbed',);
 
   // Verify the profile is anonymized.
-  const anonProfile = await platform.store.customers.findOne({
+  await platform.store.customers.findOne({
     identity: 'anon:' + (await platform.store.customers.findOne({ store_id: STORE, email: null, },))?._id,
   },);
   // The original identity should no longer exist.

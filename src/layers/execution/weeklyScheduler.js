@@ -11,9 +11,8 @@
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const WEEK_MS = 7 * DAY_MS;
 
-function createWeeklyScheduler({ store, reporting, emailService, emailTemplates, notificationService, },) {
+function createWeeklyScheduler({ store, reporting, emailService, notificationService, },) {
   let schedulerInterval = null;
   const sendHistory = new Map();
 

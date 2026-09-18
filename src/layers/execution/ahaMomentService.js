@@ -239,7 +239,6 @@ function createAhaMomentService({ store, notificationService, },) {
      * Manually trigger aha moment check (e.g., on dashboard load).
      */
     async scanForMoments(store_id,) {
-      const customer = await store.customers?.findOne({ store_id, },) || {};
       const events = await store.events?.find({ store_id, },) || [];
       const actions = await store.actions?.find({ store_id, },) || [];
       const deliveries = await store.deliveries?.find({ store_id, },) || [];

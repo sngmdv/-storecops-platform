@@ -13,7 +13,6 @@
  * Detects embedded mode via query param or header.
  */
 
-const crypto = require('crypto',);
 
 /**
  * Routes rendered inside the Shopify Admin iframe.

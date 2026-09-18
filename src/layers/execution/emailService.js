@@ -11,7 +11,6 @@
  *   providers.sendgrid = async ({ to, subject, html }) => { ... }
  */
 
-const crypto = require('crypto',);
 
 /** Mask an email for safe logging: show first char + domain initial. */
 function maskEmail(email,) {
@@ -42,7 +41,11 @@ const PROVIDERS = {
     if (!apiKey) throw new Error('RESEND_API_KEY is not configured.',);
 
     const sender = from || process.env.EMAIL_FROM || 'noreply@storecops.com';
-    const payload = { from, to: Array.isArray(to,) ? to : [to,], subject, html, };
+    // The payload must use `sender` (with its EMAIL_FROM / default fallback),
+    // not the raw `from`. It used to send `from` and discard `sender`, so
+    // EMAIL_FROM was ignored and a send that omitted `from` left the field
+    // undefined. The smtp provider below already uses its `sender` correctly.
+    const payload = { from: sender, to: Array.isArray(to,) ? to : [to,], subject, html, };
 
     // Resend supports base64 attachments
     if (attachments?.length) {

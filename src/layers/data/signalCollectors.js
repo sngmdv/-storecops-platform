@@ -11,12 +11,6 @@
  * so the platform never crashes due to external API issues.
  */
 
-const EXTERNAL_SIGNALS_SOURCES = {
-  google_trends: 'google_trends',
-  reddit: 'reddit',
-  pinterest: 'pinterest',
-};
-
 // ── Google Trends (via SerpApi or direct scraping) ──────────────────
 /**
  * Fetch trending topics from Google Trends.
@@ -50,7 +44,7 @@ async function collectGoogleTrends(keywords = [], store_id = null,) {
           }
         }
       }
-    } catch (_) {
+    } catch {
       // Google Trends may block scraping — fall back silently
     }
   }
@@ -91,7 +85,7 @@ async function collectReddit(keywords = [], subreddits = ['gadgets', 'technology
           }
         }
       }
-    } catch (_) {
+    } catch {
       // Reddit may rate-limit — fall back silently
     }
   }
@@ -128,7 +122,7 @@ async function collectPinterest(keywords = [], store_id = null,) {
       if (score > 10) {
         signals.push({ store_id, source: 'pinterest', keyword, score, },);
       }
-    } catch (_) {
+    } catch {
       // Pinterest may block — fall back silently
     }
   }
@@ -159,7 +153,7 @@ async function collectSearchTrends(keywords = [], config = {}, store_id = null,)
         const score = Math.min(100, 30 + results.length * 10,);
         signals.push({ store_id, source: 'search_api', keyword, score, },);
       }
-    } catch (_) {}
+    } catch {}
   }
   return signals;
 }

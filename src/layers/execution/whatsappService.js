@@ -126,7 +126,6 @@ function buildTextPayload(to, body,) {
 function createMetaWhatsAppProvider({
   accessToken,
   phoneNumberId,
-  businessAccountId,
   apiVersion = DEFAULT_API_VERSION,
   store,
 },) {
@@ -181,7 +180,7 @@ function createMetaWhatsAppProvider({
      * @param {boolean} [message.meta.use_text] - Force text mode (within 24h window)
      * @param {string} [message.meta.phone] - Explicit phone override
      */
-    async send({ to, subject, body, meta, },) {
+    async send({ to, subject: _subject, body, meta, },) {
       const phone = await resolvePhone(to, meta,);
       if (!phone) {
         console.log(`[WHATSAPP] no phone number for ${maskPhone(to,) || to} — skipping send`,);

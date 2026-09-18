@@ -164,9 +164,8 @@ describe('competitorScraper: Shopify product fetching', () => {
 
     // First page returns 250 products (full page), second returns 1
     let callCount = 0;
-    const fetch = async (url,) => {
-      callCount++;
-      if (callCount === 1) {
+    const fetch = async (_url,) => {
+      if (callCount++ === 0) {
         return {
           ok: true,
           json: async () => ({
@@ -239,7 +238,6 @@ describe('competitorScraper: scrapeCompetitor end-to-end', () => {
     const scraper = platform.competitorScraper;
 
     // Mock fetch: probe fails, basic meta extraction succeeds, no generic endpoints
-    let callCount = 0;
     const fetch = async (url,) => {
       callCount++;
       if (url.includes('products.json',)) {
@@ -516,7 +514,7 @@ describe('HTTP: competitor tracking API', () => {
     const platform = createPlatform();
     const app = createApp(platform,);
 
-    const res = await app.inject?.({
+    await app.inject?.({
       method: 'POST',
       url: '/api/v1/competitors/test-shop/tracked',
       headers: { 'X-API-Key': 'dev-key', 'Content-Type': 'application/json', },
@@ -524,7 +522,7 @@ describe('HTTP: competitor tracking API', () => {
     },);
 
     // Fallback to direct store check if inject not available
-    const tracked = await platform.store.trackedCompetitors.find({ store_id: 'test-shop', },);
+    await platform.store.trackedCompetitors.find({ store_id: 'test-shop', },);
     // The app.inject may not be available; test via platform directly
     await platform.store.trackedCompetitors.insert({
       store_id: 'test-shop',

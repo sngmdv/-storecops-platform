@@ -11,7 +11,6 @@
  * Categories: order, inventory, billing, seo, competitor, retention, system.
  */
 
-const crypto = require('crypto',);
 
 const SEVERITY = ['info', 'success', 'warning', 'critical',];
 const CATEGORIES = [
@@ -76,7 +75,7 @@ function createNotificationService({ store, },) {
      * Convenience overload matching the callers that pass store_id as the
      * first argument: send(store_id, payload). Delegates to push().
      */
-    async send(store_id, { type, title, message, severity = 'info', category = 'system', icon, action_url, metadata, } = {},) {
+    async send(store_id, { type, title, message, severity = 'info', category = 'system', action_url, metadata, } = {},) {
       return this.push({
         store_id,
         title: title || (type || 'notification'),

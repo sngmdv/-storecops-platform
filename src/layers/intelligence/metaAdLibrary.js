@@ -51,7 +51,10 @@ function createMetaAdLibrary({ config, adIntelligence, },) {
       throw new Error('pageId is required.',);
     }
 
-    const url = buildAdLibraryUrl(pageId,);
+    // Pass the configured apiVersion explicitly: buildAdLibraryUrl defaults to
+    // the module constant, so without this the META_AD_LIBRARY_API_VERSION
+    // override was computed above and then silently dropped.
+    const url = buildAdLibraryUrl(pageId, { accessToken, apiVersion, },);
     const res = await fetchWithTimeout(url, fetchFn,);
 
     if (!res.ok) {

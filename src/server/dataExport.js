@@ -11,7 +11,6 @@
  * and anonymized export (PII masked for internal analysis).
  */
 
-const crypto = require('crypto',);
 
 /** Mask PII fields in a record. */
 function maskPII(record, fields = ['email', 'phone', 'identity', 'name', 'address',],) {

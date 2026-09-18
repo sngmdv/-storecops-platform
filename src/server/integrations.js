@@ -56,7 +56,7 @@ function decryptToken(encrypted,) {
     let decrypted = decipher.update(data, 'hex', 'utf8',);
     decrypted += decipher.final('utf8',);
     return decrypted;
-  } catch (_) {
+  } catch {
     return null;
   }
 }

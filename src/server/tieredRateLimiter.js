@@ -22,7 +22,7 @@ const PLAN_LIMITS = {
   admin: { rpm: 1000, burst: 200, daily: 500000, },
 };
 
-function createTieredRateLimiter({ windowMs = 60000, platform, } = {},) {
+function createTieredRateLimiter({ windowMs = 60000, } = {},) {
   const hits = new Map();
   const dailyHits = new Map();
 

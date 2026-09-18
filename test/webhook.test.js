@@ -104,7 +104,7 @@ test('webhook idempotency: duplicate customer-redact is processed only once', as
     assert.equal(firstBody.duplicate, undefined,);
 
     // Verify anonymization happened.
-    const anon = await platform.store.customers.findOne({ identity: 'anon:cust_42', },);
+    await platform.store.customers.findOne({ identity: 'anon:cust_42', },);
     // The customer may or may not be found depending on store_id matching,
     // but the important thing is the handler ran.
 

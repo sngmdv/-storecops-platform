@@ -117,7 +117,7 @@ const INTERVENTION_TEMPLATES = {
   },
 };
 
-function createRetentionEngine({ store, config, },) {
+function createRetentionEngine({ store, },) {
   return {
     WEIGHTS,
     RISK_BANDS,
@@ -128,7 +128,6 @@ function createRetentionEngine({ store, config, },) {
      * Returns the overall score plus each component breakdown.
      */
     async calculateHealthScore(storeId,) {
-      const now = Date.now();
       const integration = await store.integrations.findOne({ store_id: storeId, },);
       if (!integration) return { store_id: storeId, score: 0, error: 'Store not found', };
 
@@ -192,7 +191,7 @@ function createRetentionEngine({ store, config, },) {
      * Score feature adoption: what % of the store's plan features
      * have been actively used (generated at least 1 action/event).
      */
-    async _scoreFeatureAdoption(storeId, integration,) {
+    async _scoreFeatureAdoption(storeId, _integration,) {
       const subscription = await store.subscriptions.findOne({
         shopInstallationId: storeId,
         status: 'active',
@@ -249,7 +248,7 @@ function createRetentionEngine({ store, config, },) {
      * Score plan utilization: how much of their plan capacity is used.
      * Stores using 30-80% are healthy. <10% = disengaged. >100% = upgrade ready.
      */
-    async _scorePlanUtilization(storeId, integration,) {
+    async _scorePlanUtilization(storeId, _integration,) {
       const subscription = await store.subscriptions.findOne({
         shopInstallationId: storeId,
         status: 'active',
@@ -741,7 +740,7 @@ function createRetentionEngine({ store, config, },) {
     /**
      * Suggest an untried feature based on the store's plan.
      */
-    _suggestUntriedFeature(planId, health,) {
+    _suggestUntriedFeature(planId, _health,) {
       const features = {
         starter: 'stockout alerts',
         growth: 'cart recovery automations',

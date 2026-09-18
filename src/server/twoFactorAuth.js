@@ -138,8 +138,9 @@ function createTwoFactorAuth({ store, },) {
 
       cleanupAttempts();
 
-      // Rate limit check.
-      const attemptKey = `${user_id}:${code}`;
+      // Rate limit check. Keyed on user_id alone — never on `user_id:code`,
+      // which would let an attacker try unlimited codes per user by varying the
+      // code. (A discarded attemptKey built from both used to sit here.)
       const userAttempts = attempts.get(user_id,) || [];
       if (userAttempts.length >= MAX_ATTEMPTS) {
         return { valid: false, reason: 'Too many attempts. Try again in 5 minutes.', };

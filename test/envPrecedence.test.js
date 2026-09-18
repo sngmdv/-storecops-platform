@@ -24,8 +24,8 @@ process.env.NODE_ENV = 'test';
 
 const test = require('node:test',);
 const assert = require('node:assert',);
-const fs = require('node:fs');
-const path = require('node:path');
+const fs = require('node:fs',);
+const path = require('node:path',);
 
 const { loadEnvironment, resolveEnvFiles, } = require('../src/config/loadEnvironment',);
 
@@ -53,17 +53,17 @@ function recordingLog() {
 
 test('production prefers .env.production and falls back to .env', () => {
   assert.deepStrictEqual(resolveEnvFiles('production',), ['.env.production', '.env',],);
-});
+},);
 
 test('every other mode reads .env ONLY — never .env.production', () => {
   for (const mode of ['development', 'test', 'staging', '', undefined, null,]) {
     assert.deepStrictEqual(
       resolveEnvFiles(mode,),
       ['.env',],
-      `NODE_ENV=${String(mode)} must not consider .env.production`,
+      `NODE_ENV=${String(mode,)} must not consider .env.production`,
     );
   }
-});
+},);
 
 // ── The regression: both files present, non-production ──────────────────────
 
@@ -80,10 +80,10 @@ test('with BOTH files present, a non-production run loads .env and never touches
   );
   assert.strictEqual(result.loaded, '.env',);
   assert.ok(
-    logger.lines.some((l,) => l.includes('.env',)),
+    logger.lines.some((l,) => l.includes('.env',),),
     'the chosen file must be named in the log, so an ignored override is diagnosable',
   );
-});
+},);
 
 test('an unset NODE_ENV is treated as development, not as production', () => {
   const { load, attempts, } = loaderAccepting(['.env.production', '.env',],);
@@ -93,7 +93,7 @@ test('an unset NODE_ENV is treated as development, not as production', () => {
 
   assert.deepStrictEqual(attempts, ['.env',], 'an unset mode must not select the production file',);
   assert.strictEqual(result.loaded, '.env',);
-});
+},);
 
 // ── Production ──────────────────────────────────────────────────────────────
 
@@ -105,7 +105,7 @@ test('production loads .env.production and does not read .env when it succeeds',
 
   assert.deepStrictEqual(attempts, ['.env.production',],);
   assert.strictEqual(result.loaded, '.env.production',);
-});
+},);
 
 test('production falls back to .env when .env.production is absent', () => {
   const { load, attempts, } = loaderAccepting(['.env',],);
@@ -115,7 +115,7 @@ test('production falls back to .env when .env.production is absent', () => {
 
   assert.deepStrictEqual(attempts, ['.env.production', '.env',],);
   assert.strictEqual(result.loaded, '.env',);
-});
+},);
 
 test('with no env file at all it says so and uses the process environment', () => {
   // The normal container case: .dockerignore excludes .env*, so the platform's
@@ -127,10 +127,10 @@ test('with no env file at all it says so and uses the process environment', () =
 
   assert.strictEqual(result.loaded, null,);
   assert.ok(
-    logger.lines.some((l,) => l.includes('using the process environment',)),
+    logger.lines.some((l,) => l.includes('using the process environment',),),
     'silence here is how "why is my variable ignored" becomes an afternoon',
   );
-});
+},);
 
 test('control: the fake loader really does throw for absent files', () => {
   // Without this, `loaderAccepting([])` could be a no-op and every "falls back"
@@ -138,7 +138,7 @@ test('control: the fake loader really does throw for absent files', () => {
   const { load, attempts, } = loaderAccepting(['.env',],);
   assert.throws(() => load('.env.production',), /ENOENT/,);
   assert.deepStrictEqual(attempts, ['.env.production',],);
-});
+},);
 
 // ── The invariant that keeps the fix working ────────────────────────────────
 
@@ -159,4 +159,4 @@ test('server.js loads the environment before requiring anything that reads it', 
     'loadEnvironment() must run before src/platform is required, or the loaded values '
       + 'arrive too late to be read',
   );
-});
+},);

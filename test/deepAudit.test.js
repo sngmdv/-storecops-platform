@@ -7,8 +7,11 @@ const { createPdfService, } = require('../src/layers/execution/pdfService',);
 const { createStore, } = require('../src/storage/store',);
 
 // ── Mock fetch helper ──────────────────────────────────────────────
-function mockFetch(responseBody, ok = true, status = 200,) {
-  const fn = async (url, opts,) => ({
+// Scores each audit rule by running it against a stubbed version of fetch, so this file
+// can exercise fetch-dependent deepAudit paths without hitting the network.
+// The helper records every call (arguments + response) in `.calls`.
+function _mockFetch(responseBody, ok = true, status = 200,) {
+  const fn = async (_url, _opts,) => ({
     ok,
     status,
     headers: new Map([['content-type', 'text/html',],],),
@@ -242,9 +245,7 @@ describe('Deep Audit Engine', () => {
     let origFetch;
     beforeEach(() => {
       origFetch = globalThis.fetch;
-      let callCount = 0;
-      globalThis.fetch = async (url, opts,) => {
-        callCount++;
+      globalThis.fetch = async (url, _opts,) => {
         const urlStr = typeof url === 'string' ? url : url.toString();
         let content = mockHtml;
         let contentType = 'text/html';

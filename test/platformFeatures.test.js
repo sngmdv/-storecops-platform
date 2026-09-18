@@ -26,7 +26,7 @@ function buildPlatform() {
 // ═══════════════════════════════════════════════════════════════════════
 
 test('Notification: push creates a notification', async () => {
-  const { store, notificationService, } = buildPlatform();
+  const { notificationService, } = buildPlatform();
   const n = await notificationService.push({ store_id: 's1', title: 'Test alert', severity: 'info', category: 'system', },);
   assert.ok(n._id,);
   assert.equal(n.title, 'Test alert',);
@@ -41,7 +41,7 @@ test('Notification: push requires store_id and title', async () => {
 },);
 
 test('Notification: list returns notifications for a store', async () => {
-  const { store, notificationService, } = buildPlatform();
+  const { notificationService, } = buildPlatform();
   await notificationService.push({ store_id: 's1', title: 'A', },);
   await notificationService.push({ store_id: 's1', title: 'B', },);
   await notificationService.push({ store_id: 's2', title: 'C', },);
@@ -53,7 +53,7 @@ test('Notification: list returns notifications for a store', async () => {
 },);
 
 test('Notification: list supports severity filter', async () => {
-  const { store, notificationService, } = buildPlatform();
+  const { notificationService, } = buildPlatform();
   await notificationService.push({ store_id: 's1', title: 'Info', severity: 'info', },);
   await notificationService.push({ store_id: 's1', title: 'Critical', severity: 'critical', },);
   const list = await notificationService.list('s1', { severity: 'critical', },);
@@ -62,7 +62,7 @@ test('Notification: list supports severity filter', async () => {
 },);
 
 test('Notification: markRead marks all as read', async () => {
-  const { store, notificationService, } = buildPlatform();
+  const { notificationService, } = buildPlatform();
   await notificationService.push({ store_id: 's1', title: 'A', },);
   await notificationService.push({ store_id: 's1', title: 'B', },);
   const result = await notificationService.markRead('s1',);
@@ -72,7 +72,7 @@ test('Notification: markRead marks all as read', async () => {
 },);
 
 test('Notification: markRead marks single notification', async () => {
-  const { store, notificationService, } = buildPlatform();
+  const { notificationService, } = buildPlatform();
   const n1 = await notificationService.push({ store_id: 's1', title: 'A', },);
   await notificationService.push({ store_id: 's1', title: 'B', },);
   await notificationService.markRead('s1', n1._id,);
@@ -81,7 +81,7 @@ test('Notification: markRead marks single notification', async () => {
 },);
 
 test('Notification: summary returns severity breakdown', async () => {
-  const { store, notificationService, } = buildPlatform();
+  const { notificationService, } = buildPlatform();
   await notificationService.push({ store_id: 's1', title: 'A', severity: 'warning', },);
   await notificationService.push({ store_id: 's1', title: 'B', severity: 'critical', },);
   await notificationService.push({ store_id: 's1', title: 'C', severity: 'info', },);
@@ -92,7 +92,7 @@ test('Notification: summary returns severity breakdown', async () => {
 },);
 
 test('Notification: notifyFromEvent creates notification for known events', async () => {
-  const { store, notificationService, } = buildPlatform();
+  const { notificationService, } = buildPlatform();
   const n = await notificationService.notifyFromEvent({ store_id: 's1', event_type: 'purchase', data: { total: 99.99, }, },);
   assert.ok(n,);
   assert.equal(n.severity, 'success',);

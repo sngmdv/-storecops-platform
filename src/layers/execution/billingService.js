@@ -14,7 +14,6 @@
  *   - scale:    $149/mo — multi-store, team roles, priority support
  */
 
-const crypto = require('crypto',);
 const { resolveShopifyApiVersion, } = require('../../config/shopifyApiVersion.js',);
 const { createShopifyAdmin, } = require('../../server/shopifyAdmin.js',);
 
@@ -245,7 +244,6 @@ function createBillingService({ store, config, },) {
       const {
         id: charge_id,
         status, // accepted, declined, expired, cancelled, pending
-        name,
         shopInstallationId,
       } = payload || {};
 
@@ -389,7 +387,7 @@ function createBillingService({ store, config, },) {
      * or non-Shopify billing webhooks.
      */
     async handleSubscriptionEvent(event,) {
-      const { shopInstallationId, action, charge_id, status, } = event;
+      const { shopInstallationId, action, charge_id, } = event;
 
       if (!shopInstallationId) throw new Error('shopInstallationId is required.',);
 

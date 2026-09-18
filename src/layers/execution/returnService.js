@@ -1,6 +1,5 @@
 'use strict';
 
-const crypto = require('crypto',);
 
 function createReturnService({ store, returnFraudEngine, returnAnalytics, notificationService, },) {
 

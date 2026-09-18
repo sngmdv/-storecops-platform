@@ -199,55 +199,6 @@ async function createStripeCheckout({ config, customer, plan, billingCycle, },) 
 }
 
 /**
- * Create a Stripe subscription (for existing customers).
- */
-async function createStripeSubscription({ config, customerId, priceId, trialDays = 14, },) {
-  if (!hasRealCredentials(config.payment.stripe.secretKey,) || !Stripe) {
-    return { error: 'Stripe not configured', };
-  }
-
-  try {
-    const stripe = new Stripe(config.payment.stripe.secretKey, {
-      apiVersion: '2024-12-18.acacia',
-    },);
-
-    const subscription = await stripe.subscriptions.create({
-      customer: customerId,
-      items: [{ price: priceId, },],
-      trial_period_days: trialDays,
-      payment_behavior: 'default_incomplete',
-      expand: ['latest_invoice.payment_intent',],
-    },);
-
-    return { subscription, };
-  } catch (err) {
-    console.error('[Stripe] Subscription error:', err.message,);
-    return { error: err.message, };
-  }
-}
-
-/**
- * Cancel a Stripe subscription.
- */
-async function cancelStripeSubscription({ config, subscriptionId, },) {
-  if (!config.payment.stripe.secretKey || !Stripe) {
-    return { error: 'Stripe not configured', };
-  }
-
-  try {
-    const stripe = new Stripe(config.payment.stripe.secretKey, {
-      apiVersion: '2024-12-18.acacia',
-    },);
-
-    const subscription = await stripe.subscriptions.cancel(subscriptionId,);
-    return { subscription, };
-  } catch (err) {
-    console.error('[Stripe] Cancel error:', err.message,);
-    return { error: err.message, };
-  }
-}
-
-/**
  * Verify Stripe webhook signature (HMAC-SHA256).
  */
 function verifyStripeWebhook({ payload, signature, webhookSecret, },) {
@@ -398,36 +349,6 @@ async function createRazorpayOrder({ config, customer, plan, billingCycle, },) {
 }
 
 /**
- * Create a Razorpay subscription (for recurring payments).
- */
-async function createRazorpaySubscription({ config, customerId, planId, totalCount, },) {
-  if (!config.payment.razorpay.keyId || !Razorpay) {
-    return { error: 'Razorpay not configured', };
-  }
-
-  try {
-    const razorpay = new Razorpay({
-      key_id: config.payment.razorpay.keyId,
-      key_secret: config.payment.razorpay.keySecret,
-    },);
-
-    const subscription = await razorpay.subscriptions.create({
-      plan_id: planId,
-      customer_id: customerId,
-      total_count: totalCount || 12, // 12 months
-      notes: {
-        storecops_subscription: true,
-      },
-    },);
-
-    return { subscription, };
-  } catch (err) {
-    console.error('[Razorpay] Subscription error:', err.message,);
-    return { error: err.message, };
-  }
-}
-
-/**
  * Verify Razorpay webhook signature.
  */
 function verifyRazorpayWebhook({ payload, signature, webhookSecret, },) {
@@ -463,38 +384,12 @@ function getGstType(customer,) {
   return { type: 'inter_state', igst: 18, };
 }
 
-/**
- * Process Razorpay refund.
- */
-async function processRazorpayRefund({ config, paymentId, amount, notes, },) {
-  if (!config.payment.razorpay.keyId || !Razorpay) {
-    return { error: 'Razorpay not configured', };
-  }
-
-  try {
-    const razorpay = new Razorpay({
-      key_id: config.payment.razorpay.keyId,
-      key_secret: config.payment.razorpay.keySecret,
-    },);
-
-    const refund = await razorpay.payments.refund(paymentId, {
-      amount: amount * 100, // paise
-      notes: notes || { reason: 'Customer requested refund', },
-    },);
-
-    return { refund, };
-  } catch (err) {
-    console.error('[Razorpay] Refund error:', err.message,);
-    return { error: err.message, };
-  }
-}
-
 // ─── Subscription management ────────────────────────────────────────────────
 
 /**
  * Create a new subscription after successful payment.
  */
-function createSubscription({ subscriptions, }, input,) {
+function createSubscription({ subscriptions: _subscriptions, }, input,) {
   const { customerId, plan, billingCycle, provider, providerSubscriptionId, amount, currency, country, } = input;
   if (!customerId || !plan) return { error: 'customerId and plan required', };
 
@@ -725,7 +620,7 @@ function processRefund({ subscriptions, invoices, }, input,) {
 /**
  * Process incoming payment webhooks from Stripe or Razorpay.
  */
-function processWebhook({ subscriptions, invoices, payments, }, input,) {
+function processWebhook({ subscriptions: _s, invoices: _i, payments: _p, }, input,) {
   const { provider, event, data, } = input;
 
   const payment = {
@@ -771,10 +666,9 @@ function processWebhook({ subscriptions, invoices, payments, }, input,) {
 /**
  * Generate payment analytics for the admin dashboard.
  */
-function getPaymentAnalytics({ subscriptions, invoices, payments, },) {
+function getPaymentAnalytics({ subscriptions, invoices, payments: _payments, },) {
   const subs = subscriptions || [];
   const invs = invoices || [];
-  const pays = payments || [];
 
   const activeSubs = subs.filter((s,) => s.status === 'active',);
   const pausedSubs = subs.filter((s,) => s.status === 'paused',);
@@ -854,7 +748,7 @@ function getUpcomingAutoDebits({ subscriptions, },) {
 /**
  * Generate a compliance report for audits.
  */
-function generateComplianceReport({ subscriptions, invoices, payments, },) {
+function generateComplianceReport({ subscriptions, invoices, payments: _payments, },) {
   const subs = subscriptions || [];
   const invs = invoices || [];
 

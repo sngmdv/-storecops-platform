@@ -76,7 +76,7 @@ function createChannelOptimizer({ store, },) {
      * Record an execution outcome so rates keep learning
      * (Layer 6 growth loop feedback).
      */
-    async recordOutcome({ store_id, customer_id, channel, event_type, },) {
+    async recordOutcome({ store_id, customer_id, channel: _channel, event_type, },) {
       return store.events.insert({
         store_id,
         customer_id,

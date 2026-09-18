@@ -8,7 +8,7 @@
  * findings into prioritized alerts.
  */
 
-function createCompetitorIntelligence({ store, competitorIngestor, },) {
+function createCompetitorIntelligence({ competitorIngestor, },) {
   /** Diff two snapshots of the same competitor. */
   function diffSnapshots(previous, latest,) {
     const changes = {

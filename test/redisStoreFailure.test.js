@@ -68,7 +68,7 @@ test('an unreachable Redis does NOT fall back to the in-memory adapter', async (
   } finally {
     store._client.disconnect();
   }
-});
+},);
 
 test('ping() answers not_ok instead of throwing, so /ready can refuse traffic', async () => {
   const store = unreachableStore();
@@ -80,7 +80,7 @@ test('ping() answers not_ok instead of throwing, so /ready can refuse traffic', 
   } finally {
     store._client.disconnect();
   }
-});
+},);
 
 test('the Redis client carries an error listener, bounding the reconnect log', async () => {
   const store = unreachableStore();
@@ -97,7 +97,7 @@ test('the Redis client carries an error listener, bounding the reconnect log', a
   } finally {
     store._client.disconnect();
   }
-});
+},);
 
 test('control: the in-memory adapter is distinguishable, so the flag is not vacuous', () => {
   // If every adapter carried `_isRedis` (or none did), the assertion above would
@@ -105,7 +105,7 @@ test('control: the in-memory adapter is distinguishable, so the flag is not vacu
   const memory = createStore();
   assert.notStrictEqual(memory._isRedis, true, 'the in-memory store must not claim to be Redis',);
   assert.strictEqual(memory._client, undefined, 'the in-memory store must expose no client',);
-});
+},);
 
 test('control: the source no longer claims a fallback it does not perform', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'storage', 'redisStore.js',), 'utf8',);
@@ -118,4 +118,4 @@ test('control: the source no longer claims a fallback it does not perform', () =
     'the header must not claim unconditional fallback — only the missing-ioredis '
       + 'case falls back',
   );
-});
+},);

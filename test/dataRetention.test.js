@@ -207,7 +207,7 @@ describe('dataRetention: start/stop', () => {
 
   it('starts and stops when enabled', () => {
     const store = createStore();
-    const retention = job(store,).start();
+    job(store,).start();
     const instance = createDataRetentionJob({ store, config: testConfig(), logger: { log() {}, error() {}, }, },);
 
     assert.equal(instance.start(), true,);

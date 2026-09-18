@@ -163,7 +163,7 @@ function indexByStoreId(rows,) {
   return map;
 }
 
-function createRevenueIntelligence({ store, config, },) {
+function createRevenueIntelligence({ store, },) {
   return {
     RENEWAL_SEQUENCE,
     WINBACK_SEQUENCE,

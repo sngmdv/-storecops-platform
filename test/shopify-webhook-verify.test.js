@@ -23,7 +23,7 @@ function sign(object,) {
 }
 
 // Minimal Connect middleware harness — no server required.
-function run(mw, { signature, rawBody, secret = SECRET, },) {
+function run(mw, { signature, rawBody, secret: _secret = SECRET, },) {
   const req = {
     rawBody,
     get: (h,) => (String(h,).toLowerCase() === 'x-shopify-hmac-sha256' ? signature : undefined),
@@ -131,6 +131,7 @@ test('integration: /webhooks/orders/:store_id rejects a bad signature with 401',
   try {
     const payload = { id: 'order_1', myshopify_domain: 'x.myshopify.com', };
     const raw = JSON.stringify(payload,);
+    assert.ok(raw.length > 0, 'the raw body must be a non-empty string',);
     const badSig = crypto.createHmac('sha256', SECRET,).update('tampered',).digest('base64',);
     const res = await postOrders(base, payload, badSig,);
     assert.equal(res.status, 401, 'a bad signature must be rejected at the edge',);

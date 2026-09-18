@@ -27,7 +27,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  */
 async function identifyTargets(store, store_id, campaign, { maxTargets = 100, } = {},) {
   const events = await store.events.find((e,) => e.store_id === store_id,);
-  const customers = await store.customers.find({ store_id, },);
 
   // Build customer activity map.
   const customerActivity = new Map();
@@ -108,7 +107,7 @@ async function identifyTargets(store, store_id, campaign, { maxTargets = 100, } 
   return targets.slice(0, maxTargets,);
 }
 
-function createCampaignLifecycle({ store, orchestrator, executionService, notificationService, },) {
+function createCampaignLifecycle({ store, executionService, notificationService, },) {
   return {
     /**
      * LAUNCH: Convert a campaign draft into personalized actions for each target customer.

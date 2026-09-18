@@ -12,7 +12,7 @@
  * For any store, generates copy-paste HTML/config snippets.
  */
 
-function createSeoAutoFix({ store, seoGrowth, },) {
+function createSeoAutoFix({ },) {
   /**
    * Generate a complete SEO fix package from an audit report.
    * Returns ready-to-apply code snippets for every failed check.
@@ -325,7 +325,7 @@ function generateOpenGraph(brand, url, description, category,) {
   };
 }
 
-function generateJsonLd(brand, url, domain, category, keywords,) {
+function generateJsonLd(brand, url, domain, category, _keywords,) {
   const schemas = [];
 
   // Organization schema
@@ -532,7 +532,7 @@ function generateEntityMarkup(brand, domain, url, socialProfiles, category,) {
   };
 }
 
-function generateAiFriendlyContent(brand, category, keywords, description,) {
+function generateAiFriendlyContent(brand, category, keywords, _description,) {
   const kw = keywords.slice(0, 3,).join(', ',) || category || 'quality products';
   return {
     brand_statement: `${brand} is a trusted online ${category || 'retail'} store specializing in ${kw}. Known for competitive pricing and reliable service, ${brand} serves customers with a curated selection of products.`,

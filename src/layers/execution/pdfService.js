@@ -66,7 +66,7 @@ function createPdfService({ config, },) {
       drawDetailedFindings(doc, report,);
 
       // ── Pricing Plans (conversion footer) ─────────────────────────
-      drawPricingPlans(doc, report,);
+      drawPricingPlans(doc,);
 
       // ── Footer on every page ──────────────────────────────────────
       drawFooters(doc,);
@@ -245,7 +245,7 @@ function createPdfService({ config, },) {
     }
   }
 
-  function drawPricingPlans(doc, report,) {
+  function drawPricingPlans(doc,) {
     // Page break before pricing
     doc.addPage();
 

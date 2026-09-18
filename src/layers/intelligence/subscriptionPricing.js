@@ -28,7 +28,6 @@
  *   - Tier 4 (Low income): Request custom pricing
  */
 
-const crypto = require('node:crypto',);
 
 // ─── PPP Conversion Factors (World Bank 2024) ──────────────────────────────
 
@@ -89,7 +88,7 @@ const BASE_PRICES = {
   enterprise: { monthly: 1500, annual: 15000, },
 };
 
-function createSubscriptionPricingService({ store, config, },) {
+function createSubscriptionPricingService() {
 
   /**
    * Get PPP-adjusted price for a region.
@@ -102,7 +101,6 @@ function createSubscriptionPricingService({ store, config, },) {
 
     const adjustedPrice = Math.round(basePrice * ppp.factor,);
     const currency = ppp.currency;
-    const format = CURRENCY_FORMAT[currency] || CURRENCY_FORMAT.usd;
 
     return {
       plan,

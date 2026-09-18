@@ -6,7 +6,7 @@ function clamp(value, min, max,) {
   return Math.max(min, Math.min(max, value,),);
 }
 
-function createReturnFraudEngine({ store, config, },) {
+function createReturnFraudEngine({ store, },) {
 
   function scoreReturn(returnRecord, customerHistory,) {
     const factors = [];

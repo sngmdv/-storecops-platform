@@ -33,7 +33,7 @@ test('messaging regression: recovery email requires consent', async () => {
   await platform.consentService.suppressChannel(STORE, 'consent_shopper', 'email',);
 
   // Execution should not deliver via email when suppressed.
-  const result = await platform.executionService.processStore(STORE,);
+  await platform.executionService.processStore(STORE,);
   const deliveries = await platform.store.deliveries.find({
     store_id: STORE,
     customer_id: 'consent_shopper',

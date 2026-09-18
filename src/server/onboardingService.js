@@ -29,19 +29,6 @@ const STEPS = [
   { id: 'complete', title: 'You\'re All Set!', description: 'Your store is fully configured for growth.', },
 ];
 
-const STEP_WEIGHTS = {
-  welcome: 5,
-  connect_store: 20,
-  activate_tracking: 20,
-  first_audit: 15,
-  choose_plan: 15,
-  add_competitors: 10,
-  brand_keywords: 10,
-  notification_preferences: 5,
-  first_automation: 10,
-  complete: 5,
-};
-
 function createOnboardingService({ store, },) {
   const service = {
     STEPS,

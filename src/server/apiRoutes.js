@@ -28,63 +28,6 @@ function wrap(handler,) {
 /**
  * Build the HTML email body for a report delivery.
  */
-function buildReportEmailHtml(report, email,) {
-  const scoreColor = report.overall_score >= 70 ? '#38a169' : report.overall_score >= 50 ? '#d69e2e' : '#e53e3e';
-  return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #1a1a2e;">
-  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-    <h1 style="color: white; margin: 0; font-size: 24px;">Your Store Health Report</h1>
-    <p style="color: #c4b5fd; margin: 8px 0 0;">Storecops Growth Platform</p>
-  </div>
-  <div style="padding: 30px; background: #f8f9fa; border-radius: 0 0 12px 12px;">
-    <p style="font-size: 16px;">Hi there,</p>
-    <p style="font-size: 16px;">We've analyzed <strong>${report.url}</strong> and here's your store's health snapshot:</p>
-    
-    <div style="text-align: center; margin: 30px 0;">
-      <div style="font-size: 48px; font-weight: bold; color: ${scoreColor};">${report.overall_score}<span style="font-size: 24px;">/100</span></div>
-      <div style="font-size: 14px; color: #666;">Overall Health Score — Grade: <strong>${report.grade}</strong></div>
-    </div>
-
-    <div style="display: flex; gap: 10px; margin: 20px 0;">
-      <div style="flex: 1; background: white; padding: 15px; border-radius: 8px; text-align: center;">
-        <div style="font-size: 20px; font-weight: bold; color: #667eea;">${report.categories.seo.score}%</div>
-        <div style="font-size: 12px; color: #666;">SEO</div>
-      </div>
-      <div style="flex: 1; background: white; padding: 15px; border-radius: 8px; text-align: center;">
-        <div style="font-size: 20px; font-weight: bold; color: #667eea;">${report.categories.performance.score}%</div>
-        <div style="font-size: 12px; color: #666;">Performance</div>
-      </div>
-      <div style="flex: 1; background: white; padding: 15px; border-radius: 8px; text-align: center;">
-        <div style="font-size: 20px; font-weight: bold; color: #667eea;">${report.categories.security.score}%</div>
-        <div style="font-size: 12px; color: #666;">Security</div>
-      </div>
-      <div style="flex: 1; background: white; padding: 15px; border-radius: 8px; text-align: center;">
-        <div style="font-size: 20px; font-weight: bold; color: #667eea;">${report.ai_readiness.score}%</div>
-        <div style="font-size: 12px; color: #666;">AI Ready</div>
-      </div>
-    </div>
-
-    <p style="font-size: 14px; margin: 20px 0;"><strong>Your full report is attached as a PDF.</strong></p>
-    <p style="font-size: 14px; color: #666;">It includes detailed findings, prioritized issues to fix, and actionable recommendations to grow your store's online presence.</p>
-
-    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
-      <p style="font-size: 14px; font-weight: bold; color: #667eea; margin: 0 0 10px;">Ready to fix these issues automatically?</p>
-      <p style="font-size: 13px; color: #666; margin: 0;">Storecops can implement all recommendations with one click — SEO fixes, AI search optimization, competitor tracking, and more.</p>
-      <p style="text-align: center; margin: 15px 0 0;">
-        <a href="#" style="background: #667eea; color: white; padding: 10px 25px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">Start Free Trial</a>
-      </p>
-    </div>
-
-    <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
-    <p style="font-size: 12px; color: #999;">This report was sent to ${email}. If you believe this was sent in error, please ignore it.</p>
-    <p style="font-size: 12px; color: #999;">Storecops Growth Platform — AI-driven e-commerce intelligence.</p>
-  </div>
-</body>
-</html>`;
-}
 
 function createApiRouter(platform,) {
   const router = express.Router();
@@ -640,7 +583,7 @@ function createApiRouter(platform,) {
             current_price: product.price || product.current_price,
           },);
           recommendations.push(rec,);
-        } catch (e) {
+        } catch {
           // Skip products that can't be analyzed
         }
       }
@@ -782,7 +725,7 @@ function createApiRouter(platform,) {
 
   router.get(
     '/channels/:store_id/status',
-    wrap(async (req,) => {
+    wrap(async (_req,) => {
       const cfg = platform.config;
       const whatsappProvider = cfg.providers?.whatsapp || 'console';
       const emailProvider = cfg.providers?.email || 'console';
@@ -1007,7 +950,7 @@ function createApiRouter(platform,) {
   // Scrape Meta Ad Library for all competitors with page IDs
   router.post(
     '/competitors/:store_id/scrape-ads',
-    wrap(async (req,) => platform.metaAdLibrary.scrapeAllCompetitors(platform.store,),),
+    wrap(async () => platform.metaAdLibrary.scrapeAllCompetitors(platform.store,),),
   );
 
   // Check if a URL is a Shopify store (probe endpoint)
@@ -1884,7 +1827,6 @@ function createApiRouter(platform,) {
   router.post(
     '/payment/invoice',
     wrap(async (req,) => {
-      const subs = await platform.store.subscriptions.find({},);
       const invs = await platform.store.invoices.find({},);
       const result = platform.paymentEngine.generateInvoice({ invoices: invs, }, req.body || {},);
       if (result.invoice) {
@@ -3023,7 +2965,7 @@ function createApiRouter(platform,) {
 
   router.get(
     '/admin/return-fraud/trends',
-    wrap(async (req,) => {
+    wrap(async (_req,) => {
       const stores = await platform.store.returns.find({},);
       const byStore = {};
       for (const r of stores) {
@@ -3038,7 +2980,7 @@ function createApiRouter(platform,) {
 
   router.get(
     '/admin/return-fraud/model-performance',
-    wrap(async (req,) => {
+    wrap(async (_req,) => {
       const allReturns = await platform.store.returns.find({},);
       const total = allReturns.length;
       const flagged = allReturns.filter((r,) => r.risk_score > 50,).length;

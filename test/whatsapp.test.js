@@ -15,7 +15,6 @@ const {
   buildTemplatePayload,
   buildTextPayload,
   getTemplateName,
-  DEFAULT_TEMPLATE_MAP,
 } = require('../src/layers/execution/whatsappService',);
 const { createProviderRegistry, } = require('../src/layers/execution/providers',);
 

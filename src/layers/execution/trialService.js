@@ -40,7 +40,7 @@ const TRIAL_FEATURES = {
   ],
 };
 
-function createTrialService({ store, config, },) {
+function createTrialService({ store, },) {
 
   /**
    * Start a trial for a new merchant.

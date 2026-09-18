@@ -21,14 +21,9 @@ const crypto = require('node:crypto',);
 
 const REFERRAL_DISCOUNT_PCT = 20;
 const CODE_LENGTH = 8;
-const MIN_DAYS_BETWEEN_REFERRALS = 7;
 
 function generateReferralCode() {
   return `REF${crypto.randomBytes(CODE_LENGTH / 2,).toString('hex',).toUpperCase()}`;
-}
-
-function generateAffiliateId() {
-  return `AFF${crypto.randomBytes(6,).toString('hex',).toUpperCase()}`;
 }
 
 function createReferralService({ store, config, },) {
