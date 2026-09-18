@@ -779,6 +779,45 @@ function createApp(platform,) {
     res.sendFile(path.join(publicDir, 'tracker.js',),);
   },);
 
+  // Storefront event ingest through the app proxy.
+  //
+  // This exists because the theme app extension CANNOT carry an ingest key. The
+  // snippet is served from the storefront, so anything in its URL is public —
+  // which is why the extension's own comment promises "no API key is ever
+  // exposed to the storefront". Shopify signs every `/apps/storecops/*` request
+  // with the app client secret instead, and that signature authenticates this
+  // route.
+  //
+  // Consequence, stated plainly: a storefront visitor can reach this path (they
+  // are on the storefront, so Shopify will sign for them). What they cannot do
+  // is choose the tenant. The store is taken from `req.proxyStoreId` — which is
+  // derived from the *signed* `shop` query — and the body's `store_id` is
+  // overwritten below. Without that overwrite a visitor could post to their own
+  // store's proxy URL and write events into any other tenant.
+  //
+  // Rate limiting is the plain IP limiter, deliberately NOT
+  // `tieredRateLimiter`: that one resolves a plan from `req.authUser`, which
+  // this path has no equivalent of, so it would evaluate every storefront as
+  // the `free` tier and cap real tracking at 60 rpm / 1000 per day per IP.
+  // A per-tenant ingest quota belongs here but needs a keyed-by-store design.
+  app.post(
+    '/proxy/track',
+    express.json({ limit: '16kb', },),
+    rateLimiter,
+    appProxy.requireProxy,
+    async (req, res,) => {
+      try {
+        const body = { ...(req.body || {}), };
+        // The tenant is decided by the signature, never by the payload.
+        body.store_id = req.proxyStoreId;
+        const result = await platform.trackAndReact(body,);
+        res.status(result.accepted ? 200 : 400,).json(result,);
+      } catch (error) {
+        res.status(400,).json({ error: error.message, },);
+      }
+    },
+  );
+
   // Consent decisions recorded by the storefront banner.
   app.post('/proxy/consent', express.json({ limit: '16kb', },), appProxy.requireProxy, async (req, res,) => {
     try {

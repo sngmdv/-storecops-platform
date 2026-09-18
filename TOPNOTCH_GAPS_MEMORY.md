@@ -608,8 +608,8 @@ immediately: it failed because the page did not name the extension, so the page 
 36. FE-003 A11y — 0x for= labels, 3/111 buttons with aria-label, 3 clickable div no
     role/tabindex, 1 keyboard vs 51 click. **OPEN.**
 37. COMP-004 No DPA/sub-processor page for EU (only prose in privacy.html:43). **OPEN.**
-38. 🚨 **TRK-001 Storefront tracker never transmits** — new finding, not in the original
-    audit. P0-class, needs a decision. See below.
+38. ~~🚨 **TRK-001 Storefront tracker never transmits**~~ **FIXED 2026-09-18** — new
+    finding, not in the original audit. See below.
 
 ### Item 33 (OBS-001) — graceful shutdown & fatal-error handling — FIXED 2026-09-18
 
@@ -815,7 +815,7 @@ planted defects turn the *specific* tests red, and every mutated file was restor
 **Suite:** 685 → **694 tests / 45 suites / 0 failures**; `lint:syntax` 165 files; ESLint **0 errors**
 across `src/`, `test/` and both client bundles.
 
-### 🚨 Item 38 (TRK-001) — the storefront tracker never transmits — NEW, NOT IN THE AUDIT
+### 🚨 Item 38 (TRK-001) — the storefront tracker never transmits — FIXED 2026-09-18
 
 **Severity: P0-class.** Found while correcting the disclosure page, which was documenting a
 mechanism that does not work.
@@ -852,18 +852,60 @@ it is exactly why the `?key=` bootstrap cannot work. The proxy surface today is
 `/proxy/tracker.js`, `/proxy/consent`, `/proxy/recommendations` — there is **no `/proxy/track`**,
 so the extension has no keyless ingest path to use.
 
-**Proposed fix — needs a decision, because it moves an auth boundary:**
-1. Add `POST /proxy/track` behind `appProxy.requireProxy`, deriving the tenant from the signed
-   proxy context (`req.proxyStoreId`) instead of an ingest key.
-2. Rewrite the bootstrap: read `data-store`, derive the proxy base from its own `src` (strip
-   `/tracker.js`), POST to `{proxyBase}/track`. Keep the `?store=&key=` shape for manual paste —
-   the only shape that works today.
-3. Reconcile with the `?api_key=` invariant (allowed only on `/track`, `/track/batch`, `/live/*`)
-   and the `sendBeacon` constraint: beacon cannot set headers, but the proxy signature travels in
-   the **URL**, so a beacon POST to a signed proxy URL does work.
+**THE FIX — the design the extension's comment already described, completed:**
 
-Not started: it changes an auth boundary and the ledger's P0 items are user-blocked, so this should
-be an explicit decision rather than folded into a hygiene pass.
+1. **`POST /proxy/track`** in `createApp.js`, behind `express.json` → `rateLimiter` →
+   `appProxy.requireProxy`. It calls the same `platform.trackAndReact(body)` pipeline as
+   `/api/v1/track`, so every downstream behaviour (validation, the consent gate, high-priority
+   decisioning, recovery queueing) applies unchanged — the route is a second *door*, not a
+   second implementation.
+   - **The tenant comes from the signature.** `body.store_id` is overwritten with
+     `req.proxyStoreId`, which `requireProxy` derives from the *signed* `shop` query. Without
+     that overwrite a visitor could post to their own store's proxy URL and write events into
+     any other tenant. This is the security-critical line, and it is mutation-tested.
+   - **Rate limiting is the plain IP limiter, deliberately NOT `tieredRateLimiter`.** That one
+     resolves a plan from `req.authUser`, which this path has no equivalent of, so it would
+     evaluate every storefront as the `free` tier and cap real tracking at 60 rpm / 1000 per
+     day per IP. **Residual:** a per-tenant ingest quota belongs on this path but needs a
+     keyed-by-store design; not invented here.
+2. **`public/tracker.js` bootstrap** now understands both install shapes: `data-store` (proxy,
+   no key) and `?store=&key=` (manual paste). The ingest base is derived from the script's own
+   `src` with `/tracker.js` stripped, so no host is hardcoded and a custom storefront domain
+   works unchanged.
+   - **In proxy mode it sends NO `store_id`.** Fail-closed by construction: the server sets it,
+     and if that override ever regressed, `validateEvent` rejects a missing `store_id` rather
+     than honouring a client-supplied one.
+   - **The bail is now observable.** `console.warn` on a misconfigured install — the old silent
+     `return` is precisely why this stayed hidden.
+3. **`crypto.randomUUID`** was guarded as `window.crypto` but called as bare `crypto`. Works in
+   a browser (window properties are globals), not anywhere else. Both halves now name
+   `window.crypto`.
+4. **The disclosure page was corrected again** — it said events go *exclusively* to
+   `/api/v1/track`, which stopped being true the moment the proxy path existed. It now
+   describes both shapes. (A truthful description of a dead subsystem is still dead; a
+   description of a *live* one has to keep up.)
+
+**Tests:** `test/trackerIngest.test.js` (14 tests). Route: ingest works, unsigned and tampered
+requests 401, **a forged body `store_id` cannot choose the tenant** (asserted in both
+directions, with the victim tenant proven readable so "no events" is about isolation rather
+than absence), invalid events still 400, and consent gating is **category-scoped** — which
+required correcting two wrong assumptions: `purchase` maps to the `essential` category and can
+never be gated, and a *missing* consent record defaults to **allow** ("implied consent"), so an
+absent record proves nothing. Bootstrap: the extension shape transmits with no key, the proxy
+shape omits `store_id`, the manual shape still works, an unconfigured install is silent *and*
+warns. Derived: every extension loader must set the attribute the tracker actually reads, and
+no loader may put credentials in the script URL.
+
+**Mutation-checked: 6/6, every file restored byte-for-byte.** Disabling the `store_id` override
+turns 3 tests red; reverting the bootstrap to query-only (the original defect) turns 3 red;
+sending a client-chosen `store_id`, posting to the key path, renaming the attribute, and
+**commenting the attribute out** each turn exactly 1 red.
+
+**A guard weakness found by mutating it:** the loader check originally matched text anywhere,
+so a **commented-out** `setAttribute('data-store', ...)` satisfied it and deleting the line
+looked like a pass. The check is now comment-stripped (`{% comment %}`, `/* */`, `//` — with
+`//` excluded after a colon so `https://` survives), and there is a control asserting a
+commented-out call does *not* satisfy it.
 
 
 

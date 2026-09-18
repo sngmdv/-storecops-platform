@@ -1,10 +1,15 @@
 /**
  * Storecops hosted storefront tracker.
  *
- * Injected into merchant stores via the Shopify Script Tag API (or
- * pasted manually before </body>). Collects product views, cart adds,
- * purchases and sends them to the platform /track endpoint using the
- * write-only ingest key — never exposes the tenant's read API key.
+ * Loaded into merchant storefronts by the Storecops theme app extension's app
+ * embed block (or pasted manually before </body> for a storefront that cannot
+ * run the extension). Collects product views, cart adds and purchases and sends
+ * them to the platform's /track endpoint.
+ *
+ * Under the extension the snippet is served through the Shopify app proxy, so
+ * the request is signature-verified server-side and no key is exposed to the
+ * storefront at all. A manual install instead carries a write-only ingest key
+ * on its script URL. The tenant's read API key is never exposed either way.
  *
  * ── Task 31: Shopify Consent / Privacy Compliance Audit ──────────
  *
@@ -52,18 +57,46 @@
   "use strict";
   if (window.__STORECOPS_TRACKER_READY__) return;
 
-  /* ── Bootstrap: read config from the script tag URL ─────────── */
+  /* ── Bootstrap: the two supported install shapes ─────────────── */
+  //
+  // 1. THEME APP EXTENSION (the supported path). The snippet is served through
+  //    the Shopify app proxy at `{shop}/apps/storecops/tracker.js`, and the
+  //    block sets `data-store`. The proxy signature — not a key — authorises
+  //    ingest, and the platform resolves the tenant from the signed request.
+  //
+  // 2. MANUAL PASTE, for a storefront that cannot run the extension. The script
+  //    URL then carries `?store=&key=` and events go to `/api/v1/track`.
+  //
+  // Reading ONLY shape 2 is what previously made this file inert under the
+  // extension: `searchParams.get("store")` was always null, so the guard below
+  // returned before a single event was ever sent — with no error, no log and no
+  // failed request to notice.
   var currentScript =
     document.currentScript ||
     document.querySelector('script[src*="tracker.js"]');
   if (!currentScript) return;
 
   var scriptUrl = new URL(currentScript.src);
-  var storeId = scriptUrl.searchParams.get("store");
-  var ingestKey = scriptUrl.searchParams.get("key");
-  var apiBase = scriptUrl.origin + "/api/v1";
+  var scriptStore = (currentScript.dataset && currentScript.dataset.store) || "";
+  var queryStore = scriptUrl.searchParams.get("store") || "";
+  var ingestKey = scriptUrl.searchParams.get("key") || "";
 
-  if (!storeId || !ingestKey) return; // silently exit if misconfigured
+  // Proxy-served: derive the ingest base from our own src, so no host is
+  // hardcoded and a custom storefront domain works unchanged.
+  var proxyBase = scriptStore
+    ? scriptUrl.origin + scriptUrl.pathname.replace(/\/tracker\.js$/, "")
+    : null;
+  var apiBase = scriptUrl.origin + "/api/v1";
+  var storeId = queryStore || scriptStore;
+
+  if (!proxyBase && !(queryStore && ingestKey)) {
+    // A bootstrap that bails silently is how this broke unnoticed. Say so.
+    console.warn(
+      "[Storecops] tracker not configured — expected a data-store attribute " +
+        "(theme app extension) or ?store=&key= on the script URL (manual install)."
+    );
+    return;
+  }
 
   window.__STORECOPS_TRACKER_READY__ = true;
 
@@ -121,7 +154,10 @@
   }
 
   function genId(prefix) {
-    if (window.crypto && crypto.randomUUID) return prefix + "_" + crypto.randomUUID();
+    // Both halves must name the same object: checking `window.crypto` and then
+    // calling bare `crypto` happens to work in a browser (window properties are
+    // globals) but not anywhere else, including a test harness.
+    if (window.crypto && window.crypto.randomUUID) return prefix + "_" + window.crypto.randomUUID();
     return prefix + "_" + Date.now() + "_" + Math.random().toString(36).slice(2);
   }
 
@@ -135,22 +171,35 @@
     if (!canTrack(eventType)) return;
     var body = Object.assign(
       {
-        store_id: storeId,
         event_type: eventType,
         timestamp: new Date().toISOString(),
         visitor_id: visitorId,
         session_id: sessionId,
       },
+      // The proxy route takes the tenant from its signature. Sending our own
+      // store_id there would be redundant at best, and at worst a cross-tenant
+      // write if the server-side override ever regressed — so in proxy mode we
+      // send none, and a missing store_id fails validation closed.
+      proxyBase ? {} : { store_id: storeId },
       data || {}
     );
+
+    var url = proxyBase
+      ? proxyBase + "/track"
+      : apiBase + "/track?api_key=" + encodeURIComponent(ingestKey);
+
     try {
       var blob = new Blob([JSON.stringify(body)], { type: "application/json" });
       if (navigator.sendBeacon) {
-        navigator.sendBeacon(apiBase + "/track?api_key=" + encodeURIComponent(ingestKey), blob);
+        // No headers available; the proxy signature travels in the URL, so a
+        // beacon to the signed proxy path is authorised on its own.
+        navigator.sendBeacon(url, blob);
       } else {
-        fetch(apiBase + "/track", {
+        fetch(url, {
           method: "POST",
-          headers: { "X-API-Key": ingestKey, "Content-Type": "application/json" },
+          headers: proxyBase
+            ? { "Content-Type": "application/json" }
+            : { "X-API-Key": ingestKey, "Content-Type": "application/json" },
           body: JSON.stringify(body),
           keepalive: true,
         });

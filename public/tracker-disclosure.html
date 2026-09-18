@@ -31,7 +31,7 @@
     <p>This page discloses every piece of data collected by the Storecops storefront tracker script (<code>tracker.js</code>). This disclosure is provided for Shopify app review compliance, GDPR/CCPA transparency, and merchant awareness.</p>
 
     <h2>1. How the Tracker is Installed</h2>
-    <p>Storefront tracking is delivered by the <strong>Storecops theme app extension</strong> (<code>storecops-tracker</code>). The merchant enables it as an app embed in <em>Online Store &rarr; Themes &rarr; Customize &rarr; App embeds</em>; Shopify then renders it on every storefront page. It communicates exclusively with the Storecops platform's <code>/api/v1/track</code> endpoint using a write-only ingest key.</p>
+    <p>Storefront tracking is delivered by the <strong>Storecops theme app extension</strong> (<code>storecops-tracker</code>). The merchant enables it as an app embed in <em>Online Store &rarr; Themes &rarr; Customize &rarr; App embeds</em>; Shopify then renders it on every storefront page. Events are sent to the Storecops platform and nowhere else. Under the app embed they travel through Shopify's app proxy to <code>/apps/storecops/track</code>, which the platform authenticates with the proxy signature &mdash; no key is exposed to the storefront. A manual install instead posts directly to <code>/api/v1/track</code> with a write-only ingest key.</p>
 
     <h2>2. Identifiers</h2>
     <table>
@@ -139,7 +139,7 @@
 
     <h2>8. Data Transmission</h2>
     <ul>
-      <li><strong>Endpoint:</strong> <code>POST /api/v1/track</code> on the Storecops platform server.</li>
+      <li><strong>Endpoint:</strong> <code>POST /apps/storecops/track</code> via the Shopify app proxy (theme app extension), or <code>POST /api/v1/track</code> on the Storecops platform server (manual install).</li>
       <li><strong>Authentication:</strong> Write-only ingest key (passed as <code>?api_key=</code> query param or <code>X-API-Key</code> header). This key can <em>only</em> write events — it cannot read any data.</li>
       <li><strong>Method:</strong> Uses <code>navigator.sendBeacon()</code> when available (survives page unload), falls back to <code>fetch()</code> with <code>keepalive: true</code>.</li>
       <li><strong>Rate limiting:</strong> Maximum one transmission per 1.5 seconds to prevent excessive network usage.</li>
