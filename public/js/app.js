@@ -203,6 +203,26 @@
     );
   }
 
+
+  /**
+   * Keyboard activation for non-native clickable elements.
+   *
+   * Cards and suggestion rows carry an inline onclick for pointer users and
+   * `role="button" tabindex="0"` for assistive tech, but a <div> has no default
+   * Enter/Space activation. Real controls are skipped: they already handle it,
+   * and re-dispatching would fire their handler twice.
+   */
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const el = event.target && event.target.closest
+      ? event.target.closest('[role="button"][tabindex]')
+      : null;
+    if (!el) return;
+    if (/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
+    event.preventDefault();
+    el.click();
+  });
+
   function chartDefaults() {
     if (!window.Chart) return;
     Chart.defaults.color = "#8a90ad";
@@ -866,7 +886,7 @@
 
       <!-- Intelligence Row -->
       <div class="b-grid-3" style="margin-bottom:24px">
-        <div class="b-card" style="cursor:pointer;animation-delay:0.35s" onclick="location.hash='#/competitors'">
+        <div class="b-card" role="button" tabindex="0" style="cursor:pointer;animation-delay:0.35s" onclick="location.hash='#/competitors'">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
             <div class="b-icon-circle blue">${icon("target")}</div>
             <div class="b-stat-value" style="font-size:28px">${competitorAlerts}</div>
@@ -874,7 +894,7 @@
           <div class="b-stat-label" style="margin-bottom:4px">Competitor Alerts</div>
           <div style="font-size:13px;color:var(--text-dim)">Price changes, new products, promotions detected</div>
         </div>
-        <div class="b-card" style="cursor:pointer;animation-delay:0.4s" onclick="location.hash='#/seo'">
+        <div class="b-card" role="button" tabindex="0" style="cursor:pointer;animation-delay:0.4s" onclick="location.hash='#/seo'">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
             <div class="b-icon-circle green">${icon("search")}</div>
             <div class="b-stat-value" style="font-size:28px">${seoIssues}</div>
@@ -882,7 +902,7 @@
           <div class="b-stat-label" style="margin-bottom:4px">SEO Issues</div>
           <div style="font-size:13px;color:var(--text-dim)">Meta tags, content gaps, ranking changes</div>
         </div>
-        <div class="b-card" style="cursor:pointer;animation-delay:0.45s" onclick="location.hash='#/campaigns'">
+        <div class="b-card" role="button" tabindex="0" style="cursor:pointer;animation-delay:0.45s" onclick="location.hash='#/campaigns'">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
             <div class="b-icon-circle amber">${icon("flame")}</div>
             <div class="b-stat-value" style="font-size:28px">${trendingProducts}</div>

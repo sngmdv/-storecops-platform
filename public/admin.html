@@ -149,6 +149,7 @@
       </div>
       <h2>Storecops Admin</h2>
       <p>Platform operator console — enter your master API key.</p>
+      <label class="sr-only" for="admin-key">Master API key</label>
       <input id="admin-key" type="password" placeholder="Master API key" autocomplete="current-password">
       <button class="btn-enter" onclick="adminLogin()">Enter Admin Console →</button>
       <p id="admin-error" style="color:var(--red);font-size:13px;margin-top:12px;min-height:16px"></p>
@@ -205,6 +206,26 @@
     function jsAttr(v) { return String(v ?? "").replace(/\\/g,"\\\\").replace(/'/g,"\\'").replace(/\r/g,"\\r").replace(/\n/g,"\\n").replace(/[&<>"]/g,(c)=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" })[c]); }
     function money(n) { return n == null ? "—" : "$" + Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 }); }
     function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("show"), 4000); }
+
+    /**
+     * Keyboard activation for non-native clickable elements.
+     *
+     * Cards and suggestion rows carry an inline onclick for pointer users and
+     * `role="button" tabindex="0"` for assistive tech, but a <div> has no default
+     * Enter/Space activation. Real controls are skipped: they already handle it,
+     * and re-dispatching would fire their handler twice.
+     */
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const el = event.target && event.target.closest
+        ? event.target.closest('[role="button"][tabindex]')
+        : null;
+      if (!el) return;
+      if (/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
+      event.preventDefault();
+      el.click();
+    });
+
     function destroyCharts() { charts.forEach(c => c.destroy()); charts = []; }
     function makeChart(el, opts) { if (!el) return null; const c = new Chart(el, opts); charts.push(c); return c; }
     const GRAD = ["#08906c", "#34bf99", "#06b6d4", "#f59e0b", "#ef4444", "#f97316"];
@@ -787,10 +808,10 @@
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-            <div><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Campaign Name</label><input id="camp-name" type="text" placeholder="e.g. Q4 Win-back" style="width:100%;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px;font-family:var(--font-body)"></div>
-            <div><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Type</label><select id="camp-type" style="width:100%;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px;font-family:var(--font-body)"><option value="win_back">Win-back</option><option value="upsell">Upsell</option><option value="onboarding">Onboarding</option><option value="seasonal">Seasonal</option><option value="referral">Referral</option><option value="trial_expiry">Trial Expiry</option></select></div>
-            <div><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Channel</label><select id="camp-channel" style="width:100%;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px;font-family:var(--font-body)"><option value="email">Email</option><option value="whatsapp">WhatsApp</option><option value="push">Push</option><option value="multi">Multi-channel</option></select></div>
-            <div><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">&nbsp;</label><button class="a-btn" onclick="createCampaign()" style="width:100%;padding:10px">Create Campaign →</button></div>
+            <div><label for="camp-name" style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Campaign Name</label><input id="camp-name" type="text" placeholder="e.g. Q4 Win-back" style="width:100%;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px;font-family:var(--font-body)"></div>
+            <div><label for="camp-type" style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Type</label><select id="camp-type" style="width:100%;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px;font-family:var(--font-body)"><option value="win_back">Win-back</option><option value="upsell">Upsell</option><option value="onboarding">Onboarding</option><option value="seasonal">Seasonal</option><option value="referral">Referral</option><option value="trial_expiry">Trial Expiry</option></select></div>
+            <div><label for="camp-channel" style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">Channel</label><select id="camp-channel" style="width:100%;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--input-bg);color:var(--text);font-size:13px;font-family:var(--font-body)"><option value="email">Email</option><option value="whatsapp">WhatsApp</option><option value="push">Push</option><option value="multi">Multi-channel</option></select></div>
+            <div><span aria-hidden="true" style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600">&nbsp;</span><button class="a-btn" onclick="createCampaign()" style="width:100%;padding:10px">Create Campaign →</button></div>
           </div>
         </div>`;
 
@@ -799,7 +820,7 @@
       else {
         sDiv.innerHTML = suggestions.map(s => {
           const cls = s.priority==='critical'?'a-alert-red':s.priority==='high'?'a-alert-amber':'a-alert-green';
-          return `<div class="a-alert ${cls}" style="cursor:pointer" onclick="quickCreateCamp('${jsAttr(s.type)}','${jsAttr(s.title)}','${jsAttr(s.channel)}')"><div style="flex:1"><b>${esc(s.title)}</b><br><small class="a-sub">${esc(s.description)}</small><br><small style="color:var(--violet);font-weight:600">${esc(s.estimatedImpact)} · ${s.targetCount} targets · ${esc(s.channel)}</small></div><span class="a-pill a-pill-${s.priority==='critical'?'red':s.priority==='high'?'amber':'green'}">${s.priority}</span></div>`;
+          return `<div class="a-alert ${cls}" role="button" tabindex="0" style="cursor:pointer" onclick="quickCreateCamp('${jsAttr(s.type)}','${jsAttr(s.title)}','${jsAttr(s.channel)}')"><div style="flex:1"><b>${esc(s.title)}</b><br><small class="a-sub">${esc(s.description)}</small><br><small style="color:var(--violet);font-weight:600">${esc(s.estimatedImpact)} · ${s.targetCount} targets · ${esc(s.channel)}</small></div><span class="a-pill a-pill-${s.priority==='critical'?'red':s.priority==='high'?'amber':'green'}">${s.priority}</span></div>`;
         }).join("");
       }
     }
@@ -1095,18 +1116,18 @@
             </div>
             <h3 style="font-size:14px;color:var(--text);font-weight:600;margin:8px 0">Platform Configuration</h3>
             <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
-              <label style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--surface-2);border-radius:8px">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--surface-2);border-radius:8px">
                 <span style="font-size:13px">Demo Simulator</span>
                 <span class="a-pill ${demoStatus.running ? 'a-pill-green' : 'a-pill-gray'}">${demoStatus.running ? 'Running' : 'Stopped'}</span>
-              </label>
-              <label style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--surface-2);border-radius:8px">
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--surface-2);border-radius:8px">
                 <span style="font-size:13px">Events Generated</span>
                 <span style="font-weight:600">${demoStatus.events_generated || 0}</span>
-              </label>
-              <label style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--surface-2);border-radius:8px">
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--surface-2);border-radius:8px">
                 <span style="font-size:13px">Running Stores</span>
                 <span style="font-weight:600">${(demoStatus.running_stores || []).length}</span>
-              </label>
+              </div>
             </div>
           </div>
           <div class="a-card">

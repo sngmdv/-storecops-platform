@@ -605,8 +605,8 @@ immediately: it failed because the page did not name the extension, so the page 
 35. REPO-002 Dead code — ~~public/js/appBridge.js~~ (removed), ~~deleteManyStmt~~ (P3),
     ~~root clutter~~ (already gone at 3c0c48d). `WEBHOOK_DEDUP_MAX` still unused.
     **PARTIAL — see the write-up below.**
-36. FE-003 A11y — 0x for= labels, 3/111 buttons with aria-label, 3 clickable div no
-    role/tabindex, 1 keyboard vs 51 click. **OPEN.**
+36. ~~FE-003 A11y~~ **FIXED 2026-09-18** — the stated defects were wrong in both
+    directions; see the write-up below.
 37. COMP-004 No DPA/sub-processor page for EU (only prose in privacy.html:43). **OPEN.**
 38. ~~🚨 **TRK-001 Storefront tracker never transmits**~~ **FIXED 2026-09-18** — new
     finding, not in the original audit. See below.
@@ -982,6 +982,63 @@ Four new suites; each carries a **control test** so it cannot pass vacuously.
   email someone who opted out) but does not satisfy a literal zero-rows reading
   of erasure. Usual resolution: store a hash instead of the address.
 
+### Item 36 (FE-003) — accessibility — FIXED 2026-09-18
+
+**The item's own numbers were wrong in both directions**, which is why it sat open. It claimed
+"3/111 buttons with aria-label". Re-deriving from the pages: there are **32 buttons**, and **0** of
+them are icon-only without a name — the defect as stated did not exist. What did exist, unlisted:
+
+1. **Zero `for=` associations** on the signup form. Every control was named only by its
+   `placeholder`, which is not an accessible name — it is not reliably announced, and it disappears
+   the moment the user types.
+2. **Two clickable non-interactive elements** (`div.b-card` in the SPA, `div.a-alert` in
+   `admin.html`) with `onclick` and no `role`, no `tabindex`, and therefore **no keyboard path at
+   all**. The item's "1 keyboard vs 51 click" was directionally right and understated.
+3. **Four `<label>` elements used purely as layout containers** — one was literally
+   `<label>&nbsp;</label>` used as a spacer above a button, contributing a nameless node to the
+   accessibility tree.
+4. **The password hint said "min 8 characters"** while `MIN_PASSWORD` is **12** — a hint that
+   under-states the enforced rule invites a submit guaranteed to fail.
+
+**Fixes** — 24 edits across `public/{app,admin,audit,index}.html`, `public/js/app.js` and
+`public/styles/{app,landing}.css`: `for=` on every real label; three stat-row `<label>` containers
+became `<div>`; the spacer became `<span aria-hidden="true">`; unnamed controls (`admin-key`,
+`audit-url`, `audit-email`, `lead-email`) got `.sr-only` labels; the clickable cards got
+`role="button" tabindex="0"` **plus** a delegated Enter/Space handler in **both** bundles; and the
+hint now derives from `MIN_PASSWORD` rather than restating it. A `.sr-only` utility was appended to
+both stylesheets.
+
+**Note on `role="button"` on a `<tr>`:** the audit table rows carry `onclick` but must **not** get
+`role="button"` — that destroys the row's table semantics for assistive tech. Those rows already
+contain a focusable `<button>`, which *is* a valid keyboard path, so the guard accepts either
+`role`+`tabindex` **or** an inner focusable control.
+
+**Guards** — `test/a11y.test.js`, 15 tests, all derived from the pages so the counts cannot go stale
+in the other direction: accessible names, orphan labels, keyboard reachability, the delegation
+handler, the password hint (derived from `MIN_PASSWORD`), and `.sr-only` availability.
+
+**Mutation-checked 8/8.** Two mutations exposed genuine guard defects, both fixed:
+
+- **`\b` is not sufficient after an identifier.** `\.sr-only\b` matches `.sr-only-disabled`, because
+  `-` is a non-word character and therefore *is* a word boundary. Renaming the utility to disable it
+  **satisfied** the guard. Fixed with a lookahead for what may legally follow: `\.sr-only(?=[\s,{])`.
+- **A file is not a unit of inspection.** The delegation guard required
+  `addEventListener("keydown"` anywhere in the bundle — but `app.js` also attaches a `keydown`
+  listener to an unrelated bookkeeping input, so renaming the a11y delegation away left the guard
+  green while the fix became cosmetic. Fixed by locating the handler and brace-matching its **body**,
+  then asserting inside it.
+
+Comment-stripping (`<!-- -->`, `/* */`, `//`) was added to all source-scanning guards, so a
+commented-out fix cannot satisfy them.
+
+**Result:** 708 → **722 tests / 61 files / 0 failures**; `lint:syntax` 165 files; ESLint 0 errors.
+**Residual:** the guards check *declared* names and wiring, not rendered accessibility trees. A real
+screen-reader pass is M10 (browser matrix + keyboard), still open.
+
 Fix order: P0 → P1 → P2 → M1-M7 verify → P3-P5.
-**Next block: P3-P5** (P3 starts with item 17 Redis/store collection drift and
-item 18 missing indexes). M8–M10 not yet started.
+**P6 remaining: item 37** (EU DPA/sub-processor page — verified absent), **item 35 remainder**
+(unused `WEBHOOK_DEDUP_MAX`). Then **M8** (100/1000 load + DB-kill `/ready`) and **M10** (browsers
+375/768/1440 + keyboard). The **REST→GraphQL migration** is the critical path to submission and is
+blocked on the billing decision.
+User-only blockers unchanged: `SHOPIFY_CLIENT_ID`/`SECRET`, delivery credentials, the Railway
+volume, `storecops.com`, M3/M4/M5, a Railway cron for `scripts/backup.js`, and listing assets.

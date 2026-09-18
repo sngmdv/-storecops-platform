@@ -54,9 +54,9 @@
       <!-- Sign in -->
       <div id="panel-login">
         <p class="login-sub">Welcome back — enter the command center.</p>
-        <label>Email</label>
+        <label for="auth-email">Email</label>
         <input id="auth-email" type="email" placeholder="you@company.com" autocomplete="email" />
-        <label>Password</label>
+        <label for="auth-password">Password</label>
         <input id="auth-password" type="password" placeholder="Your password" autocomplete="current-password" />
         <button id="login-btn" class="btn btn-primary btn-block">Enter command center →</button>
       </div>
@@ -64,11 +64,11 @@
       <!-- Create account -->
       <div id="panel-signup" class="hidden">
         <p class="login-sub">Your store gets its own private workspace + API key.</p>
-        <label>Your name</label>
+        <label for="signup-name">Your name</label>
         <input id="signup-name" type="text" placeholder="Alex Founder" autocomplete="name" />
-        <label>Store name</label>
+        <label for="signup-store">Store name</label>
         <input id="signup-store" type="text" placeholder="e.g. Aurora Gadgets" />
-        <label>Store platform</label>
+        <label for="signup-platform">Store platform</label>
         <div class="select-wrapper">
           <select id="signup-platform">
             <option value="" disabled selected>Choose your platform</option>
@@ -84,9 +84,9 @@
           <p id="platform-connect-text"></p>
           <button id="platform-connect-btn" class="btn btn-sm btn-ghost" type="button">Connect now →</button>
         </div>
-        <label>Email</label>
+        <label for="signup-email">Email</label>
         <input id="signup-email" type="email" placeholder="you@company.com" autocomplete="email" />
-        <label>Password <span class="login-note-inline">(min 8 characters)</span></label>
+        <label for="signup-password">Password <span class="login-note-inline">(min 12 characters)</span></label>
         <input id="signup-password" type="password" placeholder="Create a password" autocomplete="new-password" />
         <button id="signup-btn" class="btn btn-grad btn-block">Create my store — free →</button>
       </div>

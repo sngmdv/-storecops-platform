@@ -916,3 +916,18 @@ h4 { font-size: clamp(18px, 2vw, 24px); }
   .newsletter form { flex-direction: column; }
   .impact-grid { grid-template-columns: 1fr; }
 }
+
+/* Visually hidden, still announced by assistive tech. Used where the design
+   conveys a field's purpose through a placeholder only — a placeholder is not
+   a label, and it disappears as soon as the user types. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
