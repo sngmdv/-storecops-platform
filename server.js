@@ -7,15 +7,16 @@
  * growth-cycle scheduler.
  */
 
-// DEP-001: Load .env file if present (Railway injects env directly, so this is optional for local prod-like runs).
-// Node 20+ has process.loadEnvFile; fallback to dotenv if installed.
-try {
-  if (typeof process.loadEnvFile === 'function') {
-    try { process.loadEnvFile('.env.production'); } catch (_) { try { process.loadEnvFile('.env'); } catch (_) {} }
-  } else {
-    require('dotenv').config();
-  }
-} catch (_) {}
+// DEP-001: load environment configuration before ANY other module is required,
+// because `src/config/config.js` reads process.env at import time and runs the
+// production readiness gate there. `loadEnvironment` owns the precedence rule
+// and reports which file it used; see src/config/loadEnvironment.js for why the
+// previous "try .env.production, else .env" order was a defect rather than a
+// preference — with both files present, .env was never read at all.
+//
+// This must stay above the requires below.
+const { loadEnvironment, } = require("./src/config/loadEnvironment",);
+loadEnvironment();
 
 const { createPlatform } = require("./src/platform");
 const { createApp } = require("./src/server/createApp");
