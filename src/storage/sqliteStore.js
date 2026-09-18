@@ -27,7 +27,7 @@ const { COLLECTIONS, } = require('./store',);
  * columns + indexes.  Stored as top-level TEXT columns alongside
  * the JSON blob for fast WHERE clause matching.
  *
- * NOTE: every field listed here gets a column on ALL 53 tables. Keep it to
+ * NOTE: every field listed here gets a column on EVERY table. Keep it to
  * fields that are genuinely cross-cutting. A field that only matters for one
  * collection belongs in EXTRA_INDEXED_FIELDS_BY_COLLECTION below.
  */
@@ -45,11 +45,23 @@ const INDEXED_FIELDS = ['store_id', 'status', 'customer_id', 'type', 'action',];
  * exactly as the product succeeds.
  *
  * It is scoped per-collection rather than added to INDEXED_FIELDS because no
- * other collection has a `token` column, and the common list is applied to all
- * 53 tables.
+ * other collection has a `token` column, and the common list is applied to
+ * every table.
  */
 const EXTRA_INDEXED_FIELDS_BY_COLLECTION = {
   sessions: ['token',],
+  // Every inbound Shopify webhook looks up its signed-body digest, both to bind
+  // the delivery to a tenant and to deduplicate Shopify's retries. Without a
+  // column + index, `buildWhereClause({ digest })` returns null and the lookup
+  // falls through to `allStmt.all().map(parse)` — a full table load plus
+  // JSON.parse on a path that runs once per order. The table grows with order
+  // volume, so that cost grows exactly as the merchant succeeds.
+  //
+  // `bucket` is the UTC day the delivery was received. Digest rows expire after
+  // 24h and are swept by whole day, so that sweep has to be an equality match on
+  // an indexed column too — a `find({})` sweep would be the very full scan the
+  // digest index exists to avoid, and it would run on a timer.
+  webhookDeliveries: ['digest', 'bucket',],
 };
 
 /** Every indexed field for one collection: the common set plus any extras. */

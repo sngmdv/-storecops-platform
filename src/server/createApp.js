@@ -8,7 +8,6 @@
 
 const express = require('express',);
 const path = require('path',);
-const crypto = require('crypto',);
 const { createApiRouter, } = require('./apiRoutes',);
 const {
   createRateLimiter,
@@ -27,6 +26,7 @@ const { createCorsMiddleware, } = require('./cors',);
 const { createAppProxy, } = require('./appProxy',);
 const { purgeStoreData, } = require('./privacy',);
 const { createHealthProbe, } = require('./healthProbe',);
+const webhookTenancy = require('./webhookTenancy',);
 
 /**
  * Resolve a Shopify shop domain to the tenant that owns it.
@@ -840,35 +840,66 @@ function createApp(platform,) {
   // Public endpoint, but HMAC-verified against the Shopify CLIENT SECRET
   // (X-Shopify-Hmac-Sha256, base64). Fails closed with 401 when that secret
   // is unset — it is not keyed by WEBHOOK_SECRET.
+  //
+  // The HMAC proves the body came from Shopify; it does NOT say which store the
+  // body belongs to, because the client secret is per-app rather than per-shop and
+  // the Order payload carries no shop field. The `:store_id` here was therefore
+  // caller-chosen, so admission additionally binds the delivery to a store and
+  // makes it single-use. See src/server/webhookTenancy.js.
   app.post(
     '/webhooks/orders/:store_id',
     shopifyWebhookVerifier(platform.config.security?.shopifyClientSecret,),
     async (req, res,) => {
+      const store_id = req.params.store_id;
+      let admission;
       try {
+        admission = await admitWebhook(req, store_id,);
+        if (!admission.ok) return refuseWebhook(res, admission,);
+        if (admission.duplicate) return res.json({ ok: true, duplicate: true, },);
+
         const result = await platform.integrations.ingestOrderWebhook(
-          req.params.store_id,
+          store_id,
           req.body || {},
         );
-        res.status(result.accepted ? 200 : 400,).json(result,);
+        // `accepted: false` is a decision (consent withheld, malformed payload), not
+        // a transient failure, so the reservation is deliberately kept: Shopify's
+        // retries then short-circuit instead of re-running a decision that cannot
+        // change.
+        return res.status(result.accepted ? 200 : 400,).json(result,);
       } catch (error) {
-        res.status(400,).json({ error: error.message, },);
+        // A throw IS transient, so the reservation is released — otherwise the retry
+        // would be answered 200-and-dropped as a duplicate and the order lost for good.
+        if (admission?.digest) {
+          await webhookTenancy.releaseDelivery({ store: platform.store, digest: admission.digest, },);
+        }
+        return res.status(400,).json({ error: error.message, },);
       }
     },
   );
 
-  // Inbound return/exchange webhooks from connected stores.
+  // Inbound return/exchange webhooks from connected stores. Admission works exactly
+  // as it does for orders above, and for the same reasons.
   app.post(
     '/webhooks/returns/:store_id',
     shopifyWebhookVerifier(platform.config.security?.shopifyClientSecret,),
     async (req, res,) => {
+      const store_id = req.params.store_id;
+      let admission;
       try {
+        admission = await admitWebhook(req, store_id,);
+        if (!admission.ok) return refuseWebhook(res, admission,);
+        if (admission.duplicate) return res.json({ ok: true, duplicate: true, },);
+
         const result = await platform.returnService.processReturn(
-          req.params.store_id,
+          store_id,
           req.body || {},
         );
-        res.status(200,).json(result,);
+        return res.status(200,).json(result,);
       } catch (error) {
-        res.status(400,).json({ error: error.message, },);
+        if (admission?.digest) {
+          await webhookTenancy.releaseDelivery({ store: platform.store, digest: admission.digest, },);
+        }
+        return res.status(400,).json({ error: error.message, },);
       }
     },
   );
@@ -1036,53 +1067,104 @@ function createApp(platform,) {
   // X-Shopify-Hmac-Sha256 header, base64, keyed by the app client secret).
   const shopifyComplianceVerifier = shopifyWebhookVerifier(platform.config.security?.shopifyClientSecret,);
 
-  // Task 7: Idempotency — track processed webhook signatures to prevent
-  // duplicate deliveries from causing repeated destructive work.
-  // Use database-backed dedup for persistence across restarts.
-  const WEBHOOK_DEDUP_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-  
-  async function isDuplicateWebhook(req,) {
-    const rawBody = req.rawBody || JSON.stringify(req.body || {},);
-    const sig = crypto.createHash('sha256',).update(rawBody,).digest('hex',).slice(0, 16,);
-    
+  // ── Inbound webhook admission ────────────────────────────────────────
+  //
+  // One gate for every signature-verified Shopify delivery. It answers the two
+  // questions the HMAC cannot: *which tenant is this delivery for*, and *has this
+  // exact delivery already been processed*. See src/server/webhookTenancy.js for why
+  // Shopify does not sign a tenant, and what that leaves as residual risk.
+  //
+  // This replaces a local `isDuplicateWebhook` helper that:
+  //   - recorded its dedupe rows in `webhookQueue`, the OUTBOUND delivery queue, so
+  //     `webhookRetryQueue.status()` counted them in `total` while matching none of
+  //     its buckets, and its cleanup walked a table that grows with order volume;
+  //   - truncated the digest to 16 hex characters (64 bits) while using it as a key;
+  //   - fell back to hashing `JSON.stringify(req.body)`, which strips insignificant
+  //     whitespace and so collapses two distinct signed bodies onto one digest;
+  //   - stored `expires_at` but never read it, making the declared 24h TTL decorative;
+  //   - returned `false` on a storage error, i.e. failed OPEN on a security control;
+  //   - and was never applied to `/webhooks/orders` or `/webhooks/returns`, which are
+  //     precisely the routes that take their `:store_id` from the caller.
+
+  /** Report a delivery replayed into a tenant it does not belong to. */
+  async function reportCrossTenantDelivery(event,) {
+    console.error(
+      `[WEBHOOK] cross-tenant replay refused: a delivery attributed to ${event.attributed_to} `
+      + `was presented as ${event.presented_as} (topic ${event.topic || 'unknown'}, `
+      + `digest ${String(event.digest || '',).slice(0, 12,)}…)`,
+    );
+    if (!platform.monitoringService) return;
     try {
-      // Check if webhook was already processed
-      const existing = await platform.store.webhookQueue.findOne({ signature: sig, },);
-      if (existing) return true;
-      
-      // Record this webhook
-      await platform.store.webhookQueue.insert({
-        signature: sig,
-        topic: req.headers['x-shopify-topic'] || 'unknown',
-        shop_domain: req.body?.myshopify_domain || req.body?.shop || 'unknown',
-        processed_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + WEBHOOK_DEDUP_TTL_MS,).toISOString(),
+      await platform.monitoringService.recordEvent('webhook_cross_tenant_replay', {
+        severity: 'error',
+        message: 'A signed webhook body was replayed against a different store.',
       },);
-      
-      // Cleanup old entries periodically (1 in 100 requests)
-      if (Math.random() < 0.01) {
-        const cutoff = new Date(Date.now() - WEBHOOK_DEDUP_TTL_MS,).toISOString();
-        // This is a simple cleanup - in production, use a scheduled job
-        try {
-          const oldEntries = await platform.store.webhookQueue.find({},);
-          const toDelete = oldEntries.filter((e,) => e.processed_at < cutoff,);
-          for (const entry of toDelete.slice(0, 100,)) {
-            await platform.store.webhookQueue.delete(entry._id,);
-          }
-        } catch (_) {}
-      }
-      
-      return false;
-    } catch (err) {
-      // Fallback to in-memory if DB fails
-      console.error('[WEBHOOK] Dedup DB error, falling back to pass-through:', err.message,);
-      return false;
+    } catch (_) {
+      // Reporting must never change the admission decision.
     }
+  }
+
+  /**
+   * Admit a signature-verified delivery.
+   *
+   * @param {object} req
+   * @param {string} store_id The scope the delivery is attributed to.
+   * @param {object} [options]
+   * @param {boolean} [options.bindTenant=true] Whether the caller-supplied scope must
+   *   be reconciled against the delivery's own shop claims. False for the compliance
+   *   routes, which take no tenant from the caller — they are global actions driven
+   *   by the shop named in the body, so there is nothing to reconcile against and the
+   *   digest is only there for idempotency.
+   */
+  async function admitWebhook(req, store_id, { bindTenant = true, } = {},) {
+    const admission = await webhookTenancy.admitDelivery({
+      store: platform.store,
+      store_id,
+      rawBody: req.rawBody,
+      topic: req.headers['x-shopify-topic'],
+      payload: req.body,
+      headerShopDomain: req.headers['x-shopify-shop-domain'],
+      resolveShop: bindTenant ? (domain,) => tenantForShop(platform, domain,) : undefined,
+      onCrossTenant: reportCrossTenantDelivery,
+    },);
+
+    // Opportunistic expiry sweep. Throttled internally to once an hour per process,
+    // keyed on an indexed day bucket, and it can never fail a delivery.
+    if (admission.ok) {
+      webhookTenancy.sweepExpiredDeliveries({ store: platform.store, },).catch(() => {},);
+    }
+
+    return admission;
+  }
+
+  /** Answer a refused delivery with the status admission decided on. */
+  function refuseWebhook(res, admission,) {
+    return res.status(admission.status || 400,).json({ ok: false, error: admission.error, },);
+  }
+
+  /**
+   * The digest scope for a compliance delivery.
+   *
+   * These routes carry no `:store_id`, so the scope comes from the shop in the body.
+   * When the shop is not a connected store the domain itself is used, so the digest
+   * is still scoped to something and the replay property holds. Such a row is not
+   * reachable by a store purge (which deletes by `store_id`), so it lives until the
+   * expiry sweep collects it — bounded, and it holds no personal data.
+   */
+  async function complianceScope(req,) {
+    const domain = webhookTenancy.normaliseDomain(
+      req.body?.myshopify_domain || req.body?.shop_domain || req.body?.shop || req.body?.domain,
+    );
+    if (!domain) return 'shop:unknown';
+    const tenant = await tenantForShop(platform, domain,).catch(() => null,);
+    return tenant?.store_id || `shop:${domain}`;
   }
 
   app.post('/webhooks/shopify/app-uninstalled', shopifyComplianceVerifier, async (req, res,) => {
     try {
-      if (await isDuplicateWebhook(req,)) {
+      const admission = await admitWebhook(req, await complianceScope(req,), { bindTenant: false, },);
+      if (!admission.ok) return refuseWebhook(res, admission,);
+      if (admission.duplicate) {
         console.log('[WEBHOOK] app-uninstalled duplicate — skipping',);
         return res.json({ ok: true, duplicate: true, },);
       }
@@ -1115,7 +1197,9 @@ function createApp(platform,) {
 
   app.post('/webhooks/shopify/data-request', shopifyComplianceVerifier, async (req, res,) => {
     try {
-      if (await isDuplicateWebhook(req,)) {
+      const admission = await admitWebhook(req, await complianceScope(req,), { bindTenant: false, },);
+      if (!admission.ok) return refuseWebhook(res, admission,);
+      if (admission.duplicate) {
         console.log('[WEBHOOK] customers/data-request duplicate — skipping',);
         return res.json({ ok: true, duplicate: true, },);
       }
@@ -1148,7 +1232,9 @@ function createApp(platform,) {
 
   app.post('/webhooks/shopify/customer-redact', shopifyComplianceVerifier, async (req, res,) => {
     try {
-      if (await isDuplicateWebhook(req,)) {
+      const admission = await admitWebhook(req, await complianceScope(req,), { bindTenant: false, },);
+      if (!admission.ok) return refuseWebhook(res, admission,);
+      if (admission.duplicate) {
         console.log('[WEBHOOK] customers/redact duplicate — skipping',);
         return res.json({ ok: true, duplicate: true, },);
       }
@@ -1173,7 +1259,9 @@ function createApp(platform,) {
     // GDPR: Respond immediately and offload heavy deletion to background.
     // Shopify requires a 200 response within 5 seconds.
     try {
-      if (await isDuplicateWebhook(req,)) {
+      const admission = await admitWebhook(req, await complianceScope(req,), { bindTenant: false, },);
+      if (!admission.ok) return refuseWebhook(res, admission,);
+      if (admission.duplicate) {
         console.log('[WEBHOOK] shop-redact duplicate — skipping',);
         return res.json({ ok: true, duplicate: true, },);
       }
