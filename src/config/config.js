@@ -179,6 +179,21 @@ const config = {
     // src/server/loginThrottle.js.
     authRateLimitWindowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 900000,),
     authRateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX || 20,),
+    // Per-STORE ceiling on storefront ingest (`/proxy/track`).
+    //
+    // Distinct from both limits above, which key on the caller: the IP limiter
+    // bounds one *source*, but a storefront with many visitors is many IPs, and a
+    // runaway theme (a listener firing on every DOM mutation) is one *tenant*
+    // monopolising the ingest pipeline. This one keys on the store that the
+    // app-proxy signature resolved.
+    //
+    // It is a SAFETY CEILING, not a plan quota — a plan-based allowance would need
+    // `tieredRateLimiter` keyed by store, and choosing plan allowances is a pricing
+    // decision rather than a code one. The default is deliberately far above any
+    // real storefront's volume, because the job is to bound a runaway, not to meter
+    // honest traffic; a limit that a busy merchant trips would be worse than none.
+    trackIngestCeilingWindowMs: Number(process.env.TRACK_INGEST_CEILING_WINDOW_MS || 60000,),
+    trackIngestCeilingMax: Number(process.env.TRACK_INGEST_CEILING_MAX || 12000,),
     // Per-account lockout: failures tolerated, then the base lockout (which
     // doubles per further failure, capped at 24h).
     loginMaxAttempts: Number(process.env.LOGIN_MAX_ATTEMPTS || 5,),

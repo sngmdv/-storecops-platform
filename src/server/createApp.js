@@ -744,6 +744,16 @@ function createApp(platform,) {
     max: platform.config.security?.authRateLimitMax,
   },);
 
+  // Per-STORE ceiling on storefront ingest. Keyed on the store that the app-proxy
+  // signature resolved, so it must be mounted after `appProxy.requireProxy` — the
+  // key does not exist before that. A safety ceiling rather than a plan quota; see
+  // `config.security.trackIngestCeilingMax` for why the default is generous.
+  const storeIngestLimiter = createRateLimiter({
+    windowMs: platform.config.security?.trackIngestCeilingWindowMs,
+    max: platform.config.security?.trackIngestCeilingMax,
+    keyFn: (req,) => req.proxyStoreId || 'unresolved',
+  },);
+
   // Public auth endpoints (signup/login), then the keyed API.
   app.use('/api/v1/auth', authRateLimiter, createAuthRouter(platform,),);
   // Free store audit: public by design (pre-signup value).
@@ -939,16 +949,22 @@ function createApp(platform,) {
   // overwritten below. Without that overwrite a visitor could post to their own
   // store's proxy URL and write events into any other tenant.
   //
-  // Rate limiting is the plain IP limiter, deliberately NOT
+  // Rate limiting is the plain IP limiter first, deliberately NOT
   // `tieredRateLimiter`: that one resolves a plan from `req.authUser`, which
   // this path has no equivalent of, so it would evaluate every storefront as
   // the `free` tier and cap real tracking at 60 rpm / 1000 per day per IP.
-  // A per-tenant ingest quota belongs here but needs a keyed-by-store design.
+  //
+  // On top of it sits a per-STORE ceiling (`storeIngestLimiter`, below). The IP
+  // limiter bounds one *source*; it does not bound one *tenant*, because a store
+  // with many visitors is many IPs, and a runaway theme is one store monopolising
+  // the ingest pipeline. The store key must be resolved by the signature, so that
+  // limiter is mounted AFTER `appProxy.requireProxy`.
   app.post(
     '/proxy/track',
     express.json({ limit: '16kb', },),
     rateLimiter,
     appProxy.requireProxy,
+    storeIngestLimiter,
     async (req, res,) => {
       try {
         const body = { ...(req.body || {}), };

@@ -128,7 +128,15 @@ function createRbac({ store, auditLog, },) {
 }
 
 /** 10.5 — sliding-window rate limiter per API key/IP. */
-function createRateLimiter({ windowMs = 60000, max = 300, maxKeys = 10000, maxPerKey = 500, } = {},) {
+function createRateLimiter({ windowMs = 60000, max = 300, maxKeys = 10000, maxPerKey = 500, keyFn, } = {},) {
+  // The per-key array must be able to hold at least `max + 1` timestamps, or the
+  // limit can never be observed: the trim below would cap the array at or below the
+  // threshold, so `length > max` could never be true and the limiter would silently
+  // stop limiting. Measured before this fix — with the old fixed 500, `max: 500` and
+  // above rejected **nothing** (600, 700 and 1100 attempts all passed), which means
+  // `RATE_LIMIT_MAX=500` in the environment disabled rate limiting outright.
+  // `maxPerKey` is therefore a floor on memory use, never a ceiling on enforceability.
+  const perKeyCap = Math.max(maxPerKey, max + 1,);
   const hits = new Map();
 
   // Evict stale entries so one-off keys can't grow memory without bound.
@@ -143,7 +151,10 @@ function createRateLimiter({ windowMs = 60000, max = 300, maxKeys = 10000, maxPe
   if (typeof sweeper.unref === 'function') sweeper.unref();
 
   return (req, res, next,) => {
-    const key = req.get('X-API-Key',) || req.ip || 'anonymous';
+    // `keyFn` lets a caller key on something other than the caller's identity.
+    // `/proxy/track` keys on the *store* that the app-proxy signature resolved, so
+    // one storefront's volume cannot exhaust another store's allowance.
+    const key = keyFn ? keyFn(req,) : (req.get('X-API-Key',) || req.ip || 'anonymous');
     const now = Date.now();
 
     // Hard cap on tracked keys: drop the oldest entry before adding one.
@@ -155,8 +166,8 @@ function createRateLimiter({ windowMs = 60000, max = 300, maxKeys = 10000, maxPe
     const timestamps = (hits.get(key,) || []).filter((at,) => at > windowStart,);
 
     // Hard cap per key: trim oldest timestamps to prevent unbounded growth.
-    if (timestamps.length >= maxPerKey) {
-      timestamps.splice(0, timestamps.length - maxPerKey + 1,);
+    if (timestamps.length >= perKeyCap) {
+      timestamps.splice(0, timestamps.length - perKeyCap + 1,);
     }
 
     timestamps.push(now,);
