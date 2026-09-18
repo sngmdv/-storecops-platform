@@ -144,8 +144,18 @@ function createCollection(name,) {
       return count;
     },
 
-    async count() {
-      return records.size;
+    async count(filter,) {
+      if (!filter || Object.keys(filter,).length === 0) return records.size;
+
+      // Match `find`'s equality semantics exactly. The SQLite adapter pushes this
+      // filter into a WHERE clause, so an adapter that ignored it would answer
+      // with the collection total — a silently wrong number, not an error.
+      const filterKeys = Object.entries(filter,);
+      let n = 0;
+      for (const record of records.values()) {
+        if (filterKeys.every(([key, value,],) => record[key] === value,)) n++;
+      }
+      return n;
     },
 
     async clear() {
@@ -262,6 +272,9 @@ const COLLECTIONS = [
   // Return Intelligence & Fraud Shield
   'returns', // return/exchange records with fraud scoring
   'returnAuditLog', // immutable audit trail for return decisions
+
+  // Account recovery
+  'passwordResets', // single-use password reset tokens (stored hashed)
 ];
 
 /**
@@ -270,6 +283,28 @@ const COLLECTIONS = [
 function createStore() {
   const store = {};
   for (const name of COLLECTIONS) store[name] = createCollection(name,);
+
+  /**
+   * Readiness probe (DEP-003). Every adapter answers the same question so the
+   * server layer never has to know which backend is in use.
+   *
+   * Returns a result object instead of throwing, so callers can report the
+   * reason without a try/catch. In-memory storage has no external dependency
+   * that can be unreachable, so it is always ready — which is exactly why the
+   * probe must not be the *only* readiness signal in production: with
+   * `STORAGE=memory` a healthy instance still loses everything on restart, and
+   * `durabilityWarnings()` reports that separately.
+   */
+  store.ping = async () => ({ ok: true, backend: 'memory', });
+
+  /**
+   * Graceful shutdown (OBS-001). The in-memory adapter holds no external
+   * resource, so there is nothing to release — the method exists so that every
+   * adapter answers the same call and the lifecycle does not have to know which
+   * backend is in use. `storageParity` asserts all three implement it.
+   */
+  store.close = async () => ({ ok: true, backend: 'memory', });
+
   return store;
 }
 

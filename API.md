@@ -1,10 +1,16 @@
 # Storecops API Documentation
 
-> **Base URL**: `https://your-app.up.railway.app/api/v1`
-> 
+> **Base URL**: `https://storecops-production.up.railway.app/api/v1`
+>
 > **Authentication**: All authenticated routes require either:
 > - `X-API-Key: <your-api-key>` header, or
 > - `Authorization: Bearer <session-token>` header
+>
+> **Scope**: the platform exposes **334 method/route pairs**. This document covers the primary
+> merchant-facing surface. Every route listed here is verified against the live router by
+> `test/apiDocs.test.js` — if a route in this file stops existing, that test fails.
+>
+> **Webhook routes are the exception**: they are mounted at the root, *not* under `/api/v1`.
 
 ---
 
@@ -175,27 +181,27 @@ POST /api/v1/audit/report/:id/email
 
 All routes below require `X-API-Key` or `Authorization: Bearer <token>`.
 
-### Dashboard
+### Store Overview (Dashboard)
 
-#### Get Dashboard Data
+There is no single `/dashboard` endpoint — the dashboard view is composed from three calls:
+
 ```
-GET /api/v1/dashboard/:store_id
+GET /api/v1/report/:store_id
+GET /api/v1/report/:store_id/maturity
+GET /api/v1/insights/:store_id/products
 ```
 
-**Response**: `200 OK`
+**Response** (`GET /api/v1/report/:store_id`): `200 OK`
 ```json
 {
   "store_id": "store_abc123",
-  "metrics": {
-    "total_customers": 1234,
-    "active_customers": 856,
-    "revenue_mtd": 45678.90,
-    "orders_mtd": 234
-  },
-  "recent_activity": [...],
-  "insights": [...]
+  "roi": { "revenue": 45678.90, "cost": 1200.00, "roi_percentage": 3706 },
+  "maturity_score": 72,
+  "recommendations": []
 }
 ```
+
+See **Reporting** below for the full report schema.
 
 ---
 
@@ -274,7 +280,7 @@ GET /api/v1/competitors/:store_id
 
 #### Add Competitor
 ```
-POST /api/v1/competitors/:store_id
+POST /api/v1/competitors/:store_id/tracked
 ```
 
 **Request Body**:
@@ -338,7 +344,7 @@ POST /api/v1/seo/ai-optimize
 
 #### Analyze Inventory
 ```
-GET /api/v1/inventory/:store_id/analyze
+POST /api/v1/inventory/:store_id/analyze
 ```
 
 **Response**: `200 OK`
@@ -354,7 +360,7 @@ GET /api/v1/inventory/:store_id/analyze
 
 #### Record Purchase
 ```
-POST /api/v1/inventory/:store_id/purchase
+POST /api/v1/purchase-orders/:store_id/generate
 ```
 
 **Request Body**:
@@ -441,7 +447,7 @@ GET /api/v1/attribution/:store_id
 
 #### Full Report (ROI + Maturity)
 ```
-GET /api/v1/reporting/:store_id
+GET /api/v1/report/:store_id
 ```
 
 **Response**: `200 OK`
@@ -517,16 +523,17 @@ Rate limit headers:
 
 ### Shopify Webhooks
 ```
-POST /api/v1/webhooks/shopify/orders/create
-POST /api/v1/webhooks/shopify/orders/updated
-POST /api/v1/webhooks/shopify/customers/data_request
-POST /api/v1/webhooks/shopify/customers/redact
+POST /webhooks/orders/:store_id      # orders/create and orders/updated both land here
+POST /webhooks/shopify/data-request   # GDPR: customers/data_request
+POST /webhooks/shopify/customer-redact # GDPR: customers/redact
+POST /webhooks/shopify/shop-redact     # GDPR: shop/redact
+POST /webhooks/shopify/app-uninstalled
 ```
 
 ### WhatsApp Webhooks
 ```
-GET /api/v1/webhooks/whatsapp (verification)
-POST /api/v1/webhooks/whatsapp (incoming messages)
+GET /webhooks/whatsapp (verification)
+POST /webhooks/whatsapp (incoming messages)
 ```
 
 ---
@@ -535,7 +542,7 @@ POST /api/v1/webhooks/whatsapp (incoming messages)
 
 ### JavaScript/Node.js
 ```javascript
-const response = await fetch('https://your-app.up.railway.app/api/v1/dashboard/store_123', {
+const response = await fetch('https://storecops-production.up.railway.app/api/v1/report/store_123', {
   headers: {
     'X-API-Key': 'your-api-key'
   }
@@ -546,9 +553,9 @@ const data = await response.json();
 ### cURL
 ```bash
 curl -H "X-API-Key: your-api-key" \
-  https://your-app.up.railway.app/api/v1/dashboard/store_123
+  https://storecops-production.up.railway.app/api/v1/report/store_123
 ```
 
 ---
 
-*Last updated: 2026-08-14*
+*Last updated: 2026-09-18*

@@ -1,10 +1,16 @@
 'use strict';
 
 /**
- * Regional Pricing Engine (PPP - Purchasing Power Parity)
+ * Subscription Pricing Engine (PPP — Purchasing Power Parity).
  *
- * Adjusts subscription prices based on the merchant's location
- * using World Bank PPP conversion factors.
+ * Prices **Storecops' own plans** — what the merchant pays *us* — adjusted for the
+ * merchant's location using World Bank PPP conversion factors.
+ *
+ * NOT to be confused with `dynamicPricing.js` (Layer 3), which recommends prices for
+ * the merchant's **products**, i.e. what their shoppers pay. The two are opposite
+ * domains and used to be easy to mix up: this module and its DI property were named
+ * `regionalPricing`, they sat directly next to `dynamicPricing` in the platform
+ * container, and both families lived under the same `/pricing/*` route prefix.
  *
  * Features:
  *   - Automatic region detection via IP geolocation
@@ -81,7 +87,7 @@ const BASE_PRICES = {
   enterprise: { monthly: 1500, annual: 15000, },
 };
 
-function createRegionalPricingService({ store, config, },) {
+function createSubscriptionPricingService({ store, config, },) {
 
   /**
    * Get PPP-adjusted price for a region.
@@ -233,4 +239,4 @@ function createRegionalPricingService({ store, config, },) {
   };
 }
 
-module.exports = { createRegionalPricingService, };
+module.exports = { createSubscriptionPricingService, };

@@ -141,8 +141,8 @@ test('session token auth: an embedded request is scoped to its own tenant', asyn
 
   try {
     // Two tenants; only the first owns SHOP.
-    const mine = await platform.auth.signup({ email: 'mine@example.com', password: 'password123', storeName: 'Mine', },);
-    const theirs = await platform.auth.signup({ email: 'theirs@example.com', password: 'password123', storeName: 'Theirs', },);
+    const mine = await platform.auth.signup({ email: 'mine@example.com', password: 'p2-fixture-passphrase-9f3a2b', storeName: 'Mine', },);
+    const theirs = await platform.auth.signup({ email: 'theirs@example.com', password: 'p2-fixture-passphrase-9f3a2b', storeName: 'Theirs', },);
 
     await platform.store.integrations.insert({
       store_id: mine.store_id,

@@ -119,11 +119,27 @@ function createSessionTokenVerifier({ credentialsFor, warn = () => {}, },) {
     }
 
     const now = Math.floor(Date.now() / 1000,);
-    if (typeof payload.exp === 'number' && payload.exp + CLOCK_SKEW_SEC < now) {
+
+    // `exp` is REQUIRED by Shopify's session-token spec. This used to be
+    // `typeof payload.exp === 'number' && ...`, so a token with no `exp` at
+    // all skipped the expiry check and was accepted indefinitely. Absence must
+    // be a rejection, not a bypass.
+    if (!Number.isFinite(payload.exp,)) {
+      warn('session token: missing or non-numeric exp',);
+      return null;
+    }
+    if (payload.exp + CLOCK_SKEW_SEC < now) {
       warn('session token: expired',);
       return null;
     }
-    if (typeof payload.nbf === 'number' && payload.nbf - CLOCK_SKEW_SEC > now) {
+
+    // `nbf` is optional in JWT, so absence is fine here — but a present,
+    // malformed value is not.
+    if (payload.nbf !== undefined && !Number.isFinite(payload.nbf,)) {
+      warn('session token: non-numeric nbf',);
+      return null;
+    }
+    if (Number.isFinite(payload.nbf,) && payload.nbf - CLOCK_SKEW_SEC > now) {
       warn('session token: not yet valid',);
       return null;
     }
@@ -144,7 +160,7 @@ function createSessionTokenVerifier({ credentialsFor, warn = () => {}, },) {
     return {
       shop_domain: shopDomain,
       user_id: payload.sub || null,
-      expires_at: typeof payload.exp === 'number' ? payload.exp : null,
+      expires_at: payload.exp,
       claims: payload,
     };
   }

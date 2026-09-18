@@ -15,9 +15,13 @@ window.StorecopsAPI = (function () {
 
   /** Session shape: { storeId, apiKey, token?, email? } */
   function saveSession(storeId, apiKey, extra = {}) {
+    // Merge onto the existing session. `enterApp()` calls this with no token
+    // immediately after `enterFromAuth()` has stored one, so replacing the
+    // object silently dropped the bearer token and left the whole session on
+    // the API-key fallback.
     localStorage.setItem(
       "storecops_session",
-      JSON.stringify({ storeId, apiKey, ...extra })
+      JSON.stringify({ ...session(), storeId, apiKey, ...extra })
     );
   }
 

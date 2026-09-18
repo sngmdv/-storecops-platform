@@ -158,7 +158,7 @@ declarative block now declares only topics with real routes.
 ### Billing
 
 - [ ] Plans are consistent across the stack: **starter free / growth $49 / scale $149** (`config.js` and `billingService.js` agree; `premium` is an alias of `scale`).
-- [ ] Regional pricing covers 30+ countries (`regionalPricing.js`) — confirm the INR table matches what you advertise.
+- [ ] Regional pricing covers 30+ countries (`subscriptionPricing.js`) — confirm the INR table matches what you advertise.
 - [ ] Decide on Shopify Billing API vs Stripe/Razorpay. For a public App Store
   listing, **Shopify Billing is expected** — `billingService.js:138` already calls
   `recurring_application_charges.json`, so the code is on the Shopify path. The

@@ -40,7 +40,7 @@ async function signupTenant(base, email = 'connect@shop.com',) {
   const res = await fetch(`${base}/api/v1/auth/signup`, {
     method: 'POST',
     headers: JSON_HEADERS,
-    body: JSON.stringify({ email, password: 'password123', storeName: 'Connect Shop', },),
+    body: JSON.stringify({ email, password: 'p2-fixture-passphrase-9f3a2b', storeName: 'Connect Shop', },),
   },);
   assert.equal(res.status, 201,);
   return res.json();
@@ -114,7 +114,7 @@ test('Integrations: CSV import feeds inventory + events, webhook flows end-to-en
       method: 'POST',
       headers: {
         ...JSON_HEADERS,
-        'X-Shopify-Hmac-Sha256': signShopify(orderHookBody),
+        'X-Shopify-Hmac-Sha256': signShopify(orderHookBody,),
       },
       body: JSON.stringify(orderHookBody,),
     },);

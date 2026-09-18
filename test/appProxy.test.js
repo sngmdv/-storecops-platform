@@ -47,7 +47,7 @@ async function bootProxy() {
 
   const tenant = await platform.auth.signup({
     email: 'proxy@example.com',
-    password: 'password123',
+    password: 'p2-fixture-passphrase-9f3a2b',
     storeName: 'Proxy Co',
   },);
   await platform.store.integrations.insert({

@@ -143,6 +143,26 @@ const WINBACK_SEQUENCE = [
   },
 ];
 
+/**
+ * Index rows by `store_id` for O(1) lookup.
+ *
+ * Why this exists: `find`/`findOne` are O(n) scans of the collection (in SQLite
+ * they are a WHERE query, in memory a full `records.values()` walk). Calling
+ * `findOne` once per iteration of a loop over another collection is therefore
+ * O(n*m) for a result the caller could have read in a single pass.
+ *
+ * First-match-wins, matching `findOne` semantics exactly — `findOne` returns the
+ * first record satisfying the filter, so a later duplicate must not overwrite an
+ * earlier one here or the two would disagree.
+ */
+function indexByStoreId(rows,) {
+  const map = new Map();
+  for (const row of rows) {
+    if (row && row.store_id && !map.has(row.store_id,)) map.set(row.store_id, row,);
+  }
+  return map;
+}
+
 function createRevenueIntelligence({ store, config, },) {
   return {
     RENEWAL_SEQUENCE,
@@ -155,19 +175,38 @@ function createRevenueIntelligence({ store, config, },) {
     /**
      * Calculate the ROI Storecops delivered to a specific store.
      * This is THE number that makes renewal a no-brainer.
+     *
+     * `prefetched` lets a caller that already holds some of these rows hand them
+     * over instead of making us re-read them. `generateSmartReminders` iterates
+     * every subscription and already has both the integration and the
+     * subscription in hand, so without this it re-queried the same two rows per
+     * store per sequence step. Pass only keys you have actually read — each key
+     * is checked with `!== undefined` so an explicit `null` ("I looked, there is
+     * none") is honoured rather than treated as "not supplied".
      */
-    async calculateROI(storeId,) {
-      const integration = await store.integrations.findOne({ store_id: storeId, },);
+    async calculateROI(storeId, prefetched = {},) {
+      const integration = prefetched.integration !== undefined
+        ? prefetched.integration
+        : await store.integrations.findOne({ store_id: storeId, },);
       if (!integration) return { store_id: storeId, total_value_delivered: 0, error: 'Store not found', };
 
-      const subscription = await store.subscriptions.findOne({
-        shopInstallationId: storeId,
-        status: 'active',
-      },);
+      const subscription = prefetched.subscription !== undefined
+        ? prefetched.subscription
+        : await store.subscriptions.findOne({
+          shopInstallationId: storeId,
+          status: 'active',
+        },);
       const planCost = subscription?.price_monthly || 0;
 
+      // Read once, share between the two consumers below. Cart recovery and
+      // automation value both need this collection and both used to fetch it
+      // with an identical filter — one wasted query per ROI calculation.
+      const deliveries = prefetched.deliveries !== undefined
+        ? prefetched.deliveries
+        : await store.deliveries.find({ store_id: storeId, },);
+
       // 1. Cart recovery value
-      const cartRecovery = await this._calcCartRecoveryValue(storeId,);
+      const cartRecovery = await this._calcCartRecoveryValue(storeId, deliveries,);
 
       // 2. Competitor intelligence value
       const competitorValue = await this._calcCompetitorValue(storeId,);
@@ -179,7 +218,7 @@ function createRevenueIntelligence({ store, config, },) {
       const churnPrevention = await this._calcChurnPreventionValue(storeId,);
 
       // 5. Automation delivery value
-      const automationValue = await this._calcAutomationValue(storeId,);
+      const automationValue = await this._calcAutomationValue(storeId, deliveries,);
 
       const totalValue = cartRecovery.value + competitorValue.value + seoValue.value +
         churnPrevention.value + automationValue.value;
@@ -210,8 +249,10 @@ function createRevenueIntelligence({ store, config, },) {
     /**
      * Cart recovery: how much abandoned cart revenue was recovered.
      */
-    async _calcCartRecoveryValue(storeId,) {
-      const deliveries = await store.deliveries.find({ store_id: storeId, },);
+    async _calcCartRecoveryValue(storeId, prefetchedDeliveries,) {
+      // An empty array is truthy, so a caller that legitimately found no
+      // deliveries still short-circuits the re-read. Only null/undefined refetch.
+      const deliveries = prefetchedDeliveries || await store.deliveries.find({ store_id: storeId, },);
       const cartDeliveries = deliveries.filter((d,) =>
         d.action_type === 'cart_recovery' || d.channel === 'email' || d.channel === 'whatsapp',
       );
@@ -302,8 +343,8 @@ function createRevenueIntelligence({ store, config, },) {
     /**
      * Automation delivery value: general automations beyond cart recovery.
      */
-    async _calcAutomationValue(storeId,) {
-      const deliveries = await store.deliveries.find({ store_id: storeId, },);
+    async _calcAutomationValue(storeId, prefetchedDeliveries,) {
+      const deliveries = prefetchedDeliveries || await store.deliveries.find({ store_id: storeId, },);
       const nonCart = deliveries.filter((d,) => d.action_type !== 'cart_recovery',);
 
       // Each automation delivery ≈ $0.50-2 in engagement value
@@ -484,7 +525,16 @@ function createRevenueIntelligence({ store, config, },) {
      */
     async generateSmartReminders() {
       const subscriptions = await store.subscriptions.find({ status: 'active', },);
+      const churned = await store.subscriptions.find({ status: 'cancelled', },);
       const reminders = [];
+
+      // One read for the whole run. This used to be an `integrations.findOne`
+      // inside the sequence-step loop, and `calculateROI` then immediately
+      // re-read the same row — two reads of the same document per store.
+      // (The RENEWAL_SEQUENCE windows are disjoint, so at most one step matches
+      // any given store today; the loop-level placement was still the wrong
+      // shape and would multiply if a window ever overlapped.)
+      const integrationsByStore = indexByStoreId(await store.integrations.find({},),);
 
       for (const sub of subscriptions) {
         if (!sub.current_period_end) continue;
@@ -493,11 +543,26 @@ function createRevenueIntelligence({ store, config, },) {
           (new Date(sub.current_period_end,).getTime() - Date.now()) / 86400000,
         );
 
+        const integration = integrationsByStore.get(sub.shopInstallationId,) || null;
+
+        // The ROI payload is identical for every step of the same store and
+        // depends only on data that cannot change inside this loop. Today's
+        // disjoint windows mean this caches at most one call; it exists so that
+        // adding an overlapping window later cannot silently multiply the
+        // per-store query cost. It stays lazy on purpose: hoisting it above the
+        // step loop would *add* work for every store with nothing due today.
+        let roiCache;
+        const roiFor = () => {
+          if (roiCache === undefined) {
+            roiCache = this.calculateROI(sub.shopInstallationId, { integration, subscription: sub, },);
+          }
+          return roiCache;
+        };
+
         // Find which sequence steps should fire
         for (const step of RENEWAL_SEQUENCE) {
           if (daysUntilRenewal <= step.days_before && daysUntilRenewal > step.days_before - 2) {
-            const integration = await store.integrations.findOne({ store_id: sub.shopInstallationId, },);
-            const roi = await this.calculateROI(sub.shopInstallationId,);
+            const roi = await roiFor();
 
             reminders.push({
               ...step,
@@ -523,15 +588,15 @@ function createRevenueIntelligence({ store, config, },) {
       }
 
       // Also generate win-back reminders for recently churned stores
-      const churned = await store.subscriptions.find({ status: 'cancelled', },);
       for (const sub of churned) {
         const daysSinceChurn = sub.cancelled_at
           ? Math.ceil((Date.now() - new Date(sub.cancelled_at,).getTime()) / 86400000,)
           : 999;
 
+        const integration = integrationsByStore.get(sub.shopInstallationId,) || null;
+
         for (const step of WINBACK_SEQUENCE) {
           if (daysSinceChurn >= step.days_after_churn && daysSinceChurn < step.days_after_churn + 2) {
-            const integration = await store.integrations.findOne({ store_id: sub.shopInstallationId, },);
             reminders.push({
               ...step,
               store_id: sub.shopInstallationId,
@@ -601,10 +666,19 @@ function createRevenueIntelligence({ store, config, },) {
 
       // Expansion revenue: current paid stores that could upgrade
       const expansionOpps = [];
+      // `integrations` was already read in full above, so re-querying it once per
+      // subscription was pure waste — N extra scans for rows already in memory.
+      const integrationsByStore = indexByStoreId(integrations,);
       for (const sub of subscriptions.filter((s,) => s.status === 'active',)) {
-        const integration = await store.integrations.findOne({ store_id: sub.shopInstallationId, },);
+        const integration = integrationsByStore.get(sub.shopInstallationId,) || null;
         if (!integration) continue;
 
+        // Still one read per store: the window is "this calendar month" and the
+        // store facade only supports equality filters, so there is no way to push
+        // the date predicate down. Cost is bounded by the number of *active
+        // subscriptions*, not by the number of events in the platform. A single
+        // global pass would trade N round-trips for holding the whole events
+        // collection in memory at once — worse on a 139MB database.
         const events = await store.events.find({ store_id: sub.shopInstallationId, },);
         const thisMonth = events.filter((e,) => {
           const d = new Date(e.createdAt || e.timestamp,);

@@ -12,7 +12,6 @@ const crypto = require('crypto',);
 const { createApiRouter, } = require('./apiRoutes',);
 const {
   createRateLimiter,
-  webhookVerifier,
   shopifyWebhookVerifier,
   deleteCustomerData,
 } = require('./security',);
@@ -26,6 +25,8 @@ const {
 } = require('./securityHardening',);
 const { createCorsMiddleware, } = require('./cors',);
 const { createAppProxy, } = require('./appProxy',);
+const { purgeStoreData, } = require('./privacy',);
+const { createHealthProbe, } = require('./healthProbe',);
 
 /**
  * Resolve a Shopify shop domain to the tenant that owns it.
@@ -79,7 +80,23 @@ async function resolveShopifySession(platform, token,) {
  */
 function apiKeyMiddleware(platform,) {
   return async (req, res, next,) => {
-    const provided = req.get('X-API-Key',) || req.query?.api_key;
+    // Credentials normally travel in a header. The query-string path exists
+    // only for the two callers that physically cannot set one:
+    //   - EventSource (`/live/*`) has no header API.
+    //   - `navigator.sendBeacon` (`/track`) has no header API either, and it is
+    //     the path the storefront snippet uses to report a purchase on unload.
+    // Everywhere else the key must be a header, so it cannot end up in access
+    // logs, proxy logs, browser history or a `Referer`.
+    const routePath = String(req.path || '',);
+    const queryCredentialsAllowed =
+      routePath.startsWith('/live/',) ||
+      routePath === '/track' ||
+      routePath.startsWith('/track/batch',);
+
+    let provided = req.get('X-API-Key',);
+    if (!provided && queryCredentialsAllowed) {
+      provided = req.query?.api_key;
+    }
     if (provided) {
       if (provided === platform.config.apiKey) {
         // Master key acts as a platform-wide operator identity.
@@ -102,6 +119,16 @@ function apiKeyMiddleware(platform,) {
       if (ingest) {
         req.authUser = ingest;
         req.ingestOnly = true; // restricted to event ingestion
+        return next();
+      }
+    }
+
+    // SSE also accepts the session token in the query — preferred over the API
+    // key because it is short-lived and revocable.
+    if (queryCredentialsAllowed && req.query?.token) {
+      const session = await platform.auth.verify(String(req.query.token,),);
+      if (session) {
+        req.authUser = session.user;
         return next();
       }
     }
@@ -207,6 +234,69 @@ function createAuthRouter(platform,) {
     const bearer = (req.get('Authorization',) || '').replace(/^Bearer\s+/i, '',);
     await platform.auth.logout(bearer,);
     res.json({ ok: true, },);
+  },);
+
+  /**
+   * Begin a password reset.
+   *
+   * Always answers 200 with the same message. A different status or body for a
+   * known vs unknown address would make this unauthenticated endpoint an
+   * account enumeration oracle. The raw token is used to build the email link
+   * and never appears in the response.
+   */
+  router.post('/forgot-password', async (req, res,) => {
+    const generic = {
+      ok: true,
+      message: 'If an account exists for that address, a reset link has been sent.',
+    };
+    try {
+      const result = await platform.auth.requestPasswordReset({ email: req.body?.email, },);
+
+      if (result.token && result.user) {
+        const resetUrl = `${platform.config.publicUrl}/app?reset_token=${encodeURIComponent(result.token,)}`;
+        try {
+          const html = platform.emailTemplates.passwordReset({
+            name: result.user.name,
+            resetUrl,
+            expiresIn: '30 minutes',
+          },);
+          await platform.emailService.send({
+            to: result.user.email,
+            subject: 'Reset your Storecops password',
+            html,
+          },);
+        } catch (error) {
+          // A delivery failure must not change the response shape, or the
+          // difference between "sent" and "could not send" leaks existence.
+          console.error(`[AUTH] password reset email failed: ${error.message}`,);
+        }
+      }
+
+      return res.json(generic,);
+    } catch (error) {
+      console.error(`[AUTH] forgot-password failed: ${error.message}`,);
+      return res.json(generic,);
+    }
+  },);
+
+  /**
+   * Redeem a reset token and set a new password.
+   *
+   * Single use, and every existing session for the account is revoked on
+   * success — a reset is the recovery path for a compromised account.
+   */
+  router.post('/reset-password', async (req, res,) => {
+    try {
+      const result = await platform.auth.resetPassword({
+        token: req.body?.token,
+        password: req.body?.password,
+      },);
+      return res.json(result,);
+    } catch (error) {
+      // 400 for a bad/expired token or a weak password. The message is
+      // deliberately identical for missing, used and expired tokens.
+      return res.status(400,).json({ error: error.message, },);
+    }
   },);
 
   router.get('/me', async (req, res,) => {
@@ -470,6 +560,11 @@ function createAuditRouter(platform,) {
 function createApp(platform,) {
   const app = express();
 
+  // Must be set before anything reads req.ip. The rate limiters key on it, so
+  // without this every request behind a reverse proxy shares one bucket and a
+  // per-IP limit silently becomes a global one.
+  app.set('trust proxy', platform.config.trustProxy,);
+
   // ── CORS ──────────────────────────────────────────────────────────
   // Must run first: Admin UI Extensions and storefront widgets call
   // this API from Shopify's origin, and preflight requests carry no
@@ -523,10 +618,28 @@ function createApp(platform,) {
     },),
   );
 
-  // Health is public; everything under /api/v1 needs the key.
+  const healthProbe = createHealthProbe({ store: platform.store, config: platform.config, },);
+
+  // Liveness. Deliberately trivial and dependency-free: it answers "is this
+  // process up", which is the only thing a restart policy should act on. Do not
+  // add a storage check here — a slow or briefly unavailable database would then
+  // trigger a restart loop instead of a traffic drain. That is what /ready is for.
   app.get('/health', (req, res,) =>
-    res.json({ status: 'ok', service: 'storecops-growth-platform', time: new Date().toISOString(), },),
+    res.json({
+      status: 'ok',
+      service: 'storecops-growth-platform',
+      build: healthProbe.build,
+      time: new Date().toISOString(),
+    },),
   );
+
+  // Readiness (DEP-003). This is what `railway.json` healthcheckPath points at,
+  // so a deploy is only promoted once storage actually answers. 503 (not 500)
+  // because the instance is not broken — it is not yet able to take traffic.
+  app.get('/ready', async (req, res,) => {
+    const result = await healthProbe.check();
+    res.status(result.ready ? 200 : 503,).json({ ...result, build: healthProbe.build, },);
+  },);
 
   // Detailed health status (for monitoring dashboards)
   app.get('/health/status', async (req, res,) => {
@@ -543,8 +656,18 @@ function createApp(platform,) {
     max: platform.config.security?.rateLimitMax,
   },);
 
+  // Credential endpoints get a much tighter, IP-keyed ceiling than the data
+  // API. This is the coarse half of brute-force protection — it caps total
+  // attempts from one source. The fine half is per-account and lives in the
+  // auth service (src/server/loginThrottle.js), because a distributed attack
+  // never exceeds a per-IP limit.
+  const authRateLimiter = createRateLimiter({
+    windowMs: platform.config.security?.authRateLimitWindowMs,
+    max: platform.config.security?.authRateLimitMax,
+  },);
+
   // Public auth endpoints (signup/login), then the keyed API.
-  app.use('/api/v1/auth', rateLimiter, createAuthRouter(platform,),);
+  app.use('/api/v1/auth', authRateLimiter, createAuthRouter(platform,),);
   // Free store audit: public by design (pre-signup value).
   app.use('/api/v1/audit', rateLimiter, createAuditRouter(platform,),);
 
@@ -601,7 +724,9 @@ function createApp(platform,) {
   );
 
   // Inbound order webhooks from connected stores (Shopify etc.).
-  // Public, HMAC-verified when WEBHOOK_SECRET is configured.
+  // Public endpoint, but HMAC-verified against the Shopify CLIENT SECRET
+  // (X-Shopify-Hmac-Sha256, base64). Fails closed with 401 when that secret
+  // is unset — it is not keyed by WEBHOOK_SECRET.
   app.post(
     '/webhooks/orders/:store_id',
     shopifyWebhookVerifier(platform.config.security?.shopifyClientSecret,),
@@ -743,12 +868,16 @@ function createApp(platform,) {
   // Task ob6: Admin console page.
   app.get('/admin', (req, res,) => res.sendFile(path.join(publicDir, 'admin.html',),),);
 
-  // Task ob1: Serve the hosted tracker.js (Script Tag target).
-  // Already covered by express.static(publicDir) — tracker.js lives in public/.
+  // Task ob1: Serve the hosted tracker.js.
+  // Two delivery paths: the theme app extension loads it through the app proxy
+  // (`/proxy/tracker.js`), and a merchant may paste it manually. The Script Tag
+  // API path was removed — it is deprecated and its scopes are rejected at
+  // review. Already covered by express.static(publicDir) — tracker.js lives in public/.
 
   // Task ob7: Shopify compliance webhook receivers.
   // These are called by Shopify when a merchant uninstalls the app or
-  // requests data redaction. HMAC-verified by webhookVerifier.
+  // requests data redaction. HMAC-verified by shopifyWebhookVerifier (the
+  // X-Shopify-Hmac-Sha256 header, base64, keyed by the app client secret).
   const shopifyComplianceVerifier = shopifyWebhookVerifier(platform.config.security?.shopifyClientSecret,);
 
   // Task 7: Idempotency — track processed webhook signatures to prevent
@@ -906,19 +1035,15 @@ function createApp(platform,) {
             const conn = await platform.store.integrations.findOne({ type: 'shopify', },);
             if (conn && conn.config?.shopDomain === shopDomain) {
               const storeId = conn.store_id;
-              // Delete all collections for this store (non-blocking)
-              const collections = [
-                'events', 'customers', 'deliveries', 'actions', 'campaigns',
-                'competitorSnapshots', 'externalSignals', 'sentimentSamples',
-                'seoAudits', 'seoOptimizations', 'reports', 'attributions',
-                'inventory', 'consentRecords', 'onboardingStates', 'activityLogs',
-              ];
-              for (const col of collections) {
-                try { 
-                  // Use deleteMany with a small batch to avoid long locks
-                  await platform.store[col].deleteMany({ store_id: storeId, },); 
-                } catch (_) {}
-              }
+              // Purge every store-scoped collection. The list is derived from
+              // the schema in src/server/privacy.js rather than hardcoded here —
+              // the previous inline list named 16 of the 52 collections, so the
+              // remaining 36 survived a shop/redact indefinitely.
+              const purge = await purgeStoreData(platform.store, storeId,);
+              console.log(
+                `[WEBHOOK] Purged ${purge.total_deleted} rows across ` +
+                  `${Object.keys(purge.deleted,).length} collections for store ${storeId}`,
+              );
               // Mark integration as uninstalled
               await platform.store.integrations.update(conn._id, {
                 status: 'uninstalled',

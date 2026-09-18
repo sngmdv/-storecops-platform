@@ -15,6 +15,7 @@
  */
 
 const crypto = require('crypto',);
+const { resolveShopifyApiVersion, } = require('../../config/shopifyApiVersion.js',);
 
 /**
  * Plan definitions. Each plan lists the features/entitlements it
@@ -135,10 +136,19 @@ function createBillingService({ store, config, },) {
     /**
      * Task 41: Create a Shopify Recurring Application Charge.
      *
-     * Calls POST /admin/api/2025-01/recurring_application_charges.json
+     * Calls POST /admin/api/{version}/recurring_application_charges.json
      * to create a charge, then returns the confirmation_url the merchant
      * must approve. After approval, Shopify fires the
      * app_subscriptions/update webhook.
+     *
+     * **BLOCKING for App Store submission.** This is the REST Admin API, which
+     * Shopify made a legacy API on 2024-10-01 and closed to *new public apps*
+     * from 2025-04-01: "all new public apps must be built exclusively with the
+     * GraphQL Admin API". The REST equivalent of this call is the
+     * `appSubscriptionCreate` mutation. This method therefore has to be
+     * rewritten (or the billing path moved off Shopify Billing entirely — see
+     * the open billing decision) before the app can be listed. It still works
+     * against the API today, which is exactly why it must not be forgotten.
      *
      * @param {string} shopDomain  e.g. "my-store.myshopify.com"
      * @param {string} accessToken  Shopify store access token
@@ -151,7 +161,11 @@ function createBillingService({ store, config, },) {
       if (plan.priceMonthly === 0) throw new Error('Cannot create a charge for a free plan.',);
 
       const domain = String(shopDomain || '',).replace(/^https?:\/\//, '',).replace(/\/$/, '',);
-      const base = `https://${domain.endsWith('.myshopify.com',) ? domain : domain + '.myshopify.com'}/admin/api/${config.shopifyApiVersion || '2025-01'}`;
+      // Derived, never a local literal: this previously fell back to `2025-01`,
+      // a version Shopify does not serve, so any caller passing a config without
+      // `shopifyApiVersion` got a silently broken billing path.
+      const apiVersion = resolveShopifyApiVersion(config.shopifyApiVersion,);
+      const base = `https://${domain.endsWith('.myshopify.com',) ? domain : domain + '.myshopify.com'}/admin/api/${apiVersion}`;
       const currency = opts.currency || 'USD';
       const price = this.getRegionalPrice(planId, currency,).monthly;
 

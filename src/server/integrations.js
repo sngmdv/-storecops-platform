@@ -16,10 +16,12 @@
  */
 
 const crypto = require('crypto',);
+const { resolveShopifyApiVersion, } = require('../config/shopifyApiVersion.js',);
 
-// Shopify Admin API version. 2025-01 is unsupported; use a supported version.
-// Override via SHOPIFY_API_VERSION (kept in sync with config.shopifyApiVersion).
-const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || '2026-07';
+// Shopify Admin API version — derived, never copied. A second literal here is
+// the drift that put an unsupported version into the billing path; see
+// src/config/shopifyApiVersion.js.
+const SHOPIFY_API_VERSION = resolveShopifyApiVersion();
 
 // ── Token encryption for stored credentials ──────────────────────────
 // Uses AES-256-GCM so tokens can be stored in the database for re-sync.

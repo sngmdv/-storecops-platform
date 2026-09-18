@@ -219,7 +219,7 @@ test('security regression: secrets never appear in signup response', async () =>
 
   const result = await auth.signup({
     email: 'secret@test.com',
-    password: 'securepass1',
+    password: 'p2-fixture-passphrase-9f3a2b',
     name: 'Secret Tester',
     storeName: 'Secret Store',
   },);

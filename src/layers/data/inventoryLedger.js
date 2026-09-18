@@ -9,9 +9,22 @@
  * Oversells are clamped at zero and flagged so the owner notices.
  */
 
+const { createKeyedMutex, } = require('../../storage/keyedMutex',);
+
 const SALE_EVENTS = new Set(['purchase', 'checkout_completed',],);
 
 function createInventoryLedger({ store, },) {
+  /**
+   * Every mutation below is a read-modify-write on one `(store_id, product_id)`
+   * row, with an `await` in the middle. Without serialization two concurrent
+   * sales of the same product both read the same `stock`, both write the same
+   * decremented value, and one sale is lost — or both insert and the product
+   * ends up with duplicate ledger rows. The mutex makes the pair atomic with
+   * respect to other operations on that key. See src/storage/keyedMutex.js.
+   */
+  const mutex = createKeyedMutex();
+  const keyFor = (store_id, product_id,) => `${store_id}::${String(product_id,)}`;
+
   async function findEntry(store_id, product_id,) {
     return store.inventory.findOne({ store_id, product_id: String(product_id,), },);
   }
@@ -38,24 +51,26 @@ function createInventoryLedger({ store, },) {
         ...(handle ? { handle, } : {}),
       };
 
-      const existing = await findEntry(store_id, product_id,);
-      if (existing) {
-        return store.inventory.update(existing._id, {
+      return mutex.run(keyFor(store_id, product_id,), async () => {
+        const existing = await findEntry(store_id, product_id,);
+        if (existing) {
+          return store.inventory.update(existing._id, {
+            stock,
+            lead_time_days: lead_time_days ?? existing.lead_time_days,
+            ...descriptive,
+            updated_at: new Date().toISOString(),
+          },);
+        }
+
+        return store.inventory.insert({
+          store_id,
+          product_id: String(product_id,),
           stock,
-          lead_time_days: lead_time_days ?? existing.lead_time_days,
+          lead_time_days: lead_time_days ?? 7,
           ...descriptive,
+          oversold: 0,
           updated_at: new Date().toISOString(),
         },);
-      }
-
-      return store.inventory.insert({
-        store_id,
-        product_id: String(product_id,),
-        stock,
-        lead_time_days: lead_time_days ?? 7,
-        ...descriptive,
-        oversold: 0,
-        updated_at: new Date().toISOString(),
       },);
     },
 
@@ -70,13 +85,15 @@ function createInventoryLedger({ store, },) {
 
     /** Add units to an existing product's stock. */
     async restock({ store_id, product_id, quantity, },) {
-      const entry = await findEntry(store_id, product_id,);
-      if (!entry) {
-        throw new Error(`No stock entry for product ${product_id}. Use setStock first.`,);
-      }
-      return store.inventory.update(entry._id, {
-        stock: entry.stock + (Number(quantity,) || 0),
-        updated_at: new Date().toISOString(),
+      return mutex.run(keyFor(store_id, product_id,), async () => {
+        const entry = await findEntry(store_id, product_id,);
+        if (!entry) {
+          throw new Error(`No stock entry for product ${product_id}. Use setStock first.`,);
+        }
+        return store.inventory.update(entry._id, {
+          stock: entry.stock + (Number(quantity,) || 0),
+          updated_at: new Date().toISOString(),
+        },);
       },);
     },
 
@@ -91,24 +108,29 @@ function createInventoryLedger({ store, },) {
       const items = event.items || [];
       for (const item of items) {
         const quantity = Number(item.quantity,) || 1;
-        let entry = await findEntry(event.store_id, item.product_id,);
 
-        if (!entry) {
-          entry = await store.inventory.insert({
-            store_id: event.store_id,
-            product_id: String(item.product_id,),
-            stock: 0,
-            lead_time_days: 7,
-            oversold: 0,
+        // Serialized per product: the find-or-insert and the decrement must
+        // not interleave with another sale of the same product.
+        await mutex.run(keyFor(event.store_id, item.product_id,), async () => {
+          let entry = await findEntry(event.store_id, item.product_id,);
+
+          if (!entry) {
+            entry = await store.inventory.insert({
+              store_id: event.store_id,
+              product_id: String(item.product_id,),
+              stock: 0,
+              lead_time_days: 7,
+              oversold: 0,
+              updated_at: new Date().toISOString(),
+            },);
+          }
+
+          const newStock = entry.stock - quantity;
+          await store.inventory.update(entry._id, {
+            stock: Math.max(0, newStock,),
+            oversold: entry.oversold + (newStock < 0 ? -newStock : 0),
             updated_at: new Date().toISOString(),
           },);
-        }
-
-        const newStock = entry.stock - quantity;
-        await store.inventory.update(entry._id, {
-          stock: Math.max(0, newStock,),
-          oversold: entry.oversold + (newStock < 0 ? -newStock : 0),
-          updated_at: new Date().toISOString(),
         },);
       }
     },

@@ -45,6 +45,28 @@
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
     }[ch]));
   }
+  /**
+   * Escape a value used as an inline event-handler argument — the string that
+   * sits inside a quoted onclick attribute and is then read as a JS literal.
+   *
+   * `esc()` is the wrong helper here. It emits `&#39;` for a quote, the HTML
+   * parser decodes that back to `'`, and the JS parser then sees an unescaped
+   * quote and breaks out of the string literal — the payload becomes code.
+   *
+   * This escapes for BOTH decode passes: backslash, quote and line terminators
+   * for the JS pass; entities for the HTML pass. It deliberately never emits
+   * `&#39;`, because that would hand the JS parser a bare quote again.
+   */
+  function jsAttr(value) {
+    return String(value ?? "")
+      .replace(/\\/g, "\\\\")
+      .replace(/'/g, "\\'")
+      .replace(/\r/g, "\\r")
+      .replace(/\n/g, "\\n")
+      .replace(/[&<>"]/g, (ch) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;",
+      }[ch]));
+  }
 
   function money(n) {
     return n === null || n === undefined ? "—" : "$" + Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
@@ -65,7 +87,7 @@
     }
     // Standard toast
     const el = $("#toast");
-    el.innerHTML = message;
+    el.innerHTML = sanitizeToastMarkup(message);
     el.classList.add("show");
     clearTimeout(el._t);
     el._t = setTimeout(() => el.classList.remove("show"), ms);
@@ -151,6 +173,34 @@
 
   function icon(name, cls = "") {
     return `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+  }
+  /**
+   * Sanitize markup destined for the toast container.
+   *
+   * `toast()` builds its message as `${icon(name)} text`, so every interpolated
+   * value shares a string with trusted markup — including a Shopify customer's
+   * name in the live purchase toast, which a third party controls.
+   *
+   * Everything is escaped first. Trusted icon markup is then *re-derived*: an
+   * escaped <svg> is restored only if its inner content matches one of our own
+   * ICONS entries exactly, and the replacement is rebuilt from that entry rather
+   * than copied — so an event handler on the wrapper cannot survive.
+   */
+  let TOAST_ICON_BY_BODY = null;
+  function sanitizeToastMarkup(message) {
+    if (!TOAST_ICON_BY_BODY) {
+      TOAST_ICON_BY_BODY = new Map(Object.entries(ICONS).map(([name, body]) => [esc(body), name]));
+    }
+    // Control characters are stripped before substitution, so a crafted
+    // placeholder cannot smuggle markup past the escaping step.
+    const stripped = String(message ?? "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
+    return esc(stripped).replace(
+      /&lt;svg\b([\s\S]*?)&gt;([\s\S]*?)&lt;\/svg&gt;/g,
+      (match, _attrs, inner,) => {
+        const name = TOAST_ICON_BY_BODY.get(inner,);
+        return name ? icon(name,) : match;
+      },
+    );
   }
 
   function chartDefaults() {
@@ -3279,10 +3329,10 @@
         <div class="b-card" style="animation-delay:0.25s">
           <h3 style="margin-bottom:16px">${icon("zap")} Quick Actions</h3>
           <div style="display:flex;flex-direction:column;gap:10px">
-            <button class="btn btn-primary btn-block" onclick="triggerRecovery('${s}')">
+            <button class="btn btn-primary btn-block" onclick="triggerRecovery('${jsAttr(s)}')">
               ${icon("send")} Send recovery emails
             </button>
-            <button class="btn btn-ghost-sm btn-block" onclick="enableBrowseRecovery('${s}')">
+            <button class="btn btn-ghost-sm btn-block" onclick="enableBrowseRecovery('${jsAttr(s)}')">
               ${icon("bell")} Activate browse abandonment
             </button>
             <a href="#/campaigns" class="btn btn-ghost-sm btn-block" style="text-decoration:none">
@@ -3381,7 +3431,7 @@
         <div class="b-card" style="animation-delay:0.2s">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
             <h3 style="margin:0">${icon("users")} At-Risk Customers</h3>
-            <button class="btn btn-sm btn-primary" onclick="generateWinbackCampaign('${s}', ${atRiskCustomers.length})">Send win-back to all</button>
+            <button class="btn btn-sm btn-primary" onclick="generateWinbackCampaign('${jsAttr(s)}', ${atRiskCustomers.length})">Send win-back to all</button>
           </div>
           <div class="scroll-y" style="max-height:400px">
             ${atRiskCustomers.length === 0 ? '<div class="empty">No high-risk customers detected.</div>' :
@@ -3442,10 +3492,14 @@
   // ── page: browse abandonment ──────────────────────────────────────
   async function renderBrowse(container = view) {
     const s = api.store();
-    const [report, insights] = await Promise.all([
+    const [report, insights, rules] = await Promise.all([
       api.get(`/report/${s}`).catch(() => ({})),
       api.get(`/insights/${s}/products`).catch(() => null),
+      api.get(`/rules/${s}`).catch(() => []),
     ]);
+    // `/rules/:store_id` returns either an array or `{ rules: [...] }` depending
+    // on the layer that served it — normalise once, as renderAutomation does.
+    const ruleList = Array.isArray(rules) ? rules : rules.rules || [];
     const funnel = report.funnel || {};
     const browseAbandon = (funnel.product_views || 0) - (funnel.carts || 0);
     const recoveryRate = funnel.product_views > 0 ? (((funnel.carts || 0) / funnel.product_views) * 100).toFixed(1) : 0;
@@ -3508,7 +3562,7 @@
             <div class="b-icon-circle amber">${icon("zap")}</div>
             <button class="b-report-btn">${icon("download")} Report</button>
           </div>
-          <div class="b-stat-value">${rules.length || 0}</div>
+          <div class="b-stat-value">${ruleList.length || 0}</div>
           <div class="b-stat-label">Active Triggers</div>
           <div class="b-stat-trend up">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>
@@ -3537,9 +3591,9 @@
         <div class="b-card" style="animation-delay:0.3s">
           <h3 style="margin-bottom:16px">${icon("zap")} Quick Actions</h3>
           <div style="display:flex;flex-direction:column;gap:10px">
-            <button class="btn btn-primary btn-block" onclick="enableBrowseRecovery('${s}')">${icon("send")} Send browse recovery</button>
-            <button class="btn btn-ghost-sm btn-block" onclick="enableBrowseRecovery('${s}')">${icon("bell")} Enable exit-intent popup</button>
-            <button class="btn btn-ghost-sm btn-block" onclick="triggerRecovery('${s}')">${icon("users")} Enable social proof</button>
+            <button class="btn btn-primary btn-block" onclick="enableBrowseRecovery('${jsAttr(s)}')">${icon("send")} Send browse recovery</button>
+            <button class="btn btn-ghost-sm btn-block" onclick="enableBrowseRecovery('${jsAttr(s)}')">${icon("bell")} Enable exit-intent popup</button>
+            <button class="btn btn-ghost-sm btn-block" onclick="triggerRecovery('${jsAttr(s)}')">${icon("users")} Enable social proof</button>
           </div>
         </div>
       </div>`;
@@ -3572,7 +3626,7 @@
                 <span class="b-badge ${p.active ? 'green' : 'gray'}">${p.active ? 'Active' : 'Inactive'}</span>
               </div>
               <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${p.desc}</div>
-              <button class="btn btn-sm ${p.active ? 'btn-ghost-sm' : 'btn-primary'}" onclick="toast('${p.name} ${p.active ? 'deactivated' : 'activated'}')">${p.active ? 'Deactivate' : 'Activate'}</button>
+              <button class="btn btn-sm ${p.active ? 'btn-ghost-sm' : 'btn-primary'}" onclick="toast('${jsAttr(p.name)} ${p.active ? 'deactivated' : 'activated'}')">${p.active ? 'Deactivate' : 'Activate'}</button>
             </div>
           `).join("")}
         </div>
@@ -3679,8 +3733,8 @@
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
           <h3 style="margin:0">${icon("alert-triangle")} At-Risk Customers</h3>
           <div style="display:flex;gap:8px">
-            <button class="btn btn-sm btn-primary" onclick="generateWinbackCampaign('${s}', ${customers.length})">Send win-back to all</button>
-            <button class="btn btn-sm btn-ghost-sm" onclick="exportCustomerList('${s}')">Export list</button>
+            <button class="btn btn-sm btn-primary" onclick="generateWinbackCampaign('${jsAttr(s)}', ${customers.length})">Send win-back to all</button>
+            <button class="btn btn-sm btn-ghost-sm" onclick="exportCustomerList('${jsAttr(s)}')">Export list</button>
           </div>
         </div>
         <div style="overflow-x:auto">
@@ -3704,7 +3758,7 @@
                     <td>${money(c.ltv)}</td>
                     <td>${c.days_since_purchase || "?"}d ago</td>
                     <td>${c.total_orders || 0}</td>
-                    <td><button class="btn btn-sm btn-primary" onclick="toast('Win-back sent to ${esc(c.name || c.customer_id)}')">Send win-back</button></td>
+                    <td><button class="btn btn-sm btn-primary" onclick="toast('Win-back sent to ${jsAttr(c.name || c.customer_id)}')">Send win-back</button></td>
                   </tr>
                 `).join("")}
             </tbody>
@@ -3737,7 +3791,7 @@
                   <div style="font-weight:600">${esc(a.customer_name || a.customer_id || "Customer")}</div>
                   <div style="font-size:12px;color:var(--muted)">Purchased from ${esc(a.competitor || "competitor")} · LTV: ${money(a.ltv)}</div>
                 </div>
-                <button class="btn btn-sm btn-primary" onclick="toast('Win-back campaign triggered for ${esc(a.customer_name || a.customer_id)}')">Send win-back</button>
+                <button class="btn btn-sm btn-primary" onclick="toast('Win-back campaign triggered for ${jsAttr(a.customer_name || a.customer_id)}')">Send win-back</button>
               </div>
             `).join("")}
         </div>
@@ -3796,7 +3850,7 @@
                   <div style="font-weight:600">${esc(c.name || "Competitor")}</div>
                   <div style="font-size:12px;color:var(--muted)">${esc(c.url || "No URL")}</div>
                 </div>
-                <button class="btn btn-sm btn-primary" onclick="scrapeCompetitor('${c.id}')">${icon("refresh-cw")} Scrape</button>
+                <button class="btn btn-sm btn-primary" onclick="scrapeCompetitor('${jsAttr(c.id)}')">${icon("refresh-cw")} Scrape</button>
               </div>
             `).join("")}
         </div>
@@ -3841,7 +3895,7 @@
                     <td><span class="b-badge amber">${p.velocity || "slow"}</span></td>
                     <td>${p.stock || 0}</td>
                     <td><span style="color:var(--amber);font-weight:600">-${Math.min(30, 10 + (p.stock || 0))}%</span></td>
-                    <td><button class="btn btn-sm btn-primary" onclick="toast('Markdown applied to ${esc(p.name || p.product_id)}')">Apply markdown</button></td>
+                    <td><button class="btn btn-sm btn-primary" onclick="toast('Markdown applied to ${jsAttr(p.name || p.product_id)}')">Apply markdown</button></td>
                   </tr>
                 `).join("")}
             </tbody>
@@ -3943,7 +3997,7 @@
                   <span style="font-weight:700;font-size:18px">${p.price}/mo</span>
                 </div>
                 <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${p.features.join(" · ")}</div>
-                <button class="btn btn-sm ${p.name.toLowerCase() === (entitlement.plan || "starter") ? 'btn-ghost-sm' : 'btn-primary'}" onclick="upgradePlan('${p.name}')">${p.name.toLowerCase() === (entitlement.plan || "starter") ? 'Current plan' : 'Upgrade'}</button>
+                <button class="btn btn-sm ${p.name.toLowerCase() === (entitlement.plan || "starter") ? 'btn-ghost-sm' : 'btn-primary'}" onclick="upgradePlan('${jsAttr(p.name)}')">${p.name.toLowerCase() === (entitlement.plan || "starter") ? 'Current plan' : 'Upgrade'}</button>
               </div>
             `).join("")}
           </div>
@@ -4275,7 +4329,7 @@
                 <div style="font-size:12px;color:var(--muted)">${esc(f.desc)}</div>
                 <div style="margin-top:4px"><span class="b-badge gray">${f.category}</span></div>
               </div>
-              <button class="btn btn-sm ${f.active ? 'btn-primary' : 'btn-ghost-sm'}" onclick="toggleFeature('${f.id}', ${!f.active})">${f.active ? 'Active' : 'Activate'}</button>
+              <button class="btn btn-sm ${f.active ? 'btn-primary' : 'btn-ghost-sm'}" onclick="toggleFeature('${jsAttr(f.id)}', ${!f.active})">${f.active ? 'Active' : 'Activate'}</button>
             </div>
           `).join("")}
         </div>
@@ -4362,8 +4416,8 @@
                   </div>
                   <div style="display:flex;align-items:center;gap:8px">
                     <span class="b-badge" style="background:rgba(${r.risk_score > 75 ? '239,68,68' : '245,158,11'},0.15);color:${r.risk_score > 75 ? 'var(--red)' : 'var(--amber)'}">Risk: ${r.risk_score}%</span>
-                    <button class="b-filter-btn" onclick="approveReturn('${r._id}')" style="padding:4px 10px;font-size:11px;cursor:pointer;border:1px solid var(--green);background:rgba(8,144,108,0.1);color:var(--green);border-radius:var(--radius-sm)">Approve</button>
-                    <button class="b-filter-btn" onclick="denyReturn('${r._id}')" style="padding:4px 10px;font-size:11px;cursor:pointer;border:1px solid var(--red);background:rgba(239,68,68,0.1);color:var(--red);border-radius:var(--radius-sm)">Deny</button>
+                    <button class="b-filter-btn" onclick="approveReturn('${jsAttr(r._id)}')" style="padding:4px 10px;font-size:11px;cursor:pointer;border:1px solid var(--green);background:rgba(8,144,108,0.1);color:var(--green);border-radius:var(--radius-sm)">Approve</button>
+                    <button class="b-filter-btn" onclick="denyReturn('${jsAttr(r._id)}')" style="padding:4px 10px;font-size:11px;cursor:pointer;border:1px solid var(--red);background:rgba(239,68,68,0.1);color:var(--red);border-radius:var(--radius-sm)">Deny</button>
                   </div>
                 </div>
               </div>
@@ -4439,8 +4493,8 @@
                   <td><span class="b-badge ${sCls}">${r.status || 'pending'}</span></td>
                   <td>
                     ${r.status === 'pending' || r.status === 'under_review' ? `
-                      <button class="b-filter-btn" onclick="approveReturn('${r._id}')" style="padding:2px 8px;font-size:11px;cursor:pointer;border:1px solid var(--green);background:rgba(8,144,108,0.1);color:var(--green);border-radius:var(--radius-sm)">Approve</button>
-                      <button class="b-filter-btn" onclick="denyReturn('${r._id}')" style="padding:2px 8px;font-size:11px;cursor:pointer;border:1px solid var(--red);background:rgba(239,68,68,0.1);color:var(--red);border-radius:var(--radius-sm);margin-left:4px">Deny</button>
+                      <button class="b-filter-btn" onclick="approveReturn('${jsAttr(r._id)}')" style="padding:2px 8px;font-size:11px;cursor:pointer;border:1px solid var(--green);background:rgba(8,144,108,0.1);color:var(--green);border-radius:var(--radius-sm)">Approve</button>
+                      <button class="b-filter-btn" onclick="denyReturn('${jsAttr(r._id)}')" style="padding:2px 8px;font-size:11px;cursor:pointer;border:1px solid var(--red);background:rgba(239,68,68,0.1);color:var(--red);border-radius:var(--radius-sm);margin-left:4px">Deny</button>
                     ` : '—'}
                   </td>
                 </tr>`;

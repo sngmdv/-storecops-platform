@@ -26,12 +26,53 @@ const { COLLECTIONS, } = require('./store',);
  * Fields that are commonly filtered on and benefit from extracted
  * columns + indexes.  Stored as top-level TEXT columns alongside
  * the JSON blob for fast WHERE clause matching.
+ *
+ * NOTE: every field listed here gets a column on ALL 53 tables. Keep it to
+ * fields that are genuinely cross-cutting. A field that only matters for one
+ * collection belongs in EXTRA_INDEXED_FIELDS_BY_COLLECTION below.
  */
 const INDEXED_FIELDS = ['store_id', 'status', 'customer_id', 'type', 'action',];
 
+/**
+ * Fields that need a column + index only in a specific collection.
+ *
+ * `sessions.token` is the important one. `auth.verify` runs
+ * `store.sessions.findOne({ token })` on EVERY authenticated request, and
+ * `token` was not an indexed field — so `buildWhereClause` returned null, the
+ * query fell through to `allStmt.all().map(parse)`, and each request loaded and
+ * JSON-parsed the ENTIRE sessions table before filtering in JavaScript. That
+ * cost grows linearly with the number of logged-in sessions, i.e. it degrades
+ * exactly as the product succeeds.
+ *
+ * It is scoped per-collection rather than added to INDEXED_FIELDS because no
+ * other collection has a `token` column, and the common list is applied to all
+ * 53 tables.
+ */
+const EXTRA_INDEXED_FIELDS_BY_COLLECTION = {
+  sessions: ['token',],
+};
+
+/** Every indexed field for one collection: the common set plus any extras. */
+function indexedFieldsFor(name,) {
+  return [...INDEXED_FIELDS, ...(EXTRA_INDEXED_FIELDS_BY_COLLECTION[name] || []),];
+}
+
+/**
+ * Indexes created with a name that predates the loop below. `createdAt` maps to
+ * the `_created` suffix, so these are created explicitly to avoid leaving the
+ * old index in place and adding a duplicate under a new name.
+ */
+const EXPLICIT_INDEXES = [
+  ['store_id', 'store_id',],
+  ['status', 'status',],
+  ['customer_id', 'customer_id',],
+  ['type', 'type',],
+  ['createdAt', 'created',],
+];
+
 /** Every column the current code expects on a collection table. */
-function expectedColumns() {
-  return ['_id', 'createdAt', 'updatedAt', ...INDEXED_FIELDS, 'data',];
+function expectedColumns(name,) {
+  return ['_id', 'createdAt', 'updatedAt', ...indexedFieldsFor(name,), 'data',];
 }
 
 /**
@@ -43,11 +84,12 @@ function expectedColumns() {
  * columns preserves existing rows.
  */
 function migrateTable(db, name,) {
+  const fields = indexedFieldsFor(name,);
   const present = new Set(
     db.prepare(`PRAGMA table_info("${name}")`,).all().map((col,) => col.name,),
   );
 
-  for (const column of expectedColumns()) {
+  for (const column of expectedColumns(name,)) {
     if (present.has(column,)) continue;
     db.exec(`ALTER TABLE "${name}" ADD COLUMN "${column}" TEXT`,);
   }
@@ -56,7 +98,7 @@ function migrateTable(db, name,) {
   // pre-existing data stays queryable. JSON1 ships with node:sqlite, but
   // a missing extension must never take the platform down on boot.
   try {
-    const assignments = INDEXED_FIELDS.map(
+    const assignments = fields.map(
       (f,) => `"${f}" = json_extract(data, '$.${f}')`,
     ).join(', ',);
     db.exec(
@@ -75,7 +117,7 @@ function assertSchema(db, name,) {
   const present = new Set(
     db.prepare(`PRAGMA table_info("${name}")`,).all().map((col,) => col.name,),
   );
-  const missing = expectedColumns().filter((c,) => !present.has(c,),);
+  const missing = expectedColumns(name,).filter((c,) => !present.has(c,),);
   if (missing.length > 0) {
     throw new Error(
       `SQLite collection "${name}" is missing column(s): ${missing.join(', ',)}. ` +
@@ -85,12 +127,14 @@ function assertSchema(db, name,) {
 }
 
 function createSqliteCollection(db, name,) {
+  const fields = indexedFieldsFor(name,);
+
   db.exec(
     `CREATE TABLE IF NOT EXISTS "${name}" (
        _id TEXT PRIMARY KEY,
        createdAt TEXT,
        updatedAt TEXT,
-       ${INDEXED_FIELDS.map((f,) => `"${f}" TEXT`,).join(', ',)},
+       ${fields.map((f,) => `"${f}" TEXT`,).join(', ',)},
        data TEXT NOT NULL
      )`,
   );
@@ -99,30 +143,40 @@ function createSqliteCollection(db, name,) {
   assertSchema(db, name,);
 
   /* ── Indexes ─────────────────────────────────────────────────── */
-  db.exec(`CREATE INDEX IF NOT EXISTS "idx_${name}_store_id" ON "${name}" ("store_id")`,);
-  db.exec(`CREATE INDEX IF NOT EXISTS "idx_${name}_status" ON "${name}" ("status")`,);
-  db.exec(`CREATE INDEX IF NOT EXISTS "idx_${name}_customer_id" ON "${name}" ("customer_id")`,);
-  db.exec(`CREATE INDEX IF NOT EXISTS "idx_${name}_type" ON "${name}" ("type")`,);
-  db.exec(`CREATE INDEX IF NOT EXISTS "idx_${name}_created" ON "${name}" ("createdAt")`,);
+  // Explicit first, to preserve the historical index names (`createdAt` is
+  // indexed as `_created`). Then any field not covered above.
+  const covered = new Set();
+  for (const [field, suffix,] of EXPLICIT_INDEXES) {
+    if (!fields.includes(field,)) continue;
+    db.exec(`CREATE INDEX IF NOT EXISTS "idx_${name}_${suffix}" ON "${name}" ("${field}")`,);
+    covered.add(field,);
+  }
+  // `action` was in INDEXED_FIELDS — so it got a column and a WHERE-clause
+  // pushdown — but no index was ever created for it, which meant SQLite still
+  // scanned the whole table and filtered. Looping over the field list closes
+  // that gap and prevents the next one.
+  for (const field of fields) {
+    if (covered.has(field,)) continue;
+    db.exec(`CREATE INDEX IF NOT EXISTS "idx_${name}_${field}" ON "${name}" ("${field}")`,);
+  }
 
   /* ── Prepared statements ─────────────────────────────────────── */
   const insertStmt = db.prepare(
-    `INSERT INTO "${name}" (_id, createdAt, updatedAt, ${INDEXED_FIELDS.join(', ',)}, data) VALUES (?, ?, ?, ${INDEXED_FIELDS.map(() => '?',).join(', ',)}, ?)`,
+    `INSERT INTO "${name}" (_id, createdAt, updatedAt, ${fields.join(', ',)}, data) VALUES (?, ?, ?, ${fields.map(() => '?',).join(', ',)}, ?)`,
   );
   const byIdStmt = db.prepare(`SELECT data FROM "${name}" WHERE _id = ?`,);
   const allStmt = db.prepare(`SELECT data FROM "${name}"`,);
   const updateStmt = db.prepare(
-    `UPDATE "${name}" SET data = ?, updatedAt = ?, ${INDEXED_FIELDS.map((f,) => `"${f}" = ?`,).join(', ',)} WHERE _id = ?`,
+    `UPDATE "${name}" SET data = ?, updatedAt = ?, ${fields.map((f,) => `"${f}" = ?`,).join(', ',)} WHERE _id = ?`,
   );
   const countStmt = db.prepare(`SELECT COUNT(*) AS n FROM "${name}"`,);
   const deleteStmt = db.prepare(`DELETE FROM "${name}" WHERE _id = ?`,);
-  const deleteManyStmt = db.prepare(`DELETE FROM "${name}" WHERE ${INDEXED_FIELDS[0]} = ?`,);
   const deleteAllStmt = db.prepare(`DELETE FROM "${name}"`,);
 
   const parse = (row,) => (row ? JSON.parse(row.data,) : null);
 
   function extractIndexed(doc,) {
-    return INDEXED_FIELDS.map((f,) => doc[f] || null,);
+    return fields.map((f,) => doc[f] || null,);
   }
 
   /**
@@ -134,7 +188,7 @@ function createSqliteCollection(db, name,) {
     const entries = Object.entries(filter,);
     if (!entries.length) return null;
 
-    const indexed = entries.filter(([k,],) => INDEXED_FIELDS.includes(k,),);
+    const indexed = entries.filter(([k,],) => fields.includes(k,),);
     if (indexed.length === 0) return null;
 
     const conditions = indexed.map(([k,],) => `"${k}" = ?`,);
@@ -184,7 +238,7 @@ function createSqliteCollection(db, name,) {
       }
 
       const where = buildWhereClause(filter,);
-      const nonIndexed = entries.filter(([k,],) => !INDEXED_FIELDS.includes(k,),);
+      const nonIndexed = entries.filter(([k,],) => !fields.includes(k,),);
 
       let rows;
       if (where) {
@@ -285,6 +339,25 @@ function createSqliteCollection(db, name,) {
 }
 
 /**
+ * How long SQLite waits for a competing writer before giving up with
+ * SQLITE_BUSY. Overridable with `SQLITE_BUSY_TIMEOUT_MS`.
+ *
+ * Without this, any lock contention fails the statement instantly — and nothing
+ * in the write path retries, so the merchant sees a 500. The realistic
+ * contenders are the scheduled backup (`scripts/backup.js` runs `VACUUM INTO`
+ * against this same file) and any second app instance. WAL already stops
+ * readers from blocking a writer, so this is about writer-vs-writer only.
+ *
+ * THE TRADE-OFF IS SPECIFIC TO `node:sqlite`: `DatabaseSync` is synchronous, so
+ * the waiting happens ON the event loop. A generous timeout therefore converts
+ * a fast, localised failure into a stall of the entire server — every request,
+ * not just the one that hit the lock. 5s is SQLite's conventional default and
+ * long enough to ride out a backup, but it is a ceiling, not a target. The real
+ * answer to sustained write contention is a single writer, not a longer wait.
+ */
+const DEFAULT_BUSY_TIMEOUT_MS = 5000;
+
+/**
  * Build the full store facade over a SQLite file. The parent
  * directory is created on demand so a fresh checkout just works.
  */
@@ -296,11 +369,51 @@ function createSqliteStore(dbPath = 'data/storecops.db',) {
   db.exec('PRAGMA cache_size = -64000',); /* 64 MB page cache */
   db.exec('PRAGMA temp_store = MEMORY',);
 
+  const busyTimeoutMs = Number(process.env.SQLITE_BUSY_TIMEOUT_MS,) || DEFAULT_BUSY_TIMEOUT_MS;
+  db.exec(`PRAGMA busy_timeout = ${busyTimeoutMs}`,);
+
   const store = { db, path: dbPath, };
   for (const name of COLLECTIONS) store[name] = createSqliteCollection(db, name,);
 
-  store.close = () => db.close();
+  /**
+   * Graceful shutdown (OBS-001). Closing the handle is what lets the process
+   * exit and flushes the write-ahead log; an abrupt exit leaves that work to the
+   * next open. Never throws — a handle that is already closed must not block
+   * shutdown.
+   */
+  store.close = async () => {
+    try {
+      db.close();
+      return { ok: true, backend: 'sqlite', path: dbPath, };
+    } catch (err) {
+      return { ok: false, backend: 'sqlite', path: dbPath, error: err.message, };
+    }
+  };
+
+  /**
+   * Readiness probe (DEP-003). Runs a real query rather than reporting a cached
+   * flag: a closed handle, a corrupt file, or a database that has become
+   * read-only all throw on use while any "is open" boolean would still say yes.
+   * Never throws — the caller wants a verdict it can act on, and the failure
+   * reason is more useful in the response than in an exception.
+   */
+  store.ping = async () => {
+    try {
+      const row = db.prepare('SELECT 1 AS ok',).get();
+      return { ok: row?.ok === 1, backend: 'sqlite', path: dbPath, };
+    } catch (err) {
+      return { ok: false, backend: 'sqlite', path: dbPath, error: err.message, };
+    }
+  };
+
   return store;
 }
 
-module.exports = { createSqliteStore, };
+module.exports = {
+  createSqliteStore,
+  // Exported so the guard test can assert that every indexed field actually
+  // has a matching index — the invariant that silently broke for `action`.
+  INDEXED_FIELDS,
+  EXTRA_INDEXED_FIELDS_BY_COLLECTION,
+  indexedFieldsFor,
+};

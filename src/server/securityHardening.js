@@ -16,20 +16,66 @@
 const crypto = require('crypto',);
 
 /**
- * Detect if request is from Shopify embedded app (iframe).
+ * Routes rendered inside the Shopify Admin iframe.
+ *
+ * Used to pick `frame-ancestors`. This is derived from the request *path*,
+ * which the server owns — not from the query string.
+ */
+const EMBEDDED_ROUTES = ['/app', '/admin',];
+
+/** True when the path is one of the routes served inside the Shopify admin. */
+function isEmbeddedRoute(pathname,) {
+  const path = String(pathname || '/',);
+  return EMBEDDED_ROUTES.some((route,) => path === route || path.startsWith(`${route}/`,),);
+}
+
+/**
+ * Detect if a request *looks* like it came from the Shopify embedded app.
+ *
+ * This is a hint for diagnostics only, never a trust decision. Every input it
+ * reads — `?shop=`, `?embedded=1`, `?host=`, `x-shopify-host` — is supplied by
+ * the caller, so it must not be used to select a security policy. It used to
+ * do exactly that, which made the CSP attacker-selectable: appending
+ * `?shop=anything` to any URL returned the weaker embedded policy.
  */
 function isEmbeddedApp(req,) {
-  // Check for Shopify embedded app indicators
   const host = req.query?.host || req.headers?.['x-shopify-host'];
-  const isEmbedded = req.query?.embedded === '1' || 
-                     req.query?.shop !== undefined ||
-                     (host && host.endsWith('.myshopify.com',));
-  return isEmbedded;
+  // Boolean() matters: the `host && ...` term evaluated to `undefined` when no
+  // host was present, so this predicate returned `undefined` instead of `false`.
+  return Boolean(
+    req.query?.embedded === '1' ||
+    req.query?.shop !== undefined ||
+    (host && host.endsWith('.myshopify.com',)),
+  );
 }
 
 /**
  * Security headers middleware.
- * Automatically detects Shopify embedded mode and adjusts CSP/X-Frame-Options.
+ *
+ * The CSP differs between the embedded app and the rest of the site in exactly
+ * one directive — `frame-ancestors` — and that choice is made from the request
+ * path, which the caller cannot forge. Everything else is identical, so there is
+ * no weaker policy to talk a caller into.
+ *
+ * Previously the whole policy branched on `isEmbeddedApp(req)` and the embedded
+ * branch shipped `unsafe-eval`, extra script origins, and a permissive
+ * `frame-ancestors`. Because the branch came from the query string, any caller
+ * could select the weaker policy with `?shop=anything`.
+ *
+ * Also removed, because nothing needs them:
+ *   - `unsafe-eval` — no `eval()` or `new Function()` anywhere in public/.
+ *   - `https://cdn.jsdelivr.net` — Chart.js is served from the local
+ *     `/vendor/chart.umd.min.js`, not a CDN.
+ *   - `https://*.myshopify.com` from `script-src` — we never load
+ *     merchant-hosted scripts.
+ *
+ * KNOWN REMAINING WEAKNESSES (tracked separately, not fixed here):
+ *   1. `unsafe-inline` is still required because public/*.html contain inline
+ *      `<script>` blocks. Removing it means moving those into .js files.
+ *   2. `frame-ancestors` for the embedded routes still allows any
+ *      `https://*.myshopify.com` origin, and any Shopify merchant can create
+ *      one. Pinning it to the *authenticated* shop needs the session-token
+ *      plumbing in the HTML routes.
  */
 function securityHeaders() {
   return (req, res, next,) => {
@@ -50,48 +96,35 @@ function securityHeaders() {
     // Control permissions
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()',);
 
-    // Detect embedded app mode
-    const embedded = isEmbeddedApp(req,);
+    const embeddedRoute = isEmbeddedRoute(req.path,);
 
-    if (embedded) {
-      // ─── EMBEDDED APP MODE (Shopify Admin) ────────────────────────────
-      // Allow Shopify domains for iframe embedding
-      res.setHeader(
-        'Content-Security-Policy',
-        [
-          'default-src \'self\'',
-          'script-src \'self\' \'unsafe-inline\' \'unsafe-eval\' https://cdn.jsdelivr.net https://unpkg.com https://*.myshopify.com https://admin.shopify.com',
-          'style-src \'self\' \'unsafe-inline\' https://fonts.googleapis.com https://*.myshopify.com',
-          'img-src \'self\' data: https: https://*.myshopify.com',
-          'font-src \'self\' data: https://fonts.gstatic.com https://*.myshopify.com',
-          'connect-src \'self\' https: wss: https://*.myshopify.com https://admin.shopify.com',
-          'frame-ancestors https://*.myshopify.com https://admin.shopify.com',
-          'form-action \'self\' https://*.myshopify.com',
-          'base-uri \'self\'',
-        ].join('; ',),
-      );
+    res.setHeader(
+      'Content-Security-Policy',
+      [
+        'default-src \'self\'',
+        // 'unsafe-inline' is required by the inline <script> blocks in
+        // public/*.html. https://unpkg.com serves the Lucide icon bundle loaded
+        // by app.html and index.html — it should be vendored locally, the way
+        // Chart.js already is.
+        'script-src \'self\' \'unsafe-inline\' https://unpkg.com',
+        'style-src \'self\' \'unsafe-inline\' https://fonts.googleapis.com',
+        'img-src \'self\' data: https:',
+        'font-src \'self\' data: https://fonts.gstatic.com',
+        'connect-src \'self\' https: wss:',
+        embeddedRoute
+          // Required by `embedded = true`. Shopify serves the app from
+          // admin.shopify.com and, on older admins, from {shop}.myshopify.com.
+          ? 'frame-ancestors https://admin.shopify.com https://*.myshopify.com'
+          : 'frame-ancestors \'none\'',
+        'form-action \'self\'',
+        'base-uri \'self\'',
+      ].join('; ',),
+    );
 
-      // Do NOT set X-Frame-Options for embedded apps (CSP frame-ancestors takes precedence)
-    } else {
-      // ─── STANDALONE MODE ──────────────────────────────────────────────
-      // Prevent iframe embedding (clickjacking protection)
+    if (!embeddedRoute) {
+      // Kept for browsers that ignore frame-ancestors. Not set on the embedded
+      // routes, where it would block the Shopify admin iframe.
       res.setHeader('X-Frame-Options', 'DENY',);
-
-      // Content Security Policy for standalone mode
-      res.setHeader(
-        'Content-Security-Policy',
-        [
-          'default-src \'self\'',
-          'script-src \'self\' \'unsafe-inline\' https://cdn.jsdelivr.net https://unpkg.com',
-          'style-src \'self\' \'unsafe-inline\' https://fonts.googleapis.com',
-          'img-src \'self\' data: https:',
-          'font-src \'self\' data: https://fonts.gstatic.com',
-          'connect-src \'self\' https:',
-          'frame-ancestors \'none\'',
-          'form-action \'self\'',
-          'base-uri \'self\'',
-        ].join('; ',),
-      );
     }
 
     // Remove server identification
@@ -102,18 +135,38 @@ function securityHeaders() {
 }
 
 /**
+ * Replace a request field with a sanitized copy.
+ *
+ * Direct assignment works for `body` and `params` — both are ordinary own
+ * properties written by the body parser and the router. `query` is NOT:
+ * Express 5 defines it as a getter on the request prototype, so `req.query = x`
+ * throws "Cannot set property query of #<IncomingMessage> which has only a
+ * getter" and every request 500s. Defining an own property shadows the prototype
+ * accessor and behaves identically on Express 4, so this form is correct on both
+ * and the middleware does not have to know which major version is installed.
+ */
+function replaceRequestField(req, key, value,) {
+  Object.defineProperty(req, key, {
+    value,
+    writable: true,
+    configurable: true,
+    enumerable: true,
+  },);
+}
+
+/**
  * Input sanitization middleware
  */
 function sanitizeInput() {
   return (req, res, next,) => {
     if (req.body) {
-      req.body = sanitizeObject(req.body,);
+      replaceRequestField(req, 'body', sanitizeObject(req.body,),);
     }
     if (req.query) {
-      req.query = sanitizeObject(req.query,);
+      replaceRequestField(req, 'query', sanitizeObject(req.query,),);
     }
     if (req.params) {
-      req.params = sanitizeObject(req.params,);
+      replaceRequestField(req, 'params', sanitizeObject(req.params,),);
     }
     next();
   };
@@ -287,7 +340,18 @@ function preventPathTraversal() {
 
     const checkPath = (path,) => pathPatterns.some((pattern,) => pattern.test(path,),);
 
-    if (checkPath(req.path,) || checkPath(decodeURIComponent(req.path,),)) {
+    // `decodeURIComponent` throws URIError on a malformed percent-escape — a
+    // bare request for "/%" used to surface as an unhandled 500. A path we
+    // cannot even decode is a bad request, not a server fault.
+    let decoded;
+    try {
+      decoded = decodeURIComponent(req.path,);
+    } catch {
+      console.log('[SECURITY] Undecodable path:', req.path,);
+      return res.status(400,).json({ error: 'Invalid path.', },);
+    }
+
+    if (checkPath(req.path,) || checkPath(decoded,)) {
       console.log('[SECURITY] Path traversal attempt:', req.path,);
       return res.status(400,).json({ error: 'Invalid path.', },);
     }

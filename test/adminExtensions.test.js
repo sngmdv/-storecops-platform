@@ -25,7 +25,7 @@ async function boot() {
 async function makeTenant(platform, email, storeName,) {
   const created = await platform.auth.signup({
     email,
-    password: 'password123',
+    password: 'p2-fixture-passphrase-9f3a2b',
     storeName,
   },);
   return {

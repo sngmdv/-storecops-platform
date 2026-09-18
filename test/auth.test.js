@@ -47,7 +47,7 @@ test('Auth service: signup provisions tenant, login verifies, secrets never leak
   );
   await assert.rejects(
     () => auth.signup({ email: 'new@shop.com', password: 'short', },),
-    /at least 8/,
+    /at least 12/,
   );
   await assert.rejects(
     () => auth.signup({ email: 'not-an-email', password: 'longenough1', },),
@@ -90,7 +90,7 @@ test('Auth HTTP: signup/login/logout endpoints behave', async () => {
     const created = await fetch(`${base}/api/v1/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', },
-      body: JSON.stringify({ email: 'http@test.com', password: 'password123', storeName: 'HTTP Store', },),
+      body: JSON.stringify({ email: 'http@test.com', password: 'p2-fixture-passphrase-9f3a2b', storeName: 'HTTP Store', },),
     },);
     assert.equal(created.status, 201,);
     const body = await created.json();
@@ -101,7 +101,7 @@ test('Auth HTTP: signup/login/logout endpoints behave', async () => {
     const dup = await fetch(`${base}/api/v1/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', },
-      body: JSON.stringify({ email: 'http@test.com', password: 'password123', },),
+      body: JSON.stringify({ email: 'http@test.com', password: 'p2-fixture-passphrase-9f3a2b', },),
     },);
     assert.equal(dup.status, 400,);
 

@@ -11,6 +11,7 @@
  */
 
 const crypto = require('crypto',);
+const { collectCustomerData, redactCustomerData, } = require('./privacy',);
 
 const ROLES = ['admin', 'manager', 'viewer',];
 
@@ -147,20 +148,55 @@ function createRateLimiter({ windowMs = 60000, max = 300, maxKeys = 10000, maxPe
     res.set('X-RateLimit-Remaining', String(Math.max(0, max - timestamps.length,),),);
 
     if (timestamps.length > max) {
+      // Tell the client when it may retry. Without this a well-behaved client
+      // has to guess, and a naive one hammers the endpoint — which is the
+      // behaviour the limit exists to stop.
+      const oldest = timestamps[0];
+      const retryAfterMs = Math.max(0, oldest + windowMs - now,);
+      res.set('Retry-After', String(Math.ceil(retryAfterMs / 1000,),),);
       return res.status(429,).json({ error: 'Rate limit exceeded. Slow down and retry.', },);
     }
     return next();
   };
 }
 
-/** 10.4 — HMAC-SHA256 webhook signature verification. */
 function signBody(secret, rawBody,) {
   return crypto.createHmac('sha256', secret,).update(rawBody,).digest('hex',);
 }
 
-function webhookVerifier(secret, headerName = 'x-storecops-signature',) {
+/**
+ * 10.4 — Generic HMAC-SHA256 webhook signature verification.
+ *
+ * Fails CLOSED. If no secret is configured we cannot verify anything, so the
+ * request is refused instead of being let through. The previous behaviour was
+ * `if (!secret) return next()`, which meant an unset `WEBHOOK_SECRET` silently
+ * disabled signature verification — anyone could then POST fabricated events.
+ *
+ * NOT CURRENTLY ATTACHED TO A ROUTE. It used to guard `/track`, which was a
+ * design error: `/track` is called by the storefront snippet from a browser
+ * (via `navigator.sendBeacon`, on page unload), and a browser has no access to
+ * `WEBHOOK_SECRET`, so it cannot sign. `/track` is authenticated by the
+ * write-only ingest key instead. Because the old implementation failed open
+ * when the secret was unset, the test suite never noticed the route was
+ * unusable — but with the secret configured in production, every tracking
+ * request would have been rejected.
+ *
+ * Kept exported for genuinely server-to-server webhooks. Shopify's inbound
+ * webhooks use `shopifyWebhookVerifier` below (different header, base64 digest,
+ * keyed by the app client secret).
+ *
+ * `allowUnsigned` exists only so test fixtures can exercise a route without
+ * signing every request. Anything other than the test environment must present
+ * a valid signature.
+ */
+function webhookVerifier(secret, headerName = 'x-storecops-signature', { allowUnsigned = false, } = {},) {
   return (req, res, next,) => {
-    if (!secret) return next(); // verification disabled
+    if (!secret) {
+      if (allowUnsigned) return next();
+      return res.status(503,).json({
+        error: 'Webhook verification is not configured. Refusing an unverifiable request.',
+      },);
+    }
 
     const provided = req.get(headerName,);
     const rawBody = req.rawBody || JSON.stringify(req.body || {},);
@@ -205,71 +241,29 @@ function shopifyWebhookVerifier(secret,) {
   };
 }
 
-/** 10.3 — GDPR/CCPA: export everything we hold about a customer. */
+/**
+ * 10.3 — GDPR/CCPA: export everything we hold about a customer.
+ *
+ * Delegates to the privacy module so the export and the redaction can never
+ * disagree about where customer data lives. The previous version read three
+ * collections by hand; anything the platform later stored elsewhere was
+ * silently omitted from the data-request response.
+ */
 async function exportCustomerData({ store, }, store_id, customer_id,) {
-  const [profile, events, deliveries,] = await Promise.all([
-    store.customers.findOne({ store_id, identity: customer_id, },),
-    store.events.find(
-      (e,) => e.store_id === store_id && (e.customer_id === customer_id || e.email === customer_id),
-    ),
-    store.deliveries.find((d,) => d.store_id === store_id && d.customer_id === customer_id,),
-  ],);
-
-  return {
-    store_id,
-    customer_id,
-    exported_at: new Date().toISOString(),
-    profile: profile || null,
-    events,
-    deliveries,
-    total_records: events.length + deliveries.length + (profile ? 1 : 0),
-  };
+  return collectCustomerData(store, store_id, customer_id,);
 }
 
-/** 10.3 — right to be forgotten: anonymize profile + scrub identifiers. */
+/**
+ * 10.3 — right to be forgotten: anonymize the profile and scrub the identifier
+ * from every store-scoped collection.
+ *
+ * Delegates to the privacy module. The previous version scrubbed four
+ * collections (`customers`, `events`, `deliveries`, `actions`), so a deleted
+ * customer's email survived in `leads`, `attributions`, `invoices`, `returns`,
+ * `supportTickets` and others — a `customers/redact` compliance failure.
+ */
 async function deleteCustomerData({ store, }, store_id, customer_id,) {
-  const profile = await store.customers.findOne({ store_id, identity: customer_id, },);
-
-  const events = await store.events.find(
-    (e,) => e.store_id === store_id && (e.customer_id === customer_id || e.email === customer_id),
-  );
-  for (const event of events) {
-    await store.events.update(event._id, { customer_id: 'anon', email: null, },);
-  }
-
-  // Deliveries and queued actions also carry the identifier — scrub them too.
-  const deliveries = await store.deliveries.find(
-    (d,) => d.store_id === store_id && d.customer_id === customer_id,
-  );
-  for (const delivery of deliveries) {
-    await store.deliveries.update(delivery._id, { customer_id: 'anon', },);
-  }
-  const actions = await store.actions.find(
-    (a,) => a.store_id === store_id && a.customer_id === customer_id,
-  );
-  for (const action of actions) {
-    await store.actions.update(action._id, { customer_id: 'anon', },);
-  }
-
-  let anonymized = null;
-  if (profile) {
-    anonymized = await store.customers.update(profile._id, {
-      identity: `anon:${profile._id}`,
-      email: null,
-      viewed_products: [],
-      channels_responded: [],
-      gdpr_deleted: true,
-    },);
-  }
-
-  return {
-    store_id,
-    customer_id,
-    anonymized: !!anonymized,
-    events_scrubbed: events.length,
-    deliveries_scrubbed: deliveries.length,
-    actions_scrubbed: actions.length,
-  };
+  return redactCustomerData(store, store_id, customer_id,);
 }
 
 module.exports = {

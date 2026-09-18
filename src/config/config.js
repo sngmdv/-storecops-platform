@@ -18,6 +18,7 @@
  */
 
 const { buildReadinessReport, formatReport, } = require('./readiness.js',);
+const { resolveShopifyApiVersion, } = require('./shopifyApiVersion.js',);
 
 // ─── Environment Validation ─────────────────────────────────────────────────
 
@@ -58,15 +59,43 @@ const config = {
   port: Number(process.env.PORT || 4000,),
   env: process.env.NODE_ENV || 'development',
   apiKey: process.env.API_KEY || 'dev-key',
+
+  /**
+   * Express `trust proxy`.
+   *
+   * Behind a reverse proxy (Railway, Heroku, Fly, nginx) `req.ip` is the
+   * *proxy's* address unless this is configured. That matters because the rate
+   * limiter keys on `req.ip`: without it every visitor shares one bucket, so a
+   * per-IP limit becomes a global limit and a handful of requests locks out
+   * every merchant at once.
+   *
+   * It is not simply `true`, because trusting the header when the app is also
+   * directly reachable lets a client spoof `X-Forwarded-For` and evade the
+   * limit. The value has to describe the real topology, so it is configurable:
+   * a hop count, `true`, `false`, or an Express preset such as `loopback`.
+   * Defaults to a single trusted hop in production, where these hosts all
+   * terminate TLS at exactly one proxy.
+   */
+  trustProxy: (() => {
+    const raw = process.env.TRUST_PROXY;
+    if (raw === undefined || raw === '') {
+      return process.env.NODE_ENV === 'production' ? 1 : false;
+    }
+    if (raw === 'true') return true;
+    if (raw === 'false') return false;
+    const asNumber = Number(raw,);
+    return Number.isFinite(asNumber,) ? asNumber : raw;
+  })(),
   defaultStoreId: process.env.DEFAULT_STORE_ID || 'store_demo',
 
   // Public-facing URL of the platform (used for OAuth callbacks, billing
   // return URLs, Script Tag src, webhook addresses).
   publicUrl: process.env.PUBLIC_URL || '',
 
-  // Shopify API version (Task 63: keep current). 2025-01 is unsupported by
-  // Shopify — use a supported version (2026-07). Override via SHOPIFY_API_VERSION.
-  shopifyApiVersion: process.env.SHOPIFY_API_VERSION || '2026-07',
+  // Shopify API version. Derived from src/config/shopifyApiVersion.js so there is
+  // exactly one copy of the default — see that module for why. Override via
+  // SHOPIFY_API_VERSION.
+  shopifyApiVersion: resolveShopifyApiVersion(),
 
   // Persistence: "sqlite" survives restarts; tests default to memory.
   storage:
@@ -102,11 +131,34 @@ const config = {
     keyPrefix: process.env.REDIS_KEY_PREFIX || 'storecops:',
   },
 
-  // Data retention policy (Task 14)
-  retention: {
+  // Data-retention policy (Task 14) — enforced by src/server/dataRetention.js.
+  //
+  // Named `dataRetention`, NOT `retention`: `retentionEngine` is the unrelated
+  // customer-retention product feature (churn/health scoring). The two names
+  // colliding is part of why this policy sat here with zero consumers.
+  //
+  // Enforcement is opt-in via RETENTION_ENABLED=true. Deleting production data
+  // on a timer is not something that should begin because a config object
+  // happened to exist — the previous state was a documented policy that nothing
+  // read, which is worse than either enforcing it or removing it.
+  dataRetention: {
+    enabled: String(process.env.RETENTION_ENABLED || '',).toLowerCase() === 'true',
+    intervalHours: Number(process.env.RETENTION_INTERVAL_HOURS || 24,),
+    // Rows older than these windows are deleted. A value of 0 (or anything
+    // non-positive) disables that collection's policy — it never means
+    // "delete everything".
     events: Number(process.env.RETENTION_EVENTS_DAYS || 365,),
     deliveries: Number(process.env.RETENTION_DELIVERIES_DAYS || 180,),
+    // HELD BY DEFAULT. privacy.html §4 says consent records are "retained
+    // indefinitely (or until revocation + 2 years for audit)" — note the
+    // parenthetical is measured from *revocation*, which a timestamp sweep
+    // cannot evaluate, and the config value below would have deleted them 2
+    // years after creation regardless. A consent record is also the evidence
+    // that we had permission to contact someone, so deleting it destroys the
+    // proof we would need in a dispute. Enforce only with
+    // RETENTION_ENFORCE_CONSENT=true.
     consentRecords: Number(process.env.RETENTION_CONSENT_DAYS || 730,),
+    enforceConsent: String(process.env.RETENTION_ENFORCE_CONSENT || '',).toLowerCase() === 'true',
     monitoringEvents: Number(process.env.RETENTION_MONITORING_DAYS || 90,),
     sessions: Number(process.env.RETENTION_SESSIONS_DAYS || 30,),
   },
@@ -120,6 +172,17 @@ const config = {
     // Sliding-window API rate limit per key/IP.
     rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 60000,),
     rateLimitMax: Number(process.env.RATE_LIMIT_MAX || 300,),
+    // Credential endpoints get their own, much tighter ceiling. The general
+    // 300/60s limit is sized for the data API and is useless against password
+    // guessing — a human signs in a few times an hour, an attacker tries
+    // thousands. Applied per IP, on top of the per-account throttle in
+    // src/server/loginThrottle.js.
+    authRateLimitWindowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 900000,),
+    authRateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX || 20,),
+    // Per-account lockout: failures tolerated, then the base lockout (which
+    // doubles per further failure, capped at 24h).
+    loginMaxAttempts: Number(process.env.LOGIN_MAX_ATTEMPTS || 5,),
+    loginLockoutMs: Number(process.env.LOGIN_LOCKOUT_MS || 900000,),
     // Retry configuration for external API calls (Task 64)
     maxRetries: Number(process.env.MAX_RETRIES || 3,),
     retryBaseDelayMs: Number(process.env.RETRY_BASE_DELAY_MS || 1000,),

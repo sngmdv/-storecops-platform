@@ -201,8 +201,10 @@
     let API_KEY = localStorage.getItem("storecops_admin_key") || "";
 
     function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" })[c]); }
+    /* Escape for an inline event-handler argument — see app.js jsAttr(). */
+    function jsAttr(v) { return String(v ?? "").replace(/\\/g,"\\\\").replace(/'/g,"\\'").replace(/\r/g,"\\r").replace(/\n/g,"\\n").replace(/[&<>"]/g,(c)=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" })[c]); }
     function money(n) { return n == null ? "—" : "$" + Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 }); }
-    function toast(msg) { const t = $("#toast"); t.innerHTML = msg; t.classList.add("show"); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("show"), 4000); }
+    function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("show"), 4000); }
     function destroyCharts() { charts.forEach(c => c.destroy()); charts = []; }
     function makeChart(el, opts) { if (!el) return null; const c = new Chart(el, opts); charts.push(c); return c; }
     const GRAD = ["#08906c", "#34bf99", "#06b6d4", "#f59e0b", "#ef4444", "#f97316"];
@@ -495,7 +497,7 @@
         const band = s.health?.risk?.band || "MEDIUM";
         const issue = s.health?.reasons?.[0]?.reason?.replace(/_/g," ") || "none";
         const pillCls = band==="CRITICAL"||band==="HIGH" ? "a-pill-red" : band==="MEDIUM" ? "a-pill-amber" : "a-pill-green";
-        return `<tr style="cursor:pointer" onclick="location.hash='#/store-detail/${esc(s.store_id)}'"><td><b>${esc(s.store_name)}</b><br><small class="a-sub">${esc(s.store_id)}</small></td><td>${esc(s.platform)}</td><td><span class="a-pill a-pill-violet">${esc(s.plan)}</span></td><td><b>${s.health?.score||0}</b>/100</td><td><span class="a-pill ${pillCls}">${band}</span></td><td>${esc(issue)}</td><td><button class="a-btn-sm" onclick="event.stopPropagation();showInterventions('${esc(s.store_id)}')">Intervene</button> <button class="a-btn-sm" onclick="event.stopPropagation();location.hash='#/store-detail/${esc(s.store_id)}'">Detail →</button></td></tr>`;
+        return `<tr style="cursor:pointer" onclick="location.hash='#/store-detail/${jsAttr(s.store_id)}'"><td><b>${esc(s.store_name)}</b><br><small class="a-sub">${esc(s.store_id)}</small></td><td>${esc(s.platform)}</td><td><span class="a-pill a-pill-violet">${esc(s.plan)}</span></td><td><b>${s.health?.score||0}</b>/100</td><td><span class="a-pill ${pillCls}">${band}</span></td><td>${esc(issue)}</td><td><button class="a-btn-sm" onclick="event.stopPropagation();showInterventions('${jsAttr(s.store_id)}')">Intervene</button> <button class="a-btn-sm" onclick="event.stopPropagation();location.hash='#/store-detail/${jsAttr(s.store_id)}'">Detail →</button></td></tr>`;
       }).join("");
     }
 
@@ -518,7 +520,7 @@
       view.innerHTML = `
         <div class="a-card"><a href="#/stores" style="font-size:13px;color:var(--primary)">← Back to stores</a><h2 style="margin:8px 0 4px">${esc(storeMeta.store_name || id)}</h2><div class="a-sub">${esc(id)} · ${esc(storeMeta.platform||"—")} · <span class="a-pill a-pill-violet">${esc(storeMeta.plan||"—")}</span> · Health <b>${health?.score ?? storeMeta.health?.score ?? "—"}</b>/100</div></div>
         <div class="admin-grid2">
-          <div class="a-card"><h3>Onboarding</h3><div class="a-kpi">${completion}%</div><div class="a-sub">${ob?.current_step || "—"} · ${ob?.completed ? "completed" : "in progress"}</div><div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">${Object.entries(steps).map(([k,v]) => `<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 10px;background:var(--surface-2);border-radius:8px"><span>${k}</span><span class="a-pill ${v.completed ? 'a-pill-green' : v.skipped ? 'a-pill-gray' : 'a-pill-amber'}">${v.completed ? 'done' : v.skipped ? 'skipped' : 'pending'}</span></div>`).join("") || '<div class="a-empty">No onboarding data.</div>'}</div><div style="margin-top:12px;display:flex;gap:8px"><button class="a-btn-sm" onclick="resyncStore('${esc(id)}')">Resync store</button><button class="a-btn-sm" onclick="api('/admin/stores/${esc(id)}/onboarding',{method:'POST',body:JSON.stringify({step:'complete',value:true})}).then(()=>toast('Onboarding step updated')).catch(e=>toast(e.message))">Mark complete</button></div></div>
+          <div class="a-card"><h3>Onboarding</h3><div class="a-kpi">${completion}%</div><div class="a-sub">${ob?.current_step || "—"} · ${ob?.completed ? "completed" : "in progress"}</div><div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">${Object.entries(steps).map(([k,v]) => `<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 10px;background:var(--surface-2);border-radius:8px"><span>${k}</span><span class="a-pill ${v.completed ? 'a-pill-green' : v.skipped ? 'a-pill-gray' : 'a-pill-amber'}">${v.completed ? 'done' : v.skipped ? 'skipped' : 'pending'}</span></div>`).join("") || '<div class="a-empty">No onboarding data.</div>'}</div><div style="margin-top:12px;display:flex;gap:8px"><button class="a-btn-sm" onclick="resyncStore('${jsAttr(id)}')">Resync store</button><button class="a-btn-sm" onclick="api('/admin/stores/${jsAttr(id)}/onboarding',{method:'POST',body:JSON.stringify({step:'complete',value:true})}).then(()=>toast('Onboarding step updated')).catch(e=>toast(e.message))">Mark complete</button></div></div>
           <div class="a-card"><h3>Health & Interventions</h3><div style="margin-top:8px">${Array.isArray(interventions) && interventions.length ? interventions.map(iv => `<div class="a-alert a-alert-amber"><div style="flex:1"><b>${esc(iv.title||iv.reason||'Action')}</b><br><small class="a-sub">${esc(iv.detail||iv.action||'')}</small></div></div>`).join("") : '<div class="a-empty">No interventions — store looks healthy.</div>'}</div></div>
         </div>
         <div class="a-card"><h3>Connections</h3><div id="conn-detail" class="a-empty">Loading integrations…</div></div>`;
@@ -599,7 +601,7 @@
       if (!storesWithSubs.length) { roiTbody.innerHTML = '<tr><td colspan="6" class="a-empty">No active subscriptions.</td></tr>'; return; }
       roiTbody.innerHTML = storesWithSubs.map(s => {
         const periodEnd = s.subscription?.current_period_end ? new Date(s.subscription.current_period_end).toLocaleDateString() : "—";
-        return `<tr><td><b>${esc(s.store_name)}</b></td><td><span class="a-pill a-pill-violet">${esc(s.plan)}</span></td><td><b>${s.health?.score||0}</b>/100</td><td>${esc(s.subscription?.status||"—")}</td><td>${periodEnd}</td><td><button class="a-btn-sm" onclick="showROI('${esc(s.store_id)}')">View ROI</button></td></tr>`;
+        return `<tr><td><b>${esc(s.store_name)}</b></td><td><span class="a-pill a-pill-violet">${esc(s.plan)}</span></td><td><b>${s.health?.score||0}</b>/100</td><td>${esc(s.subscription?.status||"—")}</td><td>${periodEnd}</td><td><button class="a-btn-sm" onclick="showROI('${jsAttr(s.store_id)}')">View ROI</button></td></tr>`;
       }).join("");
     }
 
@@ -797,7 +799,7 @@
       else {
         sDiv.innerHTML = suggestions.map(s => {
           const cls = s.priority==='critical'?'a-alert-red':s.priority==='high'?'a-alert-amber':'a-alert-green';
-          return `<div class="a-alert ${cls}" style="cursor:pointer" onclick="quickCreateCamp('${esc(s.type)}','${esc(s.title)}','${esc(s.channel)}')"><div style="flex:1"><b>${esc(s.title)}</b><br><small class="a-sub">${esc(s.description)}</small><br><small style="color:var(--violet);font-weight:600">${esc(s.estimatedImpact)} · ${s.targetCount} targets · ${esc(s.channel)}</small></div><span class="a-pill a-pill-${s.priority==='critical'?'red':s.priority==='high'?'amber':'green'}">${s.priority}</span></div>`;
+          return `<div class="a-alert ${cls}" style="cursor:pointer" onclick="quickCreateCamp('${jsAttr(s.type)}','${jsAttr(s.title)}','${jsAttr(s.channel)}')"><div style="flex:1"><b>${esc(s.title)}</b><br><small class="a-sub">${esc(s.description)}</small><br><small style="color:var(--violet);font-weight:600">${esc(s.estimatedImpact)} · ${s.targetCount} targets · ${esc(s.channel)}</small></div><span class="a-pill a-pill-${s.priority==='critical'?'red':s.priority==='high'?'amber':'green'}">${s.priority}</span></div>`;
         }).join("");
       }
     }
@@ -1034,7 +1036,7 @@
                     <td>${money(inv.amount)}</td>
                     <td><span class="a-pill ${inv.status === 'paid' ? 'a-pill-green' : inv.status === 'pending' ? 'a-pill-amber' : 'a-pill-red'}">${inv.status}</span></td>
                     <td>${esc(inv.date || inv.created_at || "N/A")}</td>
-                    <td><button class="a-btn a-btn-sm" onclick="toast('Viewing invoice ${esc(inv.id)}')">View</button></td>
+                    <td><button class="a-btn a-btn-sm" onclick="toast('Viewing invoice ${jsAttr(inv.id)}')">View</button></td>
                   </tr>
                 `).join("")}
               </tbody>

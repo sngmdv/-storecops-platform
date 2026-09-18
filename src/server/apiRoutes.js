@@ -8,7 +8,6 @@
 
 const express = require('express',);
 const {
-  webhookVerifier,
   shopifyWebhookVerifier,
   exportCustomerData,
   deleteCustomerData,
@@ -158,7 +157,17 @@ function createApiRouter(platform,) {
     if (req.ingestOnly && !(req.path === '/track' || req.path.startsWith('/track/batch',))) {
       return res.status(403,).json({ error: 'This key is write-only (event ingestion).', },);
     }
-    if (req.path === '/track' || req.path.startsWith('/live/',)) return next();
+    // Both ingest paths verify the webhook HMAC themselves, so they skip the
+    // user-RBAC gate. /track/batch was previously exempt from the bypass but
+    // *not* from the signature check, so it fell through to RBAC and, on a
+    // fresh install with zero users, ran wide open.
+    if (
+      req.path === '/track' ||
+      req.path.startsWith('/track/batch',) ||
+      req.path.startsWith('/live/',)
+    ) {
+      return next();
+    }
     const permission = req.method === 'GET' ? 'read' : 'mutate';
     return platform.rbac.middleware(permission,)(req, res, next,);
   },);
@@ -167,7 +176,21 @@ function createApiRouter(platform,) {
 
   router.post(
     '/track',
-    webhookVerifier(platform.config.security?.webhookSecret,),
+    // Authenticated by the WRITE-ONLY INGEST KEY, not by an HMAC. This is the
+    // endpoint the storefront snippet calls — via `navigator.sendBeacon`, from
+    // a browser, on page unload. A browser has no access to `WEBHOOK_SECRET`
+    // and cannot compute a signature, so requiring one here would have blocked
+    // every real tracking request.
+    //
+    // There was previously a `webhookVerifier` on this route. It failed open
+    // when `WEBHOOK_SECRET` was unset, which is why the test suite never
+    // noticed; with the secret configured (as it is in production) it would
+    // have 401'd the entire tracker. `webhookVerifier` is the right tool for a
+    // server-to-server webhook, not for a browser ingest endpoint.
+    //
+    // What actually constrains this route: the ingest key is write-only
+    // (`ingestOnly`), restricted to `/track` and `/track/batch` by the RBAC
+    // gate above, and every request passes the rate limiters.
     wrap(async (req,) => {
       const result = await platform.trackAndReact(req.body || {},);
       if (!result.accepted) {
@@ -181,6 +204,7 @@ function createApiRouter(platform,) {
 
   router.post(
     '/track/batch',
+    // Same authentication as /track — ingest key, no HMAC (see above).
     wrap(async (req,) => platform.eventTracker.trackBatch(req.body?.events || [],),),
   );
 
@@ -1309,14 +1333,14 @@ function createApiRouter(platform,) {
     '/pricing/regional/:country',
     wrap(async (req,) => {
       const { plan, cycle, } = req.query;
-      return platform.regionalPricing.getRegionalPrice(plan || 'growth', req.params.country, cycle || 'monthly',);
+      return platform.subscriptionPricing.getRegionalPrice(plan || 'growth', req.params.country, cycle || 'monthly',);
     },),
   );
 
   // Get all prices for a region
   router.get(
     '/pricing/all/:country',
-    wrap(async (req,) => platform.regionalPricing.getAllPrices(req.params.country,),),
+    wrap(async (req,) => platform.subscriptionPricing.getAllPrices(req.params.country,),),
   );
 
   // Detect country from IP
@@ -1324,7 +1348,7 @@ function createApiRouter(platform,) {
     '/pricing/detect-country',
     wrap(async (req,) => {
       const ip = req.headers['x-forwarded-for'] || req.ip;
-      return platform.regionalPricing.detectCountry(ip,);
+      return platform.subscriptionPricing.detectCountry(ip,);
     },),
   );
 
@@ -1333,14 +1357,14 @@ function createApiRouter(platform,) {
     '/pricing/validate',
     wrap(async (req,) => {
       const { merchant_id, country, ip, billing_address, } = req.body || {};
-      return platform.regionalPricing.validateRegionalPricing(merchant_id, country, ip, billing_address,);
+      return platform.subscriptionPricing.validateRegionalPricing(merchant_id, country, ip, billing_address,);
     },),
   );
 
   // Get PPP stats (admin)
   router.get(
     '/admin/pricing/stats',
-    wrap(async () => platform.regionalPricing.getStats(),),
+    wrap(async () => platform.subscriptionPricing.getStats(),),
   );
 
   // ── Monitoring & Health (Task 65) ───────────────────────────────────
@@ -2722,7 +2746,7 @@ function createApiRouter(platform,) {
     '/billing/:store_id/invoices',
     wrap(async (req,) => {
       const storeId = req.params.store_id;
-      const subs = await platform.billingService.listSubscriptions({});
+      const subs = await platform.billingService.listSubscriptions({},);
       const mine = (subs || []).filter((s,) => s.shopInstallationId === storeId,);
       return {
         invoices: mine.map((s,) => ({
@@ -2784,7 +2808,7 @@ function createApiRouter(platform,) {
         platform.store.deliveries.find({ store_id: storeId, },),
       ],);
       const entitlement = await platform.billingService.getEntitlement(storeId,);
-      const subs = await platform.billingService.listSubscriptions({});
+      const subs = await platform.billingService.listSubscriptions({},);
       const mine = (subs || []).filter((s,) => s.shopInstallationId === storeId,);
       return {
         period: {

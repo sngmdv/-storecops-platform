@@ -19,13 +19,23 @@ try {
 
 const { createPlatform } = require("./src/platform");
 const { createApp } = require("./src/server/createApp");
+const {
+  parseDemoStores,
+  hasRealCredentials,
+  createGrowthCycleRunner,
+} = require("./src/server/growthScheduler");
+const { createLifecycle, installProcessHandlers } = require("./src/server/lifecycle");
 
 const platform = createPlatform();
 const app = createApp(platform);
 
 const PORT = platform.config.port;
 
-app.listen(PORT, "0.0.0.0", async () => {
+// OBS-001: capture the server handle and register process-level handlers. Both
+// were missing, so SIGTERM (sent on every deploy) killed the process outright —
+// losing anything queued but undelivered — and a crash produced a bare stack
+// trace with no exit-code contract for the orchestrator.
+const server = app.listen(PORT, "0.0.0.0", async () => {
   console.log(`[BOOT] Storecops Growth Platform live on port ${PORT}`);
   console.log("[BOOT] Layers: Data → Intelligence → Decision → Execution → Reporting → Growth Loop");
   const publicUrl = platform.config.publicUrl || `http://localhost:${PORT}`;
@@ -34,60 +44,24 @@ app.listen(PORT, "0.0.0.0", async () => {
   console.log(`[BOOT] Environment: ${platform.config.env} | Storage: ${platform.config.storage}`);
 });
 
-/** Check if a store has real integration credentials (Shopify/WooCommerce/BigCommerce). */
-async function hasRealCredentials(platform, storeId) {
-  try {
-    // platform.store is a collection facade (users, events, integrations, etc.)
-    // Check connectors via integrations collection - the facade has no .get()
-    const integration = await platform.store.integrations.findOne({ store_id: storeId });
-    if (integration?.shopify?.access_token || integration?.woocommerce?.consumer_key || integration?.bigcommerce?.access_token) {
-      return true;
-    }
-    // Also check connectors collection if it exists
-    if (platform.store.connectors) {
-      const connector = await platform.store.connectors.findOne({ store_id: storeId });
-      if (connector?.shopify?.access_token || connector?.woocommerce?.consumer_key || connector?.bigcommerce?.access_token) {
-        return true;
-      }
-    }
-  } catch (_) {}
-  return false;
-}
+const lifecycle = createLifecycle({ server, store: platform.store, },);
+installProcessHandlers({ lifecycle, },);
 
-// Growth loop heartbeat: run a full automation cycle for every
-// active store every 60 minutes.
-// Demo data is ONLY auto-seeded for the demo store or when DEMO_MODE=true.
-// Real merchants must never see fabricated orders mixed with their own data.
+// Growth loop heartbeat: run a full automation cycle for every store that has
+// data, every 60 minutes.
+//
+// The cycle is NOT withheld from connected stores. It was, until now: a guard
+// written as `if (hasRealCredentials) continue` skipped it for exactly the
+// connected, paying merchants, so rule evaluation, recovery-message queuing,
+// the delivery drain and attribution never ran for them automatically.
+//
+// Demo data is auto-seeded ONLY for ids listed in DEMO_STORE_IDS, and never
+// for a store that turns out to be connected to a real platform. Real
+// merchants must never see fabricated orders mixed with their own data.
 const CYCLE_INTERVAL_MS = 60 * 60 * 1000;
-const DEMO_STORES = new Set(
-  String(process.env.DEMO_STORE_IDS || 'store_demo,demo_store',).split(',').map((s,) => s.trim()).filter(Boolean)
-);
-// DEMO_MODE must be explicitly true to auto-seed non-demo stores; DEMO_STORE_IDS alone is not enough to seed real merchants
-const isDemoEnabled = () => String(process.env.DEMO_MODE || '').toLowerCase() === 'true';
-setInterval(async () => {
-  try {
-    const allStores = await platform.store.users.find({});
-    const storeIds = [...new Set(allStores.map((u) => u.store_id).filter(Boolean))];
-    for (const storeId of storeIds) {
-      const hasReal = await hasRealCredentials(platform, storeId);
-      if (hasReal) continue; // skip stores with real integrations (they re-sync separately)
-      const isDemoStore = DEMO_STORES.has(storeId);
-      // Only seed demo data for explicit demo stores, not every orphaned real store
-      if (isDemoStore) {
-        await platform.demoSeed.seed(storeId);
-      } else if ((await platform.store.events.find({ store_id: storeId, },)).length === 0) {
-        // Real store with no data yet — don't fabricate, just skip until they connect
-        continue;
-      }
-      const cycle = await platform.runGrowthCycle(storeId);
-      console.log(
-        `[GROWTH-CYCLE] store=${storeId} queued=${cycle.scan.queued_actions.length} executed=${cycle.execution.delivered} conversions=${cycle.attribution.conversions}`
-      );
-    }
-  } catch (error) {
-    console.error("[GROWTH-CYCLE] failed:", error.message);
-  }
-}, CYCLE_INTERVAL_MS).unref();
+const DEMO_STORES = parseDemoStores();
+const growthCycleRunner = createGrowthCycleRunner({ platform, demoStores: DEMO_STORES, },);
+setInterval(() => growthCycleRunner.runOnce(), CYCLE_INTERVAL_MS).unref();
 
 // Task ob4: Periodic store re-sync scheduler.
 // Every 4 hours, attempt to re-pull products/orders for all connected stores.
@@ -134,3 +108,11 @@ setInterval(async () => {
     console.error("[SIGNALS] failed:", error.message);
   }
 }, SIGNALS_INTERVAL_MS).unref();
+
+// Data retention: enforce the windows in config.dataRetention (events,
+// deliveries, consentRecords, monitoringEvents, sessions). This is opt-in —
+// start() no-ops unless RETENTION_ENABLED=true. Deleting production data on a
+// timer should be a deliberate operator decision, not a side effect of a config
+// object existing. Previously these windows were defined and never read, so
+// privacy.html promised retention the platform did not enforce.
+platform.dataRetention.start();

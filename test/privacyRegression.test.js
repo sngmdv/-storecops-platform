@@ -161,7 +161,7 @@ test('privacy regression: customer-redact webhook triggers data deletion', async
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'X-Shopify-Hmac-Sha256': signShopify(redactBody),
+        'X-Shopify-Hmac-Sha256': signShopify(redactBody,),
       },
       body: JSON.stringify(redactBody,),
     },);

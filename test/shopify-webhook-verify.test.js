@@ -23,7 +23,7 @@ function sign(object,) {
 }
 
 // Minimal Connect middleware harness — no server required.
-function run(mw, { signature, rawBody, secret = SECRET, }) {
+function run(mw, { signature, rawBody, secret = SECRET, },) {
   const req = {
     rawBody,
     get: (h,) => (String(h,).toLowerCase() === 'x-shopify-hmac-sha256' ? signature : undefined),
@@ -48,9 +48,9 @@ test('shopifyWebhookVerifier: valid signature calls next()', () => {
     signature: sign(body,),
     rawBody: Buffer.from(raw,),
   },);
-  assert.equal(nextCalled, true, 'a valid signature must pass through to next()');
-  assert.equal(res.statusCode, null, 'no status should be set on success');
-});
+  assert.equal(nextCalled, true, 'a valid signature must pass through to next()',);
+  assert.equal(res.statusCode, null, 'no status should be set on success',);
+},);
 
 test('shopifyWebhookVerifier: tampered body is rejected with 401', () => {
   const body = { id: 1, amount: 100, };
@@ -62,7 +62,7 @@ test('shopifyWebhookVerifier: tampered body is rejected with 401', () => {
   assert.equal(nextCalled, false,);
   assert.equal(res.statusCode, 401,);
   assert.equal(res.body.error, 'Invalid webhook signature.',);
-});
+},);
 
 test('shopifyWebhookVerifier: missing signature header is rejected with 401', () => {
   const { res, nextCalled, } = run(shopifyWebhookVerifier(SECRET,), {
@@ -72,7 +72,7 @@ test('shopifyWebhookVerifier: missing signature header is rejected with 401', ()
   assert.equal(nextCalled, false,);
   assert.equal(res.statusCode, 401,);
   assert.equal(res.body.error, 'Missing Shopify webhook signature.',);
-});
+},);
 
 test('shopifyWebhookVerifier: empty secret fails closed with 401', () => {
   // The original INT-001 defect would have let this through unchecked.
@@ -84,7 +84,7 @@ test('shopifyWebhookVerifier: empty secret fails closed with 401', () => {
   assert.equal(nextCalled, false,);
   assert.equal(res.statusCode, 401,);
   assert.equal(res.body.error, 'Shopify webhook verification unavailable.',);
-});
+},);
 
 test('shopifyWebhookVerifier: wrong encoding (hex instead of base64) is rejected', () => {
   // Guards against the original INT-001 bug: hex digest + custom header name.
@@ -97,7 +97,7 @@ test('shopifyWebhookVerifier: wrong encoding (hex instead of base64) is rejected
   },);
   assert.equal(nextCalled, false,);
   assert.equal(res.statusCode, 401,);
-});
+},);
 
 // ── Integration: real route wired through createApp ──────────────────────
 
@@ -133,7 +133,7 @@ test('integration: /webhooks/orders/:store_id rejects a bad signature with 401',
     const raw = JSON.stringify(payload,);
     const badSig = crypto.createHmac('sha256', SECRET,).update('tampered',).digest('base64',);
     const res = await postOrders(base, payload, badSig,);
-    assert.equal(res.status, 401, 'a bad signature must be rejected at the edge');
+    assert.equal(res.status, 401, 'a bad signature must be rejected at the edge',);
     const body = await res.json();
     assert.equal(body.error, 'Invalid webhook signature.',);
   } finally {
@@ -150,7 +150,7 @@ test('integration: /webhooks/orders/:store_id accepts a valid signature', async 
     const res = await postOrders(base, payload, goodSig,);
     // 401 means verification failed; any other status means the verifier
     // let the request reach the handler.
-    assert.notEqual(res.status, 401, 'a valid signature must pass verification');
+    assert.notEqual(res.status, 401, 'a valid signature must pass verification',);
   } finally {
     await close();
   }

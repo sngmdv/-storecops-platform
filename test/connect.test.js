@@ -145,7 +145,7 @@ async function signupTenant(base, body,) {
     headers: JSON_HEADERS,
     body: JSON.stringify({
       email: 'owner@shop.com',
-      password: 'password123',
+      password: 'p2-fixture-passphrase-9f3a2b',
       storeName: 'Connect Shop',
       ...body,
     },),

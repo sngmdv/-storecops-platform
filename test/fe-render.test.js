@@ -25,22 +25,22 @@ function makeEl() {
     dataset: {},
     classList: {
       _set: new Set(),
-      add(c) { this._set.add(c); },
-      remove(c) { this._set.delete(c); },
-      toggle(c, on) {
+      add(c,) { this._set.add(c,); },
+      remove(c,) { this._set.delete(c,); },
+      toggle(c, on,) {
         if (on === undefined) {
-          this._set.has(c) ? this._set.delete(c) : this._set.add(c);
+          this._set.has(c,) ? this._set.delete(c,) : this._set.add(c,);
         } else if (on) {
-          this._set.add(c);
+          this._set.add(c,);
         } else {
-          this._set.delete(c);
+          this._set.delete(c,);
         }
       },
-      contains(c) { return this._set.has(c); },
+      contains(c,) { return this._set.has(c,); },
     },
     addEventListener() {},
     removeEventListener() {},
-    appendChild(c) { return c; },
+    appendChild(c,) { return c; },
     prepend() {},
     removeChild() {},
     remove() {},
@@ -54,16 +54,16 @@ function makeEl() {
   };
   Object.defineProperty(el, 'innerHTML', {
     get() { return this._html; },
-    set(v) { this._html = String(v); },
+    set(v,) { this._html = String(v,); },
   },);
   return el;
 }
 
 function makeDocument() {
   const cache = new Map();
-  const get = (sel) => {
-    if (!cache.has(sel)) cache.set(sel, makeEl());
-    return cache.get(sel);
+  const get = (sel,) => {
+    if (!cache.has(sel,)) cache.set(sel, makeEl(),);
+    return cache.get(sel,);
   };
   return {
     querySelector: get,
@@ -79,30 +79,30 @@ function makeDocument() {
 // what drives enterApp() -> route() -> the previously-broken fault line.
 function makeApi() {
   const fakeReport = {
-    overview: { events_tracked: 10, revenue_recovered: 0 },
-    funnel: { product_views: 1, carts: 1, checkouts_started: 1, purchases: 1 },
-    risk_bands: { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 },
+    overview: { events_tracked: 10, revenue_recovered: 0, },
+    funnel: { product_views: 1, carts: 1, checkouts_started: 1, purchases: 1, },
+    risk_bands: { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, },
   };
   const fakeInsights = {
     restock_urgent: [], competitor_alerts: [], seo_issues: [], trending: [],
   };
-  const session = { storeId: 'store_test', apiKey: 'key_test' };
+  const session = { storeId: 'store_test', apiKey: 'key_test', };
   return {
     session: () => session,
     store: () => 'store_test',
     saveSession() {},
-    get(url) {
-      const u = String(url);
-      if (u.includes('maturity')) return Promise.resolve({ score: 50 });
-      if (u.includes('report')) return Promise.resolve(fakeReport);
-      if (u.includes('insights')) return Promise.resolve(fakeInsights);
-      if (u.includes('orders')) return Promise.resolve({ orders: [] });
-      if (u.includes('actions')) return Promise.resolve([]);
-      if (u.includes('churn')) return Promise.resolve({ risk_bands: {} });
-      if (u.includes('attribution')) return Promise.resolve(null);
-      return Promise.resolve({});
+    get(url,) {
+      const u = String(url,);
+      if (u.includes('maturity',)) return Promise.resolve({ score: 50, },);
+      if (u.includes('report',)) return Promise.resolve(fakeReport,);
+      if (u.includes('insights',)) return Promise.resolve(fakeInsights,);
+      if (u.includes('orders',)) return Promise.resolve({ orders: [], },);
+      if (u.includes('actions',)) return Promise.resolve([],);
+      if (u.includes('churn',)) return Promise.resolve({ risk_bands: {}, },);
+      if (u.includes('attribution',)) return Promise.resolve(null,);
+      return Promise.resolve({},);
     },
-    post: () => Promise.resolve({}),
+    post: () => Promise.resolve({},),
     liveStream: () => null,
   };
 }
@@ -110,7 +110,7 @@ function makeApi() {
 test('FE-001: app.js boots and route() renders #view (not blank)', async () => {
   const doc = makeDocument();
   const api = makeApi();
-  const loc = { search: '', hash: '' };
+  const loc = { search: '', hash: '', };
   const win = {
     StorecopsAPI: api,
     location: loc,
@@ -122,9 +122,9 @@ test('FE-001: app.js boots and route() renders #view (not blank)', async () => {
     window: win,
     document: doc,
     location: loc,
-    sessionStorage: { setItem() {}, getItem() { return null; }, removeItem() {} },
-    navigator: { userAgent: 'node-test' },
-    fetch: () => Promise.resolve({ json: () => Promise.resolve({}) }),
+    sessionStorage: { setItem() {}, getItem() { return null; }, removeItem() {}, },
+    navigator: { userAgent: 'node-test', },
+    fetch: () => Promise.resolve({ json: () => Promise.resolve({},), },),
     console,
     setTimeout: () => 0,
     clearTimeout() {},
@@ -132,29 +132,29 @@ test('FE-001: app.js boots and route() renders #view (not blank)', async () => {
     clearInterval() {},
     URLSearchParams,
   };
-  vm.createContext(sandbox);
+  vm.createContext(sandbox,);
 
-  const code = fs.readFileSync(APP_SRC, 'utf8');
+  const code = fs.readFileSync(APP_SRC, 'utf8',);
   // The IIFE self-executes. With a truthy session, enterApp() runs and calls
   // route(), which previously threw `ReferenceError: container is not defined`
   // and left #view empty. Any such throw now surfaces as an unhandled rejection
   // and, more importantly, leaves #view blank — both detected below.
   let rejection = null;
-  const onReject = (r) => { rejection = r; };
-  process.on('unhandledRejection', onReject);
+  const onReject = (r,) => { rejection = r; };
+  process.on('unhandledRejection', onReject,);
   try {
-    vm.runInContext(code, sandbox, { filename: 'app.js' });
+    vm.runInContext(code, sandbox, { filename: 'app.js', },);
     // Let the async boot chain (enterApp -> await refreshMaturity -> route) run.
-    await new Promise((r) => setTimeout(r, 80));
+    await new Promise((r,) => setTimeout(r, 80,),);
   } finally {
-    process.off('unhandledRejection', onReject);
+    process.off('unhandledRejection', onReject,);
   }
 
-  const view = doc.querySelector('#view');
+  const view = doc.querySelector('#view',);
   assert.equal(rejection, null,
-    `boot produced an unhandled rejection: ${rejection && (rejection.message || rejection)}`);
+    `boot produced an unhandled rejection: ${rejection && (rejection.message || rejection)}`,);
   assert.ok(view.innerHTML && view.innerHTML.length > 0,
-    '#view must be rendered, not left blank (FE-001 regression)');
+    '#view must be rendered, not left blank (FE-001 regression)',);
   assert.ok(view.innerHTML.length > 50,
-    '#view should contain real rendered content, not just a placeholder');
-});
+    '#view should contain real rendered content, not just a placeholder',);
+},);

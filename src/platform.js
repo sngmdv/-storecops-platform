@@ -88,7 +88,7 @@ const { createReportingService, } = require('./layers/reporting/reportingService
 const { createLiveOrders, } = require('./layers/reporting/liveOrders',);
 
 // Intelligence (for regional pricing)
-const { createRegionalPricingService, } = require('./layers/intelligence/regionalPricing',);
+const { createSubscriptionPricingService, } = require('./layers/intelligence/subscriptionPricing',);
 
 // Security & Administration
 const { createAuditLog, createRbac, } = require('./server/security',);
@@ -115,6 +115,7 @@ const { createOnboardingService, } = require('./server/onboardingService',);
 const { createWebhookRetryQueue, } = require('./server/webhookRetryQueue',);
 const { createTieredRateLimiter, } = require('./server/tieredRateLimiter',);
 const { createSessionTokenVerifier, } = require('./server/sessionToken',);
+const { createDataRetentionJob, } = require('./server/dataRetention',);
 const { createDemoSimulator, } = require('./server/demoSimulator',);
 const { collectAll, } = require('./layers/data/signalCollectors',);
 
@@ -235,7 +236,7 @@ function createPlatform(overrides = {},) {
   const returnService = createReturnService({ store, returnFraudEngine, returnAnalytics, notificationService, },);
 
   // Regional Pricing (PPP)
-  const regionalPricing = createRegionalPricingService({ store, config: cfg, },);
+  const subscriptionPricing = createSubscriptionPricingService({ store, config: cfg, },);
 
   // Monitoring & Alerting (Task 65)
   const monitoringService = createMonitoringService({ store, config: cfg, },);
@@ -272,6 +273,10 @@ function createPlatform(overrides = {},) {
   const rbac = createRbac({ store, auditLog, },);
   const auth = createAuthService({ store, config: cfg, auditLog, },);
   const siteAudit = createStoreAudit({ store, config: cfg, },);
+  // Created but NOT started here: createPlatform runs in every test, so an
+  // auto-starting sweep would leak timers and could delete test fixtures.
+  // server.js starts it, and only when RETENTION_ENABLED=true.
+  const dataRetention = createDataRetentionJob({ store, config: cfg, },);
 
   const platform = {
     config: cfg,
@@ -338,7 +343,7 @@ function createPlatform(overrides = {},) {
     monitoringService,
     referralService,
     trialService,
-    regionalPricing,
+    subscriptionPricing,
     returnService,
 
     // Layer 5
@@ -351,6 +356,7 @@ function createPlatform(overrides = {},) {
     rbac,
     auth,
     siteAudit,
+    dataRetention,
 
     /**
      * Real-time pipeline: ingest an event and immediately let the

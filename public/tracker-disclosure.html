@@ -31,7 +31,7 @@
     <p>This page discloses every piece of data collected by the Storecops storefront tracker script (<code>tracker.js</code>). This disclosure is provided for Shopify app review compliance, GDPR/CCPA transparency, and merchant awareness.</p>
 
     <h2>1. How the Tracker is Installed</h2>
-    <p>The tracker is injected into merchant storefronts via the <strong>Shopify Script Tag API</strong> (or manually pasted before <code>&lt;/body&gt;</code>). It loads from the Storecops platform server and communicates exclusively with the platform's <code>/api/v1/track</code> endpoint using a write-only ingest key.</p>
+    <p>Storefront tracking is delivered by the <strong>Storecops theme app extension</strong> (<code>storecops-tracker</code>). The merchant enables it as an app embed in <em>Online Store &rarr; Themes &rarr; Customize &rarr; App embeds</em>; Shopify then renders it on every storefront page. It communicates exclusively with the Storecops platform's <code>/api/v1/track</code> endpoint using a write-only ingest key.</p>
 
     <h2>2. Identifiers</h2>
     <table>
@@ -102,7 +102,7 @@
         <tr><th>Field</th><th>Type</th><th>Description</th></tr>
       </thead>
       <tbody>
-        <tr><td><code>store_id</code></td><td>string</td><td>The merchant's unique store identifier (from script tag URL parameter)</td></tr>
+        <tr><td><code>store_id</code></td><td>string</td><td>The merchant's unique store identifier, resolved server-side from the app embed's shop domain</td></tr>
         <tr><td><code>event_type</code></td><td>string</td><td>One of the event types listed above</td></tr>
         <tr><td><code>timestamp</code></td><td>ISO 8601</td><td>UTC timestamp of the event</td></tr>
         <tr><td><code>visitor_id</code></td><td>UUID string</td><td>Random visitor identifier (see Section 2)</td></tr>

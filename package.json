@@ -12,6 +12,8 @@
     "lint:syntax": "node scripts/check-syntax.js",
     "preflight": "node scripts/preflight.js",
     "preflight:strict": "node scripts/preflight.js --strict",
+    "backup": "node scripts/backup.js",
+    "backup:verify": "node scripts/restore-check.js",
     "format": "prettier --write \"src/**/*.js\" \"test/**/*.js\""
   },
   "keywords": [
@@ -33,6 +35,9 @@
     "eslint": "^9.0.0",
     "globals": "^17.11.0",
     "prettier": "^3.2.0"
+  },
+  "overrides": {
+    "qs": "^6.16.0"
   },
   "engines": {
     "node": ">=18"

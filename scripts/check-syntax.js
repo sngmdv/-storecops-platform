@@ -15,7 +15,7 @@ const fs = require('node:fs',);
 const path = require('node:path',);
 const vm = require('node:vm',);
 
-const ROOTS = ['src', 'test',];
+const ROOTS = ['src', 'test', 'scripts',];
 const EXTENSIONS = new Set(['.js', '.mjs', '.cjs',],);
 
 /** Recursively collect files under a directory. */

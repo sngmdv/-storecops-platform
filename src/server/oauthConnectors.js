@@ -31,7 +31,14 @@ const VERIFY_META = 'storecops-verification';
 const VERIFY_FILE = '/.well-known/storecops-verify.txt';
 
 const PLATFORMS = {
-  shopify: { name: 'Shopify', scopes: 'read_products,read_orders,read_customers', },
+  // Must stay identical to [access_scopes].scopes in shopify.app.toml. The
+  // inventory ledger reads stock levels, so read_inventory is required —
+  // omitting it here meant the OAuth grant was narrower than the declared
+  // scopes and the inventory feed silently failed.
+  shopify: {
+    name: 'Shopify',
+    scopes: 'read_products,read_orders,read_customers,read_inventory',
+  },
   bigcommerce: {
     name: 'BigCommerce',
     scopes: 'store_cart_read_only store_v2_products_read_only store_orders_read_only',
@@ -643,4 +650,10 @@ function createOauthConnectors({ platform, },) {
   };
 }
 
-module.exports = { createOauthConnectors, PLATFORMS: Object.keys({ shopify: 1, bigcommerce: 1, woocommerce: 1, custom: 1, },), };
+module.exports = {
+  createOauthConnectors,
+  PLATFORMS: Object.keys({ shopify: 1, bigcommerce: 1, woocommerce: 1, custom: 1, },),
+  // The full per-platform config, so tests can assert the requested scopes match
+  // what shopify.app.toml declares. Two lists that must agree need a guard.
+  PLATFORM_CONFIG: PLATFORMS,
+};
