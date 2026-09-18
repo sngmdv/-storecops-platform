@@ -8,6 +8,8 @@
  * updates the unified customer profile.
  */
 
+const { createKeyedMutex, } = require('../../storage/keyedMutex',);
+
 const EVENT_TYPES = new Set([
   'page_view',
   'product_view',
@@ -51,6 +53,18 @@ function validateEvent(event,) {
 
 function createEventTracker({ store, customerProfiles, consentService, },) {
   const listeners = [];
+  /**
+   * Serialize ingest per store so concurrent `track()` calls for one tenant
+   * cannot interleave event-insert / profile-update / listener fan-out.
+   * Same single-process scope as the inventory ledger mutex (see
+   * `src/storage/keyedMutex.js`): two app instances can still interleave,
+   * and a process crash between steps still leaves a partial write — a real
+   * multi-writer deployment needs DB transactions. What this does guarantee:
+   * no interleaving within one process, and on a downstream *exception* the
+   * inserted event is removed again (best-effort compensation) rather than
+   * leaving an event with no profile update.
+   */
+  const mutex = createKeyedMutex();
 
   return {
     EVENT_TYPES,
@@ -122,14 +136,30 @@ function createEventTracker({ store, customerProfiles, consentService, },) {
         ),
       };
 
-      const logged = await store.events.insert(event,);
+      const logged = await mutex.run(rawEvent.store_id, async () => {
+        const inserted = await store.events.insert(event,);
 
-      // Keep the unified profile in sync with every observed activity.
-      await customerProfiles.applyEvent(logged,);
+        try {
+          // Keep the unified profile in sync with every observed activity.
+          await customerProfiles.applyEvent(inserted,);
 
-      for (const listener of listeners) {
-        await listener(logged,);
-      }
+          for (const listener of listeners) {
+            await listener(inserted,);
+          }
+        } catch (err) {
+          // Best-effort compensation: never leave an event with no profile
+          // update on the exception path. A crash between the steps can still
+          // leave a partial write — only a DB transaction fixes that.
+          try {
+            await store.events.delete(inserted._id,);
+          } catch {
+            // Delete failure must not mask the original error.
+          }
+          throw err;
+        }
+
+        return inserted;
+      },);
 
       return { accepted: true, event_id: logged._id, high_priority: logged.high_priority, };
     },
