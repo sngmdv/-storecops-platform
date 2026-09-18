@@ -69,7 +69,15 @@ resolve against the live router. Third-party attribution did not exist: added
 the permission notice must travel with the code), pinned the Lucide CDN dependency which was loaded
 at `@latest`, and added `test/thirdPartyNotices.test.js`, which derives the asset list from the
 shipped HTML. Also auto-fixed 113 standing ESLint errors in `test/` so the lint alarm works again.
-Items 35-37 remain open.
+Items 35-37, 38 and 39 are now **closed**; see their sections below.
+**M10 (browser matrix + keyboard) done 2026-09-18** → 751 tests green, 45 suites. Playwright against
+the system Chrome, 17 pages × 375/768/1440 plus a keyboard sweep: **0 viewport problems**. Three
+defects, only one anticipated — the two table overflows, a third unwrapped table in `admin.html` that
+the harness could not see until an admin session was seeded, an inline `<code>` token that kept
+`/tracker-disclosure` 160px wide after every table was contained, and **item 40 (ADMIN-SSE-001)**: the
+admin activity feed used `EventSource`, which cannot send `X-API-Key`, so it 401'd on every load and —
+with no `onerror` handler — retried forever in silence. Two new guard suites, mutation-checked 6/6 and
+4/4. See M10 below.
 
 ## P0 — Launch blockers
 1. SHOPIFY_CLIENT_ID/SECRET empty + shopify.app.toml:47 placeholder → sessionToken.js:109 fails closed, embedded 401
@@ -1036,8 +1044,10 @@ Comment-stripping (`<!-- -->`, `/* */`, `//`) was added to all source-scanning g
 commented-out fix cannot satisfy them.
 
 **Result:** 708 → **722 tests / 61 files / 0 failures**; `lint:syntax` 165 files; ESLint 0 errors.
-**Residual:** the guards check *declared* names and wiring, not rendered accessibility trees. A real
-screen-reader pass is M10 (browser matrix + keyboard), still open.
+**Residual:** the guards check *declared* names and wiring, not rendered accessibility trees. The
+browser half of that gap was closed by M10 below, which confirms the marked elements are genuinely
+focusable and that both Enter and Space activate them. A screen-reader pass (VoiceOver/NVDA) is still
+out of scope and still untested.
 
 ### Item 35 (REPO-002) — dead code — FIXED 2026-09-18
 
@@ -1144,9 +1154,63 @@ being classified — the guard doing its job on its first execution is the point
 declared manually with a `detection` note. A merchant-specific DPA still needs a legal entity and
 jurisdiction from the user.
 
+### M10 — browser matrix (375/768/1440) + keyboard pass — FIXED 2026-09-18
+
+Automated with Playwright driving the **system Chrome** (`playwright-core`, so no Chromium download),
+against a seeded server (demo seeder + two `returns` rows) on `127.0.0.1:4100`, `STORAGE=memory`.
+17 pages × 3 viewports = 51 loads, plus a keyboard sweep. Final result: **0 viewport problems**.
+
+Per page it asserts: document `scrollWidth` ≤ viewport; no element extends past the right edge *unless*
+an ancestor clips it (`overflow-x: auto|scroll`) — otherwise a deliberately scrolling table reads as a
+defect; no console errors; and that the page actually **laid out the tables its markup declares**, so a
+page cannot pass by rendering nothing.
+
+Three defects, only one of them anticipated:
+
+1. **Table containment (the anticipated one).** `/subprocessors` overflowed 375px by 124px and
+   `/tracker-disclosure` by 228px. `overflow-x` does not apply to an element with `display: table`, so a
+   table cannot scroll itself; both pages now wrap each table in `.table-scroll`.
+   **`admin.html`'s "Fraud by Store" table had the same gap** — invisible because the harness never got
+   past the admin login card. Closing that coverage gap is what exposed it, which is the argument for
+   asserting on *rendered* content rather than on an HTTP 200.
+2. **Inline `<code>` wrapping.** With every table contained, `/tracker-disclosure` still overflowed by
+   160px. The cause was not a table: two inline tokens
+   (`window.Shopify.customerPrivacy.analyticsProcessingAllowed`) offer no break opportunity, so they
+   pushed the whole document wide. Fixed with `.legal code { overflow-wrap: anywhere }`.
+   **A responsive failure is not always a table.**
+3. **Item 40 (ADMIN-SSE-001) — the admin activity stream never worked.** The feed opened
+   `new EventSource('/api/v1/admin/activity/stream')`. `EventSource` cannot set request headers, so it
+   was answered **401 on every load**; and because no `onerror` handler was registered it retried
+   forever in silence while the feed looked connected. Replaced with a `fetch` + `ReadableStream` SSE
+   reader that sends `X-API-Key`, plus an `AbortController` so a route change tears the stream down.
+   Verified positively: **200 with the header, 401 without**.
+   *The same pattern in `public/js/api.js` `liveStream` is correct and was left alone* — `/live/*` is on
+   the server's query-credential allowlist, so the key may legitimately travel in the query there.
+
+**Keyboard:** all three `role="button" tabindex="0"` dashboard cards are focusable and **both** Enter
+and Space navigate. `page.keyboard.press` sends an OS-level key event, so this exercises the delegated
+listener rather than a synthetic dispatch that would pass regardless.
+
+Guards — both mutation-checked, both restored byte-for-byte:
+- `test/responsiveTables.test.js` (7 tests): every `<table>` in `public/` must be immediately preceded by
+  a scroll container; open/close tags balanced; the wrapper class must be **defined by a sheet the page
+  loads** (a wrapper with no rule is inert markup); long inline `<code>` tokens must have a break rule.
+  Controls cover a wrapper that closes before the table, a sibling scroll container elsewhere in the
+  page, a commented-out wrapper, and the `table-scroll-disabled` near-miss. **6/6 mutations detected.**
+- `test/m1UiRender.test.js`: an `EventSource` guard that reads the allowed paths **out of
+  `queryCredentialsAllowed` in `createApp.js`** rather than restating them, so it cannot drift from the
+  rule the server actually enforces. **4/4 mutations detected**, including a false-positive control (a
+  commented-out `EventSource` must not count).
+
+**Two guard defects surfaced while writing the controls**, both the same family as FE-003's: `\b` after a
+hyphenated identifier matches a near-miss (`table-scroll\b` accepts `table-scroll-disabled`), and the
+first draft of the `EventSource` guard was **over-broad** — it flagged `api.js`'s legitimate `/live/`
+stream. An over-broad guard does not merely annoy: it would have pushed a correct line of code into a
+wrong fix.
+
 Fix order: P0 → P1 → P2 → M1-M7 verify → P3-P5.
-**All of P1–P6 is now closed.** Remaining work is verification and the submission path:
-**M8** (100/1000 load + DB-kill `/ready`) and **M10** (browsers 375/768/1440 + keyboard — next up).
+**All of P1–P6 is now closed, and M10 is done.** Remaining verification: **M8** (100/1000 load +
+DB-kill `/ready`).
 The **REST→GraphQL migration** is the critical path to submission and is blocked on the billing
 decision.
 User-only blockers unchanged: `SHOPIFY_CLIENT_ID`/`SECRET` (also required for embedded auto-login,
