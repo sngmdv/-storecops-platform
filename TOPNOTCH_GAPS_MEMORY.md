@@ -608,7 +608,8 @@ immediately: it failed because the page did not name the extension, so the page 
     See the write-up below.
 36. ~~FE-003 A11y~~ **FIXED 2026-09-18** — the stated defects were wrong in both
     directions; see the write-up below.
-37. COMP-004 No DPA/sub-processor page for EU (only prose in privacy.html:43). **OPEN.**
+37. ~~COMP-004 No DPA/sub-processor page for EU~~ **FIXED 2026-09-18** — published
+    `/subprocessors`, derived from the code. See the write-up below.
 38. ~~🚨 **TRK-001 Storefront tracker never transmits**~~ **FIXED 2026-09-18** — new
     finding, not in the original audit. See below.
 39. ~~🚨🚨 **SHOP-001 Unauthenticated cross-tenant session mint**~~ **FIXED 2026-09-18** —
@@ -1099,13 +1100,59 @@ fails closed without them, so embedded auto-login returns 401 until those secret
 same user-only blocker already recorded as P0-1, and it is the correct failure mode: refusing to
 verify beats trusting an unverifiable claim.
 
+### Item 37 (COMP-004) — EU sub-processor register — FIXED 2026-09-18
+
+**Scope agreed with the user: a sub-processor register, not a signed DPA.** The register is a factual
+artifact that can be derived from the code; a DPA is a contract that needs a legal entity, a
+jurisdiction and a signature, none of which can be invented. The page therefore *states that a DPA is
+available on request* and gives the contact — it does not purport to be one.
+
+**The stated defect was understated.** The item said "only prose in privacy.html:43". The prose was
+also **wrong**: it named Shopify, Meta, Resend, "SQLite" and Redis while omitting **Railway** (the
+actual host), **both payment providers**, **SerpApi**, and **every third-party asset the browser
+loads**. "SQLite" is a technology, not a third party — listing it as a sub-processor is a category
+error. This is the same drift class as `API.md` (11 of 30 documented routes were 404s) and the tracker
+disclosure page: **a hand-maintained compliance list drifts silently, and nobody notices because
+nothing fails.**
+
+**Fix — derive the set, then guard it.**
+- `src/config/subprocessors.js` is the single source of truth: 9 sub-processors, 3 browser-loaded
+  third-party assets, 3 public data sources, and 12 documented non-request hosts (namespaces, doc
+  links, our own domains, the rejected hosting placeholder). Entries that cannot be host-detected
+  (Railway, Stripe, Razorpay, Redis) carry a `detection` note saying how they are known — the gap is
+  recorded rather than hidden.
+- `public/subprocessors.html` is generated-by-convention: every row carries `data-processor="<key>"`.
+- `/subprocessors` is served, and `privacy.html` §3 now **points at the register instead of restating
+  it** — the duplicate was the thing that drifted. `terms.html` §9 links to it too.
+
+**Guards** — `test/subprocessors.test.js`, 12 tests, **mutation-checked 7/7**:
+1. every third-party host in `src/` is declared (a **new integration cannot be added silently**);
+2. every declared host still appears in `src/` (a stale entry fails);
+3. entries with no host must explain how they are detected;
+4. no host is claimed by two entries;
+5. the page names every entry, by key **and** by visible name;
+6. the page invents no entry;
+7. the policy pages link to it, and `privacy.html` no longer restates a list;
+8. **`/subprocessors` actually returns 200** — a live request, not a source scan, because a page
+   nobody can reach is not a disclosure (the `API.md` defect class).
+
+The first run of guard 1 failed on three hosts (`your-app.up.railway.app`, `app.storecops.ai`,
+`storecops.app`). All three were verified as our own domains or the documented placeholder before
+being classified — the guard doing its job on its first execution is the point.
+
+**Residual:** SDK-reached providers and infrastructure cannot be detected from URL literals; they are
+declared manually with a `detection` note. A merchant-specific DPA still needs a legal entity and
+jurisdiction from the user.
+
 Fix order: P0 → P1 → P2 → M1-M7 verify → P3-P5.
-**P6 remaining: item 37** (EU DPA/sub-processor page — verified absent; `privacy.html:43` carries the
-sub-processor *list* as prose, but there is no standalone DPA page). Then **M8** (100/1000 load +
-DB-kill `/ready`) and **M10** (browsers 375/768/1440 + keyboard). The **REST→GraphQL migration** is the
-critical path to submission and is blocked on the billing decision.
-User-only blockers unchanged: `SHOPIFY_CLIENT_ID`/`SECRET` (now also required for embedded auto-login,
+**All of P1–P6 is now closed.** Remaining work is verification and the submission path:
+**M8** (100/1000 load + DB-kill `/ready`) and **M10** (browsers 375/768/1440 + keyboard — next up).
+The **REST→GraphQL migration** is the critical path to submission and is blocked on the billing
+decision.
+User-only blockers unchanged: `SHOPIFY_CLIENT_ID`/`SECRET` (also required for embedded auto-login,
 which fails closed without it), delivery credentials, the Railway volume, `storecops.com`, M3/M4/M5, a
-Railway cron for `scripts/backup.js`, and listing assets.
-**Note:** P6 items 36 and 38 and the P6 item-35 remainder are all now closed, and two of the three
-were mis-stated in this ledger. Continue re-deriving every remaining item from the tree.
+Railway cron for `scripts/backup.js`, and listing assets. A signed DPA additionally needs a legal
+entity and jurisdiction.
+**Ledger health warning:** items 33, 35, 36 and 37 were each mis-stated — some overstated, some
+understated, one naming a defect that did not exist while missing four that did. Continue re-deriving
+every item from the tree before acting on it.

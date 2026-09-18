@@ -913,6 +913,10 @@ function createApp(platform,) {
   app.get('/support', (req, res,) => res.sendFile(path.join(publicDir, 'support.html',),),);
   // Task 30: Tracker data disclosure page (Shopify compliance).
   app.get('/tracker-disclosure', (req, res,) => res.sendFile(path.join(publicDir, 'tracker-disclosure.html',),),);
+  // COMP-004: Sub-processor register. The list itself lives in
+  // `src/config/subprocessors.js` and is guarded against the code by
+  // test/subprocessors.test.js — this page must not restate it by hand.
+  app.get('/subprocessors', (req, res,) => res.sendFile(path.join(publicDir, 'subprocessors.html',),),);
 
   // Task ob6: Admin console page.
   app.get('/admin', (req, res,) => res.sendFile(path.join(publicDir, 'admin.html',),),);

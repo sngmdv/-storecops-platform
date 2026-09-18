@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sub-processors — Storecops</title>
+  <link rel="stylesheet" href="/styles/landing.css" />
+  <style>
+    .legal { max-width: 800px; margin: 80px auto; padding: 0 24px; font-family: 'Nunito', sans-serif; color: #1a1a2e; line-height: 1.7; }
+    .legal h1 { font-family: 'Baloo 2', cursive; font-size: 2rem; margin-bottom: 8px; }
+    .legal h2 { font-size: 1.25rem; margin-top: 32px; color: #2d2d44; }
+    .legal p, .legal li { font-size: 0.95rem; color: #444; }
+    .legal ul { padding-left: 20px; }
+    .legal .updated { color: #888; font-size: 0.85rem; margin-bottom: 32px; }
+    .legal a { color: #6366f1; }
+    .legal .back { display: inline-block; margin-bottom: 24px; font-size: 0.9rem; text-decoration: none; }
+    .legal table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+    .legal th, .legal td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid #e5e5ef; font-size: 0.9rem; }
+    .legal th { color: #2d2d44; font-weight: 700; background: #f7f7fb; }
+    .legal td strong { color: #1a1a2e; }
+    .legal .note { background: #f7f7fb; border-left: 3px solid #6366f1; padding: 12px 16px; margin: 20px 0; }
+    .legal .note p { margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="legal">
+    <a href="/" class="back">&larr; Back to Storecops</a>
+    <h1>Sub-processors</h1>
+    <p class="updated">Last updated: September 18, 2026</p>
+
+    <p>Storecops processes personal data on behalf of the merchants who install it. This page lists
+    every third party that can process that data, so a merchant can satisfy their own obligations
+    under Article 28 of the GDPR and equivalent laws. It complements the
+    <a href="/privacy">Privacy Policy</a>, which explains what we collect and why.</p>
+
+    <div class="note">
+      <p><strong>A Data Processing Agreement is available on request.</strong> Email
+      <a href="mailto:privacy@storecops.com">privacy@storecops.com</a> and we will send one for
+      signature. We will also give advance notice of any change to this page — see
+      <a href="#changes">Changes</a>.</p>
+    </div>
+
+    <h2>1. Sub-processors</h2>
+    <p>These providers process merchant or shopper personal data on our behalf:</p>
+
+    <table>
+      <thead>
+        <tr><th>Provider</th><th>Purpose</th><th>Data involved</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td data-processor="railway"><strong>Railway</strong></td>
+          <td>Application hosting, persistent database volume, backups and log retention.</td>
+          <td>All data the platform stores, including merchant and shopper personal data.</td>
+        </tr>
+        <tr>
+          <td data-processor="shopify"><strong>Shopify</strong></td>
+          <td>Source of store, product, order and customer data; app embedding; billing; mandatory
+          privacy webhooks (<code>customers/data_request</code>, <code>customers/redact</code>,
+          <code>shop/redact</code>).</td>
+          <td>Store domain, product catalogue, orders, customer name/email/phone, access tokens
+          (encrypted at rest).</td>
+        </tr>
+        <tr>
+          <td data-processor="meta"><strong>Meta (WhatsApp Business API)</strong></td>
+          <td>Delivery of cart-recovery and campaign messages over WhatsApp; public Ad Library reads
+          for competitor intelligence.</td>
+          <td>Shopper phone number and message content, where the merchant has connected WhatsApp.</td>
+        </tr>
+        <tr>
+          <td data-processor="resend"><strong>Resend</strong></td>
+          <td>Transactional and marketing email delivery.</td>
+          <td>Shopper and merchant email address, message content.</td>
+        </tr>
+        <tr>
+          <td data-processor="bigcommerce"><strong>BigCommerce</strong></td>
+          <td>Merchant platform integration (catalogue, orders) when the merchant connects
+          BigCommerce.</td>
+          <td>Store domain, product catalogue, orders, access tokens (encrypted at rest).</td>
+        </tr>
+        <tr>
+          <td data-processor="serpapi"><strong>SerpApi</strong></td>
+          <td>Search-result data used for SEO recommendations.</td>
+          <td>Search keywords only — no shopper or merchant personal data is sent.</td>
+        </tr>
+        <tr>
+          <td data-processor="stripe"><strong>Stripe</strong></td>
+          <td>Subscription payment processing, when enabled.</td>
+          <td>Merchant billing contact and payment method, held by the provider.</td>
+        </tr>
+        <tr>
+          <td data-processor="razorpay"><strong>Razorpay</strong></td>
+          <td>Subscription payment processing, when enabled.</td>
+          <td>Merchant billing contact and payment method, held by the provider.</td>
+        </tr>
+        <tr>
+          <td data-processor="redis"><strong>Redis</strong></td>
+          <td>Queue and cache backend, when the deployment configures it instead of in-process
+          storage.</td>
+          <td>Queued job payloads and session/throttle counters — may contain personal data.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>2. Third-party assets loaded in your browser</h2>
+    <p>These are not sub-processors: we do not send them personal data. But your browser requests
+    files from them directly, so your IP address and the referring page reach them. They are listed
+    for completeness.</p>
+
+    <table>
+      <thead>
+        <tr><th>Provider</th><th>What is loaded</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td data-processor="unpkg"><strong>unpkg (Lucide icon bundle)</strong></td>
+          <td>Icon set, loaded by the app and marketing pages.</td>
+        </tr>
+        <tr>
+          <td data-processor="jsdelivr"><strong>jsDelivr</strong></td>
+          <td>Content delivery, permitted by the site Content-Security-Policy.</td>
+        </tr>
+        <tr>
+          <td data-processor="google-fonts"><strong>Google Fonts</strong></td>
+          <td>Web fonts used by the marketing and app pages.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>3. Public data sources</h2>
+    <p>For competitor and demand intelligence the platform reads publicly available pages. No
+    personal data is sent, and no account relationship exists with these sites.</p>
+
+    <table>
+      <thead>
+        <tr><th>Source</th><th>What is read</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td data-processor="google-trends"><strong>Google Trends</strong></td>
+          <td>Daily trending searches, used as a demand signal.</td>
+        </tr>
+        <tr>
+          <td data-processor="reddit"><strong>Reddit</strong></td>
+          <td>Public subreddit listings, used as a demand signal.</td>
+        </tr>
+        <tr>
+          <td data-processor="pinterest"><strong>Pinterest</strong></td>
+          <td>Public search pages, used as a demand signal.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 id="changes">4. Changes</h2>
+    <p>This register is generated from the application's own configuration, so it is updated as part
+    of the release that adds or removes a provider rather than after the fact. We will notify
+    merchants by email before a new sub-processor begins processing personal data, giving an
+    opportunity to object.</p>
+
+    <h2>5. Your own obligations</h2>
+    <p>If you are a merchant, you are the controller and we are your processor. You are responsible
+    for the lawfulness of the data you ask us to process, for obtaining any consent your
+    jurisdiction requires, and for your own disclosures to your shoppers. Storecops blocks marketing
+    events until consent is recorded, but analytics events are permitted by default — see the
+    <a href="/terms">Terms</a> for the consent configuration you may need.</p>
+
+    <h2>6. Contact</h2>
+    <p>Sub-processor questions and DPA requests:
+    <a href="mailto:privacy@storecops.com">privacy@storecops.com</a></p>
+    <p>Contractual questions: <a href="mailto:legal@storecops.com">legal@storecops.com</a></p>
+    <p>General support: <a href="mailto:support@storecops.com">support@storecops.com</a></p>
+  </div>
+</body>
+</html>
