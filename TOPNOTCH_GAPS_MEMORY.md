@@ -1574,3 +1574,114 @@ entity and jurisdiction.
 understated, one naming a defect that did not exist while missing four that did. M10's own line
 described a *test* and named one defect where there were three. M8's line likewise. Continue
 re-deriving every item from the tree before acting on it.
+
+## 2026-09-18 — P1-P6 residual sweep (5 code-safe items, user chose all)
+
+All five needed no secrets and no deploy action. 795 to **809 tests green, 0 fail**
+(`npm test`), `check-syntax` 178 files, ESLint 0 errors (pre-existing
+`no-unused-vars` warnings only).
+
+1. **Docs sync (P5/P1-8).** `SHOPIFY_SUBMISSION.md` still described the pre-fix
+   world: `PUBLIC_URL` placeholder, four dead `storecops.com` origin rows, and the
+   removed `injectShopifyScriptTag`. Now matches HEAD (Railway host live but stale
+   — redeploy before review). `shopify.app.toml:99` proxy-forward comment fixed.
+2. **EventTracker mutex (P3 DB-006 residual).** `track()` serialized per `store_id`
+   with the shared `keyedMutex` plus best-effort compensation (inserted event
+   deleted on downstream exception). Crash-between-steps still needs DB
+   transactions — stated, not hidden. `test/eventTrackerAtomicity.test.js` (3).
+3. **GeoIP headers (P4 PPP stub).** `detectCountry(ip, hints)` honors
+   Cloudflare/Vercel/CloudFront/App Engine country headers, still US without
+   headers; `/pricing/detect-country` forwards them, `/pricing/validate` passes
+   `req.headers`. Module header de-claimed. Stub test updated.
+4. **Backup alarm (P1-4).** New `scripts/backup-check.js` (`npm run backup:check`,
+   exit 1 when no snapshot or older than `BACKUP_MAX_AGE_HOURS`/48h) plus
+   `test/backupCheck.test.js` (3), Railway cron runbook in `SHOPIFY_SUBMISSION.md`
+   section 3, commented `BACKUP_*` vars in `.env.production`. Live check: newest
+   snapshot 29h old — OK. Deliberately NOT in preflight (fresh clones have no
+   snapshots).
+5. **Lucide vendored (P2 SEC-002 remainder).** `public/vendor/lucide.min.js`
+   (442KB, 1.47.0, banner and `createIcons` verified), both pages switched,
+   `unpkg.com` dropped from CSP `script-src`, register entry `unpkg` to `lucide`
+   (vendored, no remote host), `THIRD_PARTY_NOTICES.md` and `subprocessors.html`
+   updated, banner test added, CSP `!unpkg.com` assertion added. Full
+   `unsafe-inline` removal still blocked on inline handlers/blocks — recorded,
+   not attempted.
+
+Still user-only: Shopify/delivery credentials, Railway volume plus cron creation,
+`storecops.com`, M3/M4/M5/M9, listing assets, signed DPA entity. Still deferred
+code: GraphQL migration (critical path), express/stripe/ioredis majors, P4-28
+revenue-threads merge, full GeoIP DB, structured logging, screen-reader pass.
+
+## 2026-09-18 — P5-32 REST-to-GraphQL migration DONE (billing: Shopify Billing)
+
+User decision recorded: **Shopify Billing** (`SHOPIFY_SUBMISSION.md` billing item
+checked). Every Admin API call now goes through new `src/server/shopifyAdmin.js`
+(version derived, 429/5xx retry with `Retry-After`, one `ShopifyAdminError`
+shape, cursor `fetchAllEdges` capped at 10 pages, `fetchFn` injectable):
+
+- `billingService.createShopifyCharge` → `appSubscriptionCreate` (recurring,
+  `EVERY_30_DAYS`, trial 14d). Return contract unchanged (`charge_id` is now the
+  subscription gid); webhook lookup matches gid or numeric tail, so rows from
+  both generations resolve.
+- `integrations.syncShopify` → `products`/`orders`/`customers` connections with
+  node-to-record mapping documented at the call site (gid tails preserve the old
+  numeric id space; money strings `Number()`-ed; tags joined). Per-resource
+  errors are recorded in an `errors` map instead of breaking silently; auth
+  rejections still throw with the same message.
+- `registerShopifyWebhook` / `registerComplianceWebhooks` →
+  `webhookSubscriptionCreate` (`ORDERS_CREATE`, `APP_UNINSTALLED`,
+  `CUSTOMERS_DATA_REQUEST`, `CUSTOMERS_REDACT`, `SHOP_REDACT`). The
+  `topic:`/`address:` literal adjacency the manifest-parity guard parses is
+  preserved; `webhookConfig.test.js` passes unmodified.
+- Storefront `/products.json` hits (competitorScraper, deepAudit) are public
+  unauthenticated endpoints, not the Admin API — correctly untouched.
+
+**SYNC-001 (found by the rewrite, fixed):** the old customers loop called
+`customerProfiles.findOrCreate`, which does not exist — every sync against a
+shop with 1+ customer threw *after* products/orders synced, leaving the
+connection row stale. Profiles now go through canonical `applyEvent`
+(`lead_captured`: no aggregate side effects). Pinned by test.
+
+`test/shopifyGraphql.test.js` (15): client contract, billing mapping + error
+paths, sync mapping across pages through the real pipeline (ledger/event/
+profile assertions), per-resource errors, webhook enums, plus source scans
+(no Admin REST literal in the migrated files; no `findOrCreate`).
+
+809 to **824 tests green, 0 fail**; syntax 180 files; ESLint 0 errors.
+Residual, must be exercised on a dev store before submission (M4): the field
+selection targets API 2026-07 and has never hit a real Shopify backend —
+first `syncShopify` against a live store is the verification. No
+`appSubscriptionCancel`/`currentAppInstallation` calls exist in the code, so no
+cancel/list migration was needed.
+
+## 2026-09-18 — Launch checklist session (PAUSED, resume at Task 4)
+
+Eight user-side tasks tracked in order; state when paused:
+
+- **Task 1 DONE** — Railway volume on `/app/data` mounted (user confirms).
+- **Task 2 DONE** — Shopify keys. `client_id = "46e22f0bcb45c408c975876378ee5d9b"`
+  filled in `shopify.app.toml:47` by assistant; user confirms Railway
+  `SHOPIFY_CLIENT_ID`/`SHOPIFY_CLIENT_SECRET` vars plus Partner Dashboard URLs
+  (App URL `.../app`, redirect `.../connect/shopify/callback`, proxy
+  `storecops → .../proxy`) are set. Never put the secret in the repo.
+- **Task 3 PARKED (must revisit before review)** — delivery credentials skipped
+  by user. Without email or WhatsApp, recovery sends fail and the reviewer sees
+  a dead core loop. Needs `EMAIL_PROVIDER` + `RESEND_API_KEY` (or SMTP) +
+  `EMAIL_FROM` + `EMAIL_UNSUBSCRIBE_SECRET`, optionally the `WHATSAPP_*` set.
+- **Task 4 IN PROGRESS (resume here)** — Railway cron jobs. Assistant CANNOT do
+  this: no Railway login/token from here, schedules are dashboard-only. Needs:
+  cron service on same repo/branch + same `/app/data` volume + storage vars,
+  `0 3 * * *` → `node scripts/backup.js`, `0 4 * * *` →
+  `node scripts/backup-check.js --max-age-hours 48`, one manual backup run.
+- **Task 5 pending** — redeploy HEAD + verify. Live probe 2026-09-18T15:36Z from
+  assistant side: `/health` 200 (live), `/ready` 404 (build predates readiness
+  work). After redeploy expect `/ready` 200, then `npm run preflight` green.
+- **Task 6 pending** — dev-store install (M4); first live `syncShopify` verifies
+  the GraphQL field selection against API 2026-07.
+- **Task 7 pending** — M5 (delivery; blocked on Task 3) + M9 (restore rehearsal;
+  needs volume + a snapshot from Task 4).
+- **Task 8 pending** — reviewer packet + listing assets, submit.
+
+Working tree still UNCOMMITTED at pause: prior batches (P1-P6 sweep, GraphQL
+migration) plus the TOML `client_id` fill. Commit before the Task 5 redeploy so
+the deploy actually carries the work.
