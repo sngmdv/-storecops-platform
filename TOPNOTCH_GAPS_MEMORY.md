@@ -676,6 +676,14 @@ immediately: it failed because the page did not name the extension, so the page 
     `brandNewUnclassifiedThing` to `COLLECTIONS` left **all 9 tests green**, while silently making the new
     collection **purgeable** — deleted on uninstall with nobody having decided that.~~ **FIXED 2026-09-18**
     — found while adding the `webhookDeliveries` collection for item 18. See the item-43 write-up below.
+44. ~~**RATE-001 (found 2026-09-18)** `createRateLimiter` trimmed each key's timestamp array to a fixed
+    `maxPerKey` (500) before appending, then compared `timestamps.length > max`. With the default `max`
+    of 300 this is harmless. But `RATE_LIMIT_MAX` is env-configurable, and **any value of 500 or above
+    made the limiter reject nothing at all** — the array could never exceed the threshold. Measured:
+    `max=500, 600 attempts -> rejected 0`; `max=1000, 1100 attempts -> rejected 0`. So
+    `RATE_LIMIT_MAX=500` in the environment silently disabled rate limiting.~~ **FIXED 2026-09-18** —
+    `perKeyCap = Math.max(maxPerKey, max + 1)` so the array can always grow to `max + 1`. See the
+    item-44 write-up below.
 
 ### Item 43 (PRIV-001) — a guard that certified safety it never tested — FIXED 2026-09-18
 
@@ -707,6 +715,57 @@ silently. Re-injecting the bogus collection now fails the test, and the file res
 **The irony worth recording:** this was found *because* item 18 needed a new collection, and the guard
 that was supposed to force exactly that decision turned out to be the one thing that could not. It also
 explains why the ledger's own "add it to privacy.js" instruction had never once been enforced.
+
+### Item 44 (RATE-001) — `maxPerKey` silently disabled rate limiting for any `max >= 500` — FIXED 2026-09-18
+
+**Found while building the test for item 19.** The per-store ingest ceiling needed a deliberately tiny
+`max` (3) to be testable in a reasonable number of requests. Setting `max: 3` on `createRateLimiter`
+should have rejected the 4th attempt. It did not.
+
+**The arithmetic.** `createRateLimiter` accepted `maxPerKey = 500` (a memory cap). On every request it
+trimmed the timestamp array: `if (timestamps.length >= maxPerKey) timestamps.splice(0, ..., 500 - 1)`.
+Then it appended the current timestamp and checked `if (timestamps.length > max)`. With `max = 300`, the
+trim is a no-op until 500 entries, and the threshold check fires at 301 — fine. With `max = 500`, the
+trim keeps the array at 499, the 500th push makes it 500, and `500 > 500` is **false** — so the limiter
+rejects **nothing**. With `max = 600`, the trim keeps the array at 499, every push is accepted, and
+`length > 600` is never true. **Any `max >= 500` disables the limiter entirely.**
+
+**Measured, not reasoned.**
+
+    max=300,  400 attempts -> rejected 100
+    max=500,  600 attempts -> rejected   0
+    max=600,  700 attempts -> rejected   0
+    max=1000, 1100 attempts -> rejected   0
+
+`RATE_LIMIT_MAX` is an environment variable. `RATE_LIMIT_MAX=500` in the environment therefore
+**silently disabled rate limiting**. The same `maxPerKey` parameter was also the documented reason the
+per-store ceiling could not use a high `max` (the array would grow unboundedly), which was wrong — the
+sweeper already bounds memory, and the real bound is `maxKeys`.
+
+**Fix:** `perKeyCap = Math.max(maxPerKey, max + 1)`. The array must be able to grow to at least `max + 1`
+so `length > max` can ever be true. `maxPerKey` becomes a floor on memory use, never a ceiling on
+enforceability. The test asserts the exact counts above so the defect cannot regress.
+
+### Item 19 (RATE-002) — per-store ingest ceiling on `/proxy/track` — FIXED 2026-09-18
+
+**The residual from TRK-001, now closed.** `/proxy/track` is reached by Shopify's app proxy (signed
+`shop` query). It carried only the plain IP limiter, so a store with many visitors was many IPs, and a
+runaway theme could monopolise the ingest pipeline. A per-tenant ceiling was recorded as needed but not
+designed.
+
+**Design.** `createRateLimiter` now accepts an optional `keyFn(req)` so the caller can key on something
+other than API key / IP. The route mounts `storeIngestLimiter` AFTER `appProxy.requireProxy` (which sets
+`req.proxyStoreId` from the signed query), and keys on that store id. A second tenant on the same IP is
+unaffected. Configurable via `TRACK_INGEST_CEILING_MAX` (default 12000 per minute, sized for a busy
+storefront). The IP limiter is still mounted first — it bounds one *source*, the store ceiling bounds
+one *tenant*.
+
+**Test defect caught mid-run.** The first attempt set `process.env.TRACK_INGEST_CEILING_MAX` inside
+`bootWithCeiling()`, AFTER `createPlatform` was required at the top of the file. `platform.js` requires
+`config.js` at module load time, and Node.js caches the module — so the cached config still had the
+default value of 12000, and the test observed no limiting. The fix is the same pattern used in
+`appProxy.test.js`: set env vars at the top of the file, before any `require` that transitively loads
+`config.js`.
 
 ### Item 18 (WEBHOOK-TENANT-001) — cross-tenant webhook injection — FIXED 2026-09-18
 
@@ -1078,8 +1137,8 @@ so the extension has no keyless ingest path to use.
    - **Rate limiting is the plain IP limiter, deliberately NOT `tieredRateLimiter`.** That one
      resolves a plan from `req.authUser`, which this path has no equivalent of, so it would
      evaluate every storefront as the `free` tier and cap real tracking at 60 rpm / 1000 per
-     day per IP. **Residual:** a per-tenant ingest quota belongs on this path but needs a
-     keyed-by-store design; not invented here.
+     day per IP. A per-store ceiling (`storeIngestLimiter`, keyed on `req.proxyStoreId`) was
+     added in item 19.
 2. **`public/tracker.js` bootstrap** now understands both install shapes: `data-store` (proxy,
    no key) and `?store=&key=` (manual paste). The ingest base is derived from the script's own
    `src` with `/tracker.js` stripped, so no host is hardcoded and a custom storefront domain
