@@ -87,6 +87,15 @@ handlers in `createApp.js` that could reject unhandled, because Express 4 catche
 throws. The structural guard that found them uses `espree`, after a hand-written tokenizer mis-lexed a
 regex literal and **silently skipped a handler** — it reported a confident "1 unguarded" while having
 checked only 18 of 19. Mutation-checked 8/8. See M8 below.
+**Item 42 (RBAC-001) done 2026-09-18** → 766 tests green, 45 suites. Found by challenging the "everything
+is done" claim rather than asserting it: `createRbac().middleware()` in `security.js` is an async Express
+middleware with no try/catch, mounted on seven routes — the **same defect class as item 41**, and invisible
+to the item-41 guard because it is a *factory's return value*, not a call argument. Widening the scan from
+`createApp.js` to all 26 files in `src/server/` found **7** unguarded handlers, not 1, including
+`apiKeyMiddleware` (the authentication gate for all 280 API routes) and `GET /unsubscribe` (the one route
+that forgot `wrap()`, on a public endpoint whose only credential is the query token). 324/324 guarded
+afterwards, and the count is asserted so the scan cannot pass by shrinking. Two defects in the harness
+itself were caught before shipping an all-clear. See the item-42 write-up below.
 
 ## P0 — Launch blockers
 1. SHOPIFY_CLIENT_ID/SECRET empty + shopify.app.toml:47 placeholder → sessionToken.js:109 fails closed, embedded 401
@@ -638,19 +647,67 @@ immediately: it failed because the page did not name the extension, so the page 
     throwing or non-settling `ping()` hung the deploy healthcheck (and the throw killed the
     process). Five other app-level async handlers in `createApp.js` could reject unhandled.~~
     **FIXED 2026-09-18** — found by M8; not in the original audit. See the M8 write-up below.
-42. **RBAC-001 (OPEN, found 2026-09-18)** — `createRbac().middleware()` in `src/server/security.js:78-108`
-    returns an **async** Express middleware with no try/catch; it awaits `store.users.find()`,
-    `store.users.findOne()` and `auditLog.record()`. Mounted directly as route middleware at
-    `apiRoutes.js:1028,1043,1049,1055,1061,1547`. **Same class as item 41**: Express 4 cannot catch a
-    rejected async handler, so a storage or audit failure leaves the request unanswered *and* raises an
-    unhandled rejection (fatal). **Not reproduced** — it needs the storage layer to throw, which adapters
-    "never" do by convention, which is the same convention item 41 refused to rely on. **The item-41
-    guard cannot see it**: that scan looks for `async` *function literals* passed to `app.<verb>()`,
-    whereas this is the **return value of a factory** (`platform.rbac.middleware('administer')`) — a
-    CallExpression, which the detector explicitly skips (there is even a control asserting it skips them).
-    Related scope gap: `apiRoutes.js` has 258 async handlers and relies on `wrap()` **by convention**;
-    no test asserts every one is wrapped, so "no async handler can reject unhandled" is currently proven
-    for `createApp.js` only.
+42. ~~🚨 **RBAC-001** `createRbac().middleware()` in `src/server/security.js` returned an **async**
+    Express middleware with no try/catch; it awaits `store.users.find()`, `store.users.findOne()` and
+    `auditLog.record()`. Mounted directly as route middleware at 7 sites in `apiRoutes.js`.
+    **Same class as item 41** — Express 4 cannot catch a rejected async handler, so a storage or audit
+    failure left the request unanswered *and* raised an unhandled rejection (fatal). It was invisible to
+    the item-41 guard because it is a **factory's return value**, not a call argument.~~ **FIXED
+    2026-09-18** — found by challenging the "everything is done" claim, not by the audit. Widening the
+    scan from one file to all of `src/server/` found **7** unguarded handlers, not 1. See the item-42
+    write-up below.
+
+### Item 42 (RBAC-001) — the RBAC middleware, and the guard that could not see it — FIXED 2026-09-18
+
+**How it was found.** Not by the audit, and not by M8. It came out of being asked "you mean everything is
+done from your side." Answering that by *checking* rather than asserting meant asking a narrower question:
+item 41's fix guarded five app-level handlers in `createApp.js` — what else does Express call that can
+`await`? `createRbac().middleware()` is mounted directly on seven routes and awaits the user directory and
+the audit log.
+
+**Why the item-41 guard missed it.** That scan classified *async function literals* appearing in call
+arguments. This is the **return value of a factory** — `platform.rbac.middleware('administer')` is a
+CallExpression at the registration site. The old detector had an explicit control asserting it *skips*
+CallExpressions, so the blind spot was documented and still not noticed. That is the more general lesson:
+**a control test verifies the implementation against the specification, never the specification against
+the world.**
+
+**Widening the scan found 7, not 1.** Scanning all 26 files in `src/server/` — instead of one — and adding
+four positions (`wrap()`, `app|router.<verb>()`, factory-return, returned/delegated middleware) reported
+**324 handler-position async functions, 7 unguarded**:
+
+| Site | Why it mattered |
+| --- | --- |
+| `security.js` `createRbac().middleware()` | item 42; mounted on 7 routes, awaits storage + audit |
+| `createApp.js` `apiKeyMiddleware` | **the authentication gate for all 280 API routes** |
+| `createApp.js` `/connect/:platform/callback` | OAuth callback; awaits the token exchange |
+| `createApp.js` `/api/v1/connect/pending/:token` | awaits the pending-connection store |
+| `createApp.js` `/connect/status` | awaits the connection store |
+| `createApp.js` `/logout`, `/me`, `/recent`, `/site/:report_id` | session-touching; awaits storage |
+| `apiRoutes.js` `GET /unsubscribe` | the one route in the file that forgot `wrap()` — **public and unauthenticated**, the query token is the only credential |
+
+The last row is the one to remember: 287 routes used `wrap()` **by convention**, and nothing asserted it.
+A convention with no test is a convention until someone is in a hurry. After the fix: **324/324 guarded,
+0 unguarded** — and the count is now asserted, so the scan cannot pass by shrinking.
+
+**Both defects were in the harness, and both were caught before shipping an all-clear.** A hand-written
+tokenizer mis-lexed `/^https?:\/\//` (`createApp.js:1036`) as a line comment, swallowed the rest of the
+line, permanently offset its paren depth, and silently `continue`d past
+`/webhooks/shopify/app-uninstalled` — reporting a confident "1 unguarded" after checking 18 of 19. It was
+replaced with `espree`, and the classified count is now cross-checked against the raw match count.
+Separately, the widened detector could not see an async middleware **assigned to a variable and returned
+by name** (`return resolveIdentity;`) — the exact shape a careless regression produces — so a mutation of
+my own fix went undetected. Both are now pinned by control tests, and 7/7 mutations are caught.
+
+**Fail closed, and never write twice.** Both new catch blocks answer **503, not 401**: the caller's
+credential is not what is wrong, and a 401 would tell a correctly-authenticated client to discard a good
+token. Each checks `res.headersSent` first, because `next()` may already have handed off — an error
+handler that writes a second response corrupts the stream.
+
+- `test/helpers/astScan.js` — the shared scanner (the first module in `test/helpers/`)
+- `test/asyncHandlerGuards.test.js` — 9 tests: detector controls for every position, the property over
+  `src/server/`, and a non-vacuity test (≥300 handler-position functions; still sees the factory-return in
+  `security.js`, `/logout`, `/me`, `/unsubscribe`, and ≥250 `wrap()` entries)
 
 ### Item 33 (OBS-001) — graceful shutdown & fatal-error handling — FIXED 2026-09-18
 
