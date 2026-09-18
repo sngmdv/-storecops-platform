@@ -309,52 +309,62 @@ function createAuthRouter(platform,) {
   /**
    * Shopify embedded app auth endpoint.
    * Called by the frontend when running inside Shopify Admin (embedded mode).
-   * Verifies the Shopify session and returns a Storecops session.
+   *
+   * The caller must present a Shopify App Bridge session token. The tenant is
+   * resolved from the **verified** token's shop domain — never from the request
+   * body, which is entirely caller-controlled.
+   *
+   * SECURITY (fixed 2026-09-18). This handler used to read `shop` from the
+   * body, match it against an unscoped `findOne({ type: 'shopify' })`, and mint
+   * a full session for whichever tenant owned that domain — while reading
+   * `sessionToken` from the body and never using it, despite the docblock
+   * claiming the session was verified. Because the SPA's embedded mode is
+   * triggered by URL parameters (`?embedded=1&shop=…`), a caller needed only
+   * the merchant's public `.myshopify.com` domain to obtain an authenticated
+   * session for that merchant's store. Verified by reproduction: a
+   * credential-free POST returned a 7-day session that then read the victim's
+   * `/auth/me` and `/report/:store_id`.
    */
   router.post('/shopify', async (req, res,) => {
     try {
-      const { shop, host, sessionToken, } = req.body || {};
-      
-      if (!shop) {
-        return res.status(400,).json({ error: 'Shop parameter is required.', },);
+      // App Bridge clients send the token in the body; extension-style callers
+      // send it as a bearer. Both are verified identically.
+      const bearer = String(req.get('Authorization',) || '',).replace(/^Bearer\s+/i, '',);
+      const token = req.body?.sessionToken || bearer;
+
+      // Verify the token directly rather than via `resolveShopifySession`:
+      // that helper also resolves the tenant, so it returns null both for a bad
+      // token AND for a good token whose shop has not signed up yet — which
+      // would make the `requires_signup` branch below unreachable.
+      const verified = await platform.sessionToken.verify(token,);
+      if (!verified) {
+        return res.status(401,).json({ error: 'Invalid or missing Shopify session token.', },);
       }
-      
-      // Validate shop domain format
-      const shopDomain = String(shop,).toLowerCase().replace(/^https?:\/\//, '',).replace(/\/$/, '',);
-      if (!shopDomain.endsWith('.myshopify.com',) && !/^[a-z0-9-]+\.myshopify\.com$/.test(shopDomain,)) {
-        return res.status(400,).json({ error: 'Invalid shop domain.', },);
-      }
-      
-      // Check if this shop has an existing integration
-      const conn = await platform.store.integrations.findOne({ type: 'shopify', },);
-      if (conn && conn.config?.shopDomain === shopDomain && conn.status === 'active') {
-        // Existing shop - find or create user for this shop
-        const existingUser = await platform.store.users.findOne({ 
-          email: conn.config?.shopEmail || `${shopDomain.replace('.myshopify.com', '',)}@storecops.shopify`,
+
+      // The verified domain is the only tenant selector we honour. The body's
+      // `shop` is ignored entirely — it is caller-controlled.
+      const tenant = await tenantForShop(platform, verified.shop_domain,);
+      if (!tenant?.user) {
+        // A genuine token, but no tenant has claimed this shop yet. Issue a
+        // pending session so the client can route to signup — it grants no
+        // access, because `user_id` is null and `store_id` is unset.
+        const tempSession = await platform.auth.createTempSession(verified.shop_domain,);
+        return res.json({
+          temp_session: tempSession,
+          shop: verified.shop_domain,
+          embedded: true,
+          requires_signup: true,
         },);
-        
-        if (existingUser) {
-          // Open a session for the tenant that owns this shop.
-          // createSession resolves store_id from the user document so the
-          // session is automatically scoped to that tenant.
-          const session = await platform.auth.createSession(existingUser,);
-          return res.json({
-            session,
-            store_id: existingUser.store_id || conn.store_id,
-            shop: shopDomain,
-            embedded: true,
-          },);
-        }
       }
-      
-      // New shop or no existing integration - create a temporary session
-      // The user will need to complete signup/connect flow
-      const tempSession = await platform.auth.createTempSession(shopDomain,);
-      return res.json({ 
-        temp_session: tempSession, 
-        shop: shopDomain,
+
+      // createSession resolves store_id from the user document, so the session
+      // is automatically scoped to that tenant.
+      const session = await platform.auth.createSession(tenant.user,);
+      return res.json({
+        session,
+        store_id: tenant.store_id,
+        shop: verified.shop_domain,
         embedded: true,
-        requires_signup: true,
       },);
     } catch (error) {
       return res.status(400,).json({ error: error.message, },);
@@ -923,7 +933,6 @@ function createApp(platform,) {
   // duplicate deliveries from causing repeated destructive work.
   // Use database-backed dedup for persistence across restarts.
   const WEBHOOK_DEDUP_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-  const WEBHOOK_DEDUP_MAX = 10000;
   
   async function isDuplicateWebhook(req,) {
     const rawBody = req.rawBody || JSON.stringify(req.body || {},);

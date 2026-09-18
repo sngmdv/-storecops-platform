@@ -19,6 +19,26 @@
   const shopifyShop = params.get("shop") || null;
   const shopifyHost = params.get("host") || null;
 
+  /**
+   * The App Bridge session token, or null when App Bridge is absent.
+   *
+   * This is the ONLY thing that proves which shop we are acting for. The `shop`
+   * URL parameter is caller-controlled, so it is a routing hint at most — the
+   * server resolves the tenant from the verified token and ignores any domain
+   * the client claims. Mirrors the helper the admin extension uses.
+   */
+  async function shopifyIdToken() {
+    const s = window.shopify;
+    if (!s) return null;
+    try {
+      if (s.auth && typeof s.auth.idToken === "function") return await s.auth.idToken();
+      if (typeof s.idToken === "function") return await s.idToken();
+    } catch (error) {
+      console.warn("[Storecops] App Bridge idToken unavailable:", error.message);
+    }
+    return null;
+  }
+
   if (isEmbedded) {
     console.log("[Storecops] Running in Shopify embedded mode for shop:", shopifyShop);
     document.body.classList.add("embedded-mode");
@@ -692,8 +712,15 @@
         // Store Shopify info for the API
         sessionStorage.setItem("shopify_shop", shopifyShop);
         sessionStorage.setItem("shopify_host", shopifyHost);
-        // Try to auto-login with Shopify credentials
-        api.post("/auth/shopify", { shop: shopifyShop, host: shopifyHost })
+        // Prove the shop with an App Bridge session token before exchanging it
+        // for a Storecops session. Without this the server has nothing to
+        // verify, and anyone able to set the `shop` parameter could obtain a
+        // session for that merchant.
+        shopifyIdToken()
+          .then((token) => {
+            if (!token) throw new Error("Shopify session token unavailable");
+            return api.post("/auth/shopify", { sessionToken: token });
+          })
           .then(() => route())
           .catch(() => {
             // If auto-login fails, show login with pre-filled shop

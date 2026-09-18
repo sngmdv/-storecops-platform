@@ -602,14 +602,17 @@ immediately: it failed because the page did not name the extension, so the page 
 
 33. ~~OBS-001 No observability~~ **FIXED 2026-09-18** — see the write-up below.
 34. ~~DOC-001/002/003 Docs wrong~~ **FIXED 2026-09-18** — see the write-up below.
-35. REPO-002 Dead code — ~~public/js/appBridge.js~~ (removed), ~~deleteManyStmt~~ (P3),
-    ~~root clutter~~ (already gone at 3c0c48d). `WEBHOOK_DEDUP_MAX` still unused.
-    **PARTIAL — see the write-up below.**
+35. ~~REPO-002 Dead code~~ **FIXED 2026-09-18** — `public/js/appBridge.js` removed,
+    `deleteManyStmt` gone (P3), root clutter gone at 3c0c48d, and the last item
+    (`WEBHOOK_DEDUP_MAX`, declared at `createApp.js:926` and never read) is removed.
+    See the write-up below.
 36. ~~FE-003 A11y~~ **FIXED 2026-09-18** — the stated defects were wrong in both
     directions; see the write-up below.
 37. COMP-004 No DPA/sub-processor page for EU (only prose in privacy.html:43). **OPEN.**
 38. ~~🚨 **TRK-001 Storefront tracker never transmits**~~ **FIXED 2026-09-18** — new
     finding, not in the original audit. See below.
+39. ~~🚨🚨 **SHOP-001 Unauthenticated cross-tenant session mint**~~ **FIXED 2026-09-18** —
+    the most severe finding of the engagement; not in the original audit. See below.
 
 ### Item 33 (OBS-001) — graceful shutdown & fatal-error handling — FIXED 2026-09-18
 
@@ -1035,10 +1038,74 @@ commented-out fix cannot satisfy them.
 **Residual:** the guards check *declared* names and wiring, not rendered accessibility trees. A real
 screen-reader pass is M10 (browser matrix + keyboard), still open.
 
+### Item 35 (REPO-002) — dead code — FIXED 2026-09-18
+
+The last remaining item was `WEBHOOK_DEDUP_MAX = 10000` at `createApp.js:926`, declared and never
+read (the sibling `WEBHOOK_DEDUP_TTL_MS` **is** used). Removed.
+
+**Why it survived:** ESLint *does* flag it — `no-unused-vars` reported it at `926:9`. But the rule is
+configured as **`warn`**, and `src/` carries **103** warnings, so a real one is invisible in the list.
+The lesson is not "add a rule" but "a permanently-red warning list is not a detector". Removing the
+dead constant also removed the two unused destructured vars that went with the old handler, taking
+`createApp.js` from 8 warnings to 5.
+
+### Item 39 (SHOP-001) — unauthenticated cross-tenant session mint — FIXED 2026-09-18
+
+**The most severe finding of the engagement, and it is not in the original audit.**
+
+`POST /api/v1/auth/shopify` was documented as *"Verifies the Shopify session and returns a Storecops
+session."* It did not. It read `shop` from the request body, matched it against an **unscoped**
+`findOne({ type: 'shopify' })`, and called `platform.auth.createSession(existingUser)` — a **full
+session** for whichever tenant owned that domain. It also destructured `sessionToken` from the body
+and **never used it**; `platform.sessionToken.verify` was called in exactly one place in the whole
+codebase, and not here.
+
+**Reproduced before fixing** (the discipline matters — this is a claim, so it was proven):
+
+```
+POST /api/v1/auth/shopify   {"shop":"victim-store.myshopify.com"}      (no auth headers)
+→ 200 {"session":{"token":"758cbffa…","expires_at":"+7d"},"store_id":"store_9f0d89"}
+→ GET /api/v1/auth/me                        → 200  role: admin, store_id store_9f0d89
+→ GET /api/v1/report/store_9f0d89            → 200
+```
+
+**Reachability.** No credential of any kind was required, and the SPA switches on embedded mode from
+**URL parameters** (`isEmbedded` ← `?embedded=1` / `?shop=` / `?host=`). So an attacker needed only
+the merchant's public `.myshopify.com` domain — visible in every storefront URL — and could hand a
+victim a link that silently authenticated them as that merchant. The control case confirmed the
+intended design: an unknown shop received only a `temp_session` with `user_id: null` ("deliberately
+unresolvable — grants no access"), so the *existing-shop* branch was the broken one.
+
+**Fix.**
+- The handler now **verifies the session token** (`platform.sessionToken.verify`) and returns **401**
+  when it is missing, forged, expired or mis-audienced.
+- The tenant is resolved from the **verified** `dest`/`iss` domain via `tenantForShop`. The body's
+  `shop` is ignored entirely, so a caller cannot steer a valid token to another tenant.
+- The token is accepted from the body (`sessionToken`, the App Bridge shape) or as a bearer, so
+  extension-style callers work too.
+- The client now obtains an App Bridge id token (`window.shopify.auth.idToken()`, mirroring the admin
+  extension's helper) and posts that instead of asserting the shop domain.
+- `resolveShopifySession` is deliberately **not** reused here: it also resolves the tenant, so it
+  returns null for both a bad token and a good token for an unclaimed shop, which would have made the
+  `requires_signup` branch unreachable. The two concerns are separated instead.
+
+**Guards** — `test/shopifyEmbeddedAuth.test.js`, 9 tests: the original attack, embedded-mode
+spoofing, forged/expired/mis-audienced/malformed tokens, the genuine flow, body-`shop` steering, a
+pending session granting no access, the bearer form, and a client-bundle contract that the SPA sends a
+token rather than a shop claim. **Mutation-checked 4/4.**
+
+**Residual:** the endpoint still requires `SHOPIFY_CLIENT_ID`/`SECRET` to be configured — the verifier
+fails closed without them, so embedded auto-login returns 401 until those secrets are set. That is the
+same user-only blocker already recorded as P0-1, and it is the correct failure mode: refusing to
+verify beats trusting an unverifiable claim.
+
 Fix order: P0 → P1 → P2 → M1-M7 verify → P3-P5.
-**P6 remaining: item 37** (EU DPA/sub-processor page — verified absent), **item 35 remainder**
-(unused `WEBHOOK_DEDUP_MAX`). Then **M8** (100/1000 load + DB-kill `/ready`) and **M10** (browsers
-375/768/1440 + keyboard). The **REST→GraphQL migration** is the critical path to submission and is
-blocked on the billing decision.
-User-only blockers unchanged: `SHOPIFY_CLIENT_ID`/`SECRET`, delivery credentials, the Railway
-volume, `storecops.com`, M3/M4/M5, a Railway cron for `scripts/backup.js`, and listing assets.
+**P6 remaining: item 37** (EU DPA/sub-processor page — verified absent; `privacy.html:43` carries the
+sub-processor *list* as prose, but there is no standalone DPA page). Then **M8** (100/1000 load +
+DB-kill `/ready`) and **M10** (browsers 375/768/1440 + keyboard). The **REST→GraphQL migration** is the
+critical path to submission and is blocked on the billing decision.
+User-only blockers unchanged: `SHOPIFY_CLIENT_ID`/`SECRET` (now also required for embedded auto-login,
+which fails closed without it), delivery credentials, the Railway volume, `storecops.com`, M3/M4/M5, a
+Railway cron for `scripts/backup.js`, and listing assets.
+**Note:** P6 items 36 and 38 and the P6 item-35 remainder are all now closed, and two of the three
+were mis-stated in this ledger. Continue re-deriving every remaining item from the tree.
