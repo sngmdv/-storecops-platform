@@ -638,6 +638,19 @@ immediately: it failed because the page did not name the extension, so the page 
     throwing or non-settling `ping()` hung the deploy healthcheck (and the throw killed the
     process). Five other app-level async handlers in `createApp.js` could reject unhandled.~~
     **FIXED 2026-09-18** — found by M8; not in the original audit. See the M8 write-up below.
+42. **RBAC-001 (OPEN, found 2026-09-18)** — `createRbac().middleware()` in `src/server/security.js:78-108`
+    returns an **async** Express middleware with no try/catch; it awaits `store.users.find()`,
+    `store.users.findOne()` and `auditLog.record()`. Mounted directly as route middleware at
+    `apiRoutes.js:1028,1043,1049,1055,1061,1547`. **Same class as item 41**: Express 4 cannot catch a
+    rejected async handler, so a storage or audit failure leaves the request unanswered *and* raises an
+    unhandled rejection (fatal). **Not reproduced** — it needs the storage layer to throw, which adapters
+    "never" do by convention, which is the same convention item 41 refused to rely on. **The item-41
+    guard cannot see it**: that scan looks for `async` *function literals* passed to `app.<verb>()`,
+    whereas this is the **return value of a factory** (`platform.rbac.middleware('administer')`) — a
+    CallExpression, which the detector explicitly skips (there is even a control asserting it skips them).
+    Related scope gap: `apiRoutes.js` has 258 async handlers and relies on `wrap()` **by convention**;
+    no test asserts every one is wrapped, so "no async handler can reject unhandled" is currently proven
+    for `createApp.js` only.
 
 ### Item 33 (OBS-001) — graceful shutdown & fatal-error handling — FIXED 2026-09-18
 
