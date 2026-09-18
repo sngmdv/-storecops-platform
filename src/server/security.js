@@ -77,33 +77,51 @@ function createRbac({ store, auditLog, },) {
      */
     middleware(requiredPermission,) {
       return async (req, res, next,) => {
-        const allUsers = await store.users.find({},);
-        if (allUsers.length === 0) return next(); // bootstrap mode
+        // Express 4 does not catch a rejected async handler — `Layer.handle_request`
+        // wraps only the *synchronous* call — so a rejection here would leave the
+        // request unanswered **and** raise an unhandled rejection, which terminates
+        // the process by default. This middleware is mounted directly on routes in
+        // apiRoutes.js, and it awaits the user directory and the audit log, so a
+        // storage or audit failure must be answered rather than allowed to escape.
+        try {
+          const allUsers = await store.users.find({},);
+          if (allUsers.length === 0) return next(); // bootstrap mode
 
-        const email = req.authUser?.email;
-        const user = email ? await store.users.findOne({ email, },) : null;
+          const email = req.authUser?.email;
+          const user = email ? await store.users.findOne({ email, },) : null;
 
-        if (!user) {
-          // Gateway-authenticated identity without a directory entry
-          // (e.g. the master API key) — trust its role directly.
-          if (req.authUser?.role && ROLE_PERMISSIONS[req.authUser.role]) {
-            req.user = req.authUser;
-            return next();
+          if (!user) {
+            // Gateway-authenticated identity without a directory entry
+            // (e.g. the master API key) — trust its role directly.
+            if (req.authUser?.role && ROLE_PERMISSIONS[req.authUser.role]) {
+              req.user = req.authUser;
+              return next();
+            }
+            return res.status(403,).json({ error: 'Unknown user. Authentication required.', },);
           }
-          return res.status(403,).json({ error: 'Unknown user. Authentication required.', },);
-        }
 
-        const permissions = ROLE_PERMISSIONS[user.role] || ROLE_PERMISSIONS.viewer;
-        if (!permissions[requiredPermission]) {
-          await auditLog.record(email, 'access_denied', {
-            permission: requiredPermission,
-            path: req.originalUrl,
-          },);
-          return res.status(403,).json({ error: `Role "${user.role}" cannot ${requiredPermission}.`, },);
-        }
+          const permissions = ROLE_PERMISSIONS[user.role] || ROLE_PERMISSIONS.viewer;
+          if (!permissions[requiredPermission]) {
+            await auditLog.record(email, 'access_denied', {
+              permission: requiredPermission,
+              path: req.originalUrl,
+            },);
+            return res.status(403,).json({ error: `Role "${user.role}" cannot ${requiredPermission}.`, },);
+          }
 
-        req.user = user;
-        return next();
+          req.user = user;
+          return next();
+        } catch (error) {
+          // Fail **closed**: a permission that cannot be evaluated is not a grant.
+          // 503, not 401 — the caller's credential is not what is wrong, and a 401
+          // would tell a correctly-authenticated client to discard a good token.
+          // `next()` may already have handed off, so never write twice.
+          console.error('[RBAC] permission check failed:', error.message,);
+          if (!res.headersSent) {
+            return res.status(503,).json({ error: 'Could not evaluate permissions.', },);
+          }
+          return undefined;
+        }
       };
     },
   };

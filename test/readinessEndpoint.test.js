@@ -33,15 +33,13 @@ process.env.NODE_ENV = 'test';
  *   - The probe must be TOTAL (a throwing or non-settling `ping()` still gets an
  *     answer) and BOUNDED (it gives up before the orchestrator does, so the 503
  *     body is actually read).
- *   - No async app-level handler in `createApp.js` may be able to reject
- *     unhandled, because Express 4 cannot catch one.
  *
- * The last group parses `createApp.js` with `espree` — the parser ESLint already
- * uses, and therefore already present wherever `npm run lint` works. It is used
- * rather than a hand-written scanner because a hand-written one is not reliable
- * here: `/^https?:\/\//` on line 1036 of `createApp.js` was mis-lexed as a line
- * comment, which silently skipped a handler. A guard that skips the thing it is
- * checking is worse than no guard, because it certifies safety it never tested.
+ * The structural guard for async app-level handlers (READY-001, RBAC-001) lived
+ * here briefly and now lives in `test/asyncHandlerGuards.test.js`, which scans all
+ * of `src/server/` rather than this one file. It moved because the defect class was
+ * never specific to `createApp.js`: the same shape in `security.js` (item 42) was
+ * invisible while the guard only read one file. That suite documents why `espree`
+ * is used instead of a hand-written scanner.
  */
 
 const test = require('node:test',);
@@ -49,7 +47,6 @@ const assert = require('node:assert',);
 const fs = require('fs',);
 const os = require('os',);
 const path = require('path',);
-const espree = require('espree',);
 
 const { createPlatform, } = require('../src/platform',);
 const { createApp, } = require('../src/server/createApp',);
@@ -418,149 +415,13 @@ test('M8: /ready fails on a real database closed under a live instance, while /h
   }
 },);
 
-// ── M8: no async app-level handler may reject unhandled ─────────────────────
-
-const APP_VERBS = new Set(['get', 'post', 'put', 'patch', 'delete', 'all',],);
-
-function* walkAst(node,) {
-  if (!node || typeof node.type !== 'string') return;
-  yield node;
-  for (const key of Object.keys(node,)) {
-    if (key === 'parent') continue;
-    const value = node[key];
-    if (Array.isArray(value,)) {
-      for (const child of value) yield* walkAst(child,);
-    } else if (value && typeof value.type === 'string') {
-      yield* walkAst(value,);
-    }
-  }
-}
-
-function containsTry(node,) {
-  for (const n of walkAst(node,)) if (n.type === 'TryStatement') return true;
-  return false;
-}
-
-/**
- * Every handler registered directly on `app` that is `async`, and whether it can
- * reject unhandled.
- *
- * An expression-bodied handler (`async (req, res) => res.json(await x())`) is
- * always unguarded — there is nowhere for a `catch` to live. A block body is
- * guarded when it contains a `try`. A non-function last argument (a router such
- * as `createApiRouter(platform)`) is not a handler and is skipped.
- */
-function asyncAppHandlers(source,) {
-  const ast = espree.parse(source, { ecmaVersion: 'latest', sourceType: 'script', loc: true, },);
-  const out = [];
-
-  for (const node of walkAst(ast,)) {
-    if (node.type !== 'ExpressionStatement') continue;
-    const call = node.expression;
-    if (call?.type !== 'CallExpression') continue;
-    const callee = call.callee;
-    if (callee?.type !== 'MemberExpression') continue;
-    if (callee.object?.type !== 'Identifier' || callee.object.name !== 'app') continue;
-    if (callee.property?.type !== 'Identifier' || !APP_VERBS.has(callee.property.name,)) continue;
-
-    const last = call.arguments[call.arguments.length - 1];
-    if (!last) continue;
-    if (last.type !== 'ArrowFunctionExpression' && last.type !== 'FunctionExpression') continue;
-    if (last.async !== true) continue;
-
-    out.push({
-      line: node.loc.start.line,
-      verb: callee.property.name,
-      path: call.arguments[0]?.type === 'Literal' ? String(call.arguments[0].value,) : '<dynamic>',
-      guarded: last.body.type === 'BlockStatement' && containsTry(last.body,),
-    },);
-  }
-  return out;
-}
-
-test('M8: the handler detector actually detects — an unguarded handler is flagged', () => {
-  // Without this, a detector that quietly returned nothing would let the guard
-  // below pass while checking nothing at all.
-  const unguarded = `
-    app.get('/x', async (req, res,) => res.json(await thing(),),);
-  `;
-  const flagged = asyncAppHandlers(unguarded,);
-  assert.equal(flagged.length, 1,);
-  assert.equal(flagged[0].guarded, false, 'an expression-bodied async handler cannot contain a catch',);
-  assert.equal(flagged[0].path, '/x',);
-
-  // A BLOCK body with no try is the case the `containsTry` logic exists for, and
-  // the only one that exercises it — an expression body is already unguarded on
-  // the shape check alone. Without this, neutering the try detection would go
-  // unnoticed because every other case would still pass.
-  const blockNoTry = `
-    app.get('/x', async (req, res,) => {
-      const data = await thing();
-      res.json(data,);
-    },);
-  `;
-  const blockFlagged = asyncAppHandlers(blockNoTry,);
-  assert.equal(blockFlagged.length, 1,);
-  assert.equal(blockFlagged[0].guarded, false, 'a block body with no try can still reject unhandled',);
-
-  // A try nested inside a block still counts — a handler that guards its risky
-  // work inside an `if` is guarded.
-  const nestedTry = `
-    app.get('/x', async (req, res,) => {
-      if (req.query.q) {
-        try { res.json(await thing(),); } catch (error) { res.status(500,).end(); }
-      }
-      res.end();
-    },);
-  `;
-  assert.equal(asyncAppHandlers(nestedTry,).filter((h,) => !h.guarded,).length, 0,);
-
-  const guarded = `
-    app.get('/x', async (req, res,) => {
-      try { res.json(await thing(),); } catch (error) { res.status(500,).end(); }
-    },);
-  `;
-  assert.equal(asyncAppHandlers(guarded,).filter((h,) => !h.guarded,).length, 0,);
-
-  // A synchronous handler is not the detector's business: Express catches a
-  // synchronous throw itself.
-  const syncHandler = `
-    app.get('/x', (req, res,) => res.json({},),);
-  `;
-  assert.equal(asyncAppHandlers(syncHandler,).length, 0,);
-
-  // A sub-router is not a handler either.
-  const subRouter = `
-    app.use('/api/v1', rateLimiter, createApiRouter(platform,),);
-  `;
-  assert.equal(asyncAppHandlers(subRouter,).length, 0,);
-},);
-
-test('M8: no async app-level handler in createApp.js can reject unhandled', () => {
-  const source = fs.readFileSync(path.join(ROOT, 'src', 'server', 'createApp.js',), 'utf8',);
-  const handlers = asyncAppHandlers(source,);
-  const unguarded = handlers.filter((h,) => !h.guarded,);
-
-  assert.deepEqual(
-    unguarded.map((h,) => `line ${h.line}: ${h.verb.toUpperCase()} ${h.path}`,),
-    [],
-    'Express 4 does not catch a rejected async handler — it leaves the request unanswered AND '
-    + 'raises an unhandled rejection, which terminates the process. Wrap the body in try/catch.',
-  );
-
-  // A guard that passes because it found nothing is not a guard. These are the
-  // handlers whose absence would mean the scan is not reading the file — the
-  // last one specifically because a hand-written scanner silently skipped it.
-  assert.ok(handlers.length >= 15, `only ${handlers.length} async handlers found — is the scan reading the file?`,);
-  const paths = handlers.map((h,) => h.path,);
-  for (const expected of [
-    '/ready',
-    '/health/status',
-    '/connect/status',
-    '/connect/:platform/callback',
-    '/api/v1/connect/pending/:token',
-    '/webhooks/shopify/app-uninstalled',
-  ]) {
-    assert.ok(paths.includes(expected,), `expected the scan to have inspected ${expected}`,);
-  }
-},);
+// ── The async-handler property moved to its own suite ───────────────────────
+//
+// The M8 guard that lived here scanned `createApp.js` only, and only async
+// *function literals* passed to `app.<verb>()`. It reported "0 unguarded" while
+// seven existed, because it could not see `router.<verb>(...)` registrations in
+// the same file, `app.use(async ...)`, or factory-produced middleware
+// (`return async (req, res, next) => {...}`) — the shape that hid item 42.
+//
+// test/asyncHandlerGuards.test.js now asserts the same property over every async
+// function in src/server/ that Express can reach, with the detector self-tested.

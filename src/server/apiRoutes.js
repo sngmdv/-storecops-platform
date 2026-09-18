@@ -1146,7 +1146,11 @@ function createApiRouter(platform,) {
 
   router.get(
     '/unsubscribe',
-    async (req, res,) => {
+    // This was the one route in this file not wrapped. It is public and
+    // unauthenticated — the token in the query is the only credential — and it
+    // awaits the consent service, so an unguarded rejection would leave the
+    // request unanswered and take the process down.
+    wrap(async (req, res,) => {
       const token = req.query.token;
       const parsed = platform.consentService.parseUnsubscribeToken(token,);
       if (!parsed) return res.status(400,).json({ error: 'Invalid or expired unsubscribe link.', },);
@@ -1158,7 +1162,7 @@ function createApiRouter(platform,) {
       },);
 
       return res.json({ success: true, message: 'You have been unsubscribed. You will no longer receive marketing emails.', },);
-    },
+    },),
   );
 
   // ── Billing & Entitlements (Tasks 41-45) ────────────────────────────

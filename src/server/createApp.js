@@ -79,7 +79,12 @@ async function resolveShopifySession(platform, token,) {
  *      is locked to /track by the router gate.
  */
 function apiKeyMiddleware(platform,) {
-  return async (req, res, next,) => {
+  // Resolving an identity touches the session store, the tenant key tables and
+  // Shopify token verification, so it can fail. This is the authentication gate
+  // for all 280 API routes: if it rejects, Express 4 does not catch it — the
+  // request goes unanswered and the process dies. Guard it so the gate answers
+  // even when the thing it depends on does not.
+  const resolveIdentity = async (req, res, next,) => {
     // Credentials normally travel in a header. The query-string path exists
     // only for the two callers that physically cannot set one:
     //   - EventSource (`/live/*`) has no header API.
@@ -159,6 +164,22 @@ function apiKeyMiddleware(platform,) {
 
     return res.status(401,).json({ error: 'Invalid or missing credentials (API key or bearer token).', },);
   };
+
+  return async (req, res, next,) => {
+    try {
+      return await resolveIdentity(req, res, next,);
+    } catch (error) {
+      console.error('[AUTH] credential resolution failed:', error.message,);
+      // Fail **closed** — an unverifiable credential is not a credential. 503
+      // rather than 401 so a correctly-authenticated client is not told to
+      // discard a good token. `next()` may already have handed off, so never
+      // write a second response.
+      if (!res.headersSent) {
+        return res.status(503,).json({ error: 'Could not verify credentials.', },);
+      }
+      return undefined;
+    }
+  };
 }
 
 /** Public auth endpoints — no key required, rate-limited. */
@@ -231,9 +252,16 @@ function createAuthRouter(platform,) {
   },);
 
   router.post('/logout', async (req, res,) => {
-    const bearer = (req.get('Authorization',) || '').replace(/^Bearer\s+/i, '',);
-    await platform.auth.logout(bearer,);
-    res.json({ ok: true, },);
+    // Express 4 cannot catch a rejected async handler, so an unguarded body here
+    // would leave the request unanswered and terminate the process.
+    try {
+      const bearer = (req.get('Authorization',) || '').replace(/^Bearer\s+/i, '',);
+      await platform.auth.logout(bearer,);
+      res.json({ ok: true, },);
+    } catch (error) {
+      console.error('[AUTH] logout failed:', error.message,);
+      res.status(500,).json({ error: 'Could not complete sign-out.', },);
+    }
   },);
 
   /**
@@ -300,10 +328,18 @@ function createAuthRouter(platform,) {
   },);
 
   router.get('/me', async (req, res,) => {
-    const bearer = (req.get('Authorization',) || '').replace(/^Bearer\s+/i, '',);
-    const session = await platform.auth.verify(bearer,);
-    if (!session) return res.status(401,).json({ error: 'Not authenticated.', },);
-    return res.json({ user: session.user, store_id: session.store_id, },);
+    // Guarded for the same reason as /logout. A storage blip must not log the
+    // user out: `verify` returning falsy is the 401 path, and anything thrown is
+    // a server fault, so it answers 503 rather than pretending the token is bad.
+    try {
+      const bearer = (req.get('Authorization',) || '').replace(/^Bearer\s+/i, '',);
+      const session = await platform.auth.verify(bearer,);
+      if (!session) return res.status(401,).json({ error: 'Not authenticated.', },);
+      return res.json({ user: session.user, store_id: session.store_id, },);
+    } catch (error) {
+      console.error('[AUTH] session lookup failed:', error.message,);
+      return res.status(503,).json({ error: 'Could not verify the session.', },);
+    }
   },);
 
   /**
@@ -419,16 +455,26 @@ function createAuditRouter(platform,) {
   },);
 
   router.get('/recent', async (req, res,) => {
-    const reports = await platform.siteAudit.recent(10,);
-    res.json(reports.map((r,) => ({
-      report_id: r._id, url: r.url, score: r.score, grade: r.grade, audited_at: r.audited_at,
-    }),),);
+    try {
+      const reports = await platform.siteAudit.recent(10,);
+      res.json(reports.map((r,) => ({
+        report_id: r._id, url: r.url, score: r.score, grade: r.grade, audited_at: r.audited_at,
+      }),),);
+    } catch (error) {
+      console.error('[SITE-AUDIT] recent reports failed:', error.message,);
+      res.status(503,).json({ error: 'Could not load recent reports.', },);
+    }
   },);
 
   router.get('/site/:report_id', async (req, res,) => {
-    const report = await platform.siteAudit.get(req.params.report_id,);
-    if (!report) return res.status(404,).json({ error: 'Report not found.', },);
-    return res.json(report,);
+    try {
+      const report = await platform.siteAudit.get(req.params.report_id,);
+      if (!report) return res.status(404,).json({ error: 'Report not found.', },);
+      return res.json(report,);
+    } catch (error) {
+      console.error('[SITE-AUDIT] report lookup failed:', error.message,);
+      return res.status(503,).json({ error: 'Could not load the report.', },);
+    }
   },);
 
   // ── Public Lead Capture (landing page, audit page, newsletter) ────
