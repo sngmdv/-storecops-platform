@@ -14,6 +14,7 @@
     "preflight:strict": "node scripts/preflight.js --strict",
     "backup": "node scripts/backup.js",
     "backup:verify": "node scripts/restore-check.js",
+    "backup:check": "node scripts/backup-check.js",
     "format": "prettier --write \"src/**/*.js\" \"test/**/*.js\""
   },
   "keywords": [
