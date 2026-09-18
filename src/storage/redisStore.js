@@ -3,9 +3,26 @@
 /**
  * Redis-backed storage adapter.
  *
- * Falls back gracefully to in-memory if Redis is unavailable.
+ * TWO DIFFERENT FAILURES, TWO DIFFERENT OUTCOMES — do not conflate them:
+ *
+ *   - **`ioredis` is not installed.** `createRedisClient` returns null and
+ *     `createStore` genuinely falls back to the in-memory adapter.
+ *   - **`ioredis` is installed but the server is unreachable.** There is NO
+ *     fallback. The adapter stays Redis-backed and writes queue against a dead
+ *     connection until `maxRetriesPerRequest` rejects them. That is deliberate:
+ *     silently switching to an in-memory store would accept writes a merchant
+ *     believes are durable, then discard them on restart. `ping()` performs a
+ *     real round-trip, so `/ready` reports 503 instead.
+ *
+ * This distinction used to be inverted in the logs — a failed connection printed
+ * "Falling back to in-memory store" while returning a Redis-backed store, which
+ * is worse than saying nothing.
+ *
  * Uses Redis HASH for collections, supporting the same CRUD surface
  * as the in-memory and SQLite stores.
+ *
+ * Selected by `STORAGE=redis` (see `src/platform.js`). Setting `REDIS_URL` or
+ * `REDIS_HOST` alone does not select this adapter.
  *
  * Environment variables:
  *   REDIS_URL        - Full Redis URL (redis://user:pass@host:port/db)
@@ -273,12 +290,44 @@ function createStore(config,) {
     return createMemoryStore();
   }
 
-  // Connect to Redis
+  // ioredis re-emits EVERY connection failure as an `error` event. With no
+  // listener attached, ioredis's own `silentEmit` logs the full stack trace on
+  // each attempt — and `retryStrategy` above repeats that every ~2s forever, so
+  // a Redis outage of any length floods the logs with one identical trace and
+  // buries the diagnostics that matter. Attaching a listener has two effects:
+  // `silentEmit` returns early instead of logging, and the volume below is
+  // bounded no matter how long the outage lasts.
+  let consecutiveErrors = 0;
+  client.on('error', (err,) => {
+    consecutiveErrors += 1;
+    if (consecutiveErrors === 1) {
+      console.error(`[Storage] Redis error: ${err.message}`,);
+    } else if (consecutiveErrors % 30 === 0) {
+      console.error(
+        `[Storage] Redis still unavailable after ${consecutiveErrors} consecutive failures ` +
+        `(last: ${err.message}). Writes fail and readiness reports not_ready.`,
+      );
+    }
+  },);
+  client.on('ready', () => {
+    if (consecutiveErrors > 0) {
+      console.log(`[Storage] Redis recovered after ${consecutiveErrors} consecutive failure(s)`,);
+    }
+    consecutiveErrors = 0;
+  },);
+
+  // Connect to Redis. A failure here does NOT switch the adapter: the store
+  // below is built on `client` either way, and `ping()` reports not-ok so
+  // `/ready` fails. The log line says exactly that rather than claiming a
+  // fallback that is not happening.
   client.connect().then(() => {
     console.log(`[Storage] Connected to Redis at ${config.redis?.host || '127.0.0.1'}:${config.redis?.port || 6379}`,);
   },).catch((err,) => {
     console.error('[Storage] Redis connection failed:', err.message,);
-    console.log('[Storage] Falling back to in-memory store',);
+    console.error(
+      '[Storage] The store remains Redis-backed — writes will fail until it recovers. ' +
+      'Readiness will report not_ready. Nothing is being kept in memory.',
+    );
   },);
 
   // Sessions are the only collection with a storage-level TTL, and it is

@@ -130,8 +130,12 @@ function createPlatform(overrides = {},) {
   };
   // SQLite by default so data survives restarts; tests pass an
   // in-memory store (or STORAGE=memory) for speed.
-  // Redis is used if REDIS_URL or REDIS_HOST is configured.
-  const useRedis = cfg.redis?.url || cfg.redis?.host;
+  // The Redis adapter is selected by STORAGE=redis alone. Setting REDIS_URL or
+  // REDIS_HOST does NOT select it — a dead `useRedis` variable here used to
+  // suggest otherwise, but nothing ever read it, so the comment above it
+  // described behaviour the code did not have. If ioredis is not installed,
+  // STORAGE=redis silently lands on the in-memory fallback; a configured but
+  // unreachable Redis does not fall back (see src/storage/redisStore.js).
   const store =
     overrides.store ||
     (cfg.storage === 'redis' && createRedisStore ? createRedisStore(cfg,) :
