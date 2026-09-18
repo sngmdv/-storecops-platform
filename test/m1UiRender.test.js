@@ -494,6 +494,76 @@ test('M1: every static page and every asset it references resolves', async () =>
   }
 },);
 
+/** The set of paths the server accepts a query credential on, read from the
+ * source so this guard cannot drift from the rule actually enforced. */
+function queryCredentialPrefixes() {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'server', 'createApp.js',), 'utf8',);
+  const block = src.match(/const queryCredentialsAllowed =([\s\S]*?);\n/,);
+  assert.ok(block, 'could not locate `queryCredentialsAllowed` in createApp.js',);
+  return [...block[1].matchAll(/['"](\/[^'"]*)['"]/g,),].map((m,) => m[1],);
+}
+
+const stripJsComments = (src,) => src
+  .replace(/\/\*[\s\S]*?\*\//g, '',)
+  .replace(/(^|[^:])\/\/[^\n]*/gm, '$1',);
+
+/** Every `new EventSource(...)` argument in a file, with a bare identifier
+ * resolved to its declaration — `api.js` builds the URL into a local first. */
+function eventSourceTargets(src,) {
+  const clean = stripJsComments(src,);
+  const targets = [];
+  for (const m of clean.matchAll(/new\s+EventSource\s*\(\s*([^)]*?)\s*\)\s*;/g,)) {
+    let arg = m[1].trim();
+    if (/^[A-Za-z_$][\w$]*$/.test(arg,)) {
+      const decl = clean.match(new RegExp(`(?:const|let|var)\\s+${arg}\\s*=\\s*([\\s\\S]*?);`,),);
+      if (decl) arg = decl[1];
+    }
+    targets.push(arg,);
+  }
+  return targets;
+}
+
+test('M1: an EventSource client only targets a query-credential endpoint', () => {
+  // `EventSource` cannot set request headers, so a stream it opens can only
+  // authenticate if the server accepts the credential in the query. The server
+  // does so on a short allowlist; everywhere else an EventSource gets a 401,
+  // and because `onerror` is easy to omit it then retries forever in silence.
+  // admin.html's activity feed did exactly that — it 401'd on every load while
+  // the feed looked "connected". Read such a stream with `fetch` instead.
+  const allowed = queryCredentialPrefixes();
+  assert.ok(allowed.length > 0, 'the server query-credential allowlist is empty',);
+
+  const clients = [
+    ...fs.readdirSync(PUBLIC_DIR,)
+      .filter((f,) => f.endsWith('.html',),)
+      .map((f,) => path.join(PUBLIC_DIR, f,),),
+    ...fs.readdirSync(path.join(PUBLIC_DIR, 'js',),)
+      .filter((f,) => f.endsWith('.js',),)
+      .map((f,) => path.join(PUBLIC_DIR, 'js', f,),),
+  ];
+
+  const offenders = [];
+  for (const file of clients) {
+    const src = fs.readFileSync(file, 'utf8',);
+    for (const target of eventSourceTargets(src,)) {
+      if (allowed.some((p,) => target.includes(p,),)) continue;
+      offenders.push(`${path.relative(path.join(__dirname, '..',), file,)} → new EventSource(${target.trim().slice(0, 60,)})`,);
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    `EventSource cannot carry a header, and only ${allowed.join(', ',)} accept a `
+      + `query credential. Use fetch for anything else:\n${offenders.join('\n',)}`,
+  );
+
+  // The admin feed must exist in the supported form, so deleting it rather
+  // than fixing it also fails this test.
+  const admin = fs.readFileSync(path.join(PUBLIC_DIR, 'admin.html',), 'utf8',);
+  assert.match(admin, /fetch\(API \+ "\/admin\/activity\/stream"/,);
+  assert.match(admin, /"X-API-Key": API_KEY/,);
+},);
+
 test('M1: every page in public/ is reachable over HTTP', async () => {
   const { base, close, } = await bootServer();
   try {

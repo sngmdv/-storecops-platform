@@ -34,7 +34,7 @@
     <p>Storefront tracking is delivered by the <strong>Storecops theme app extension</strong> (<code>storecops-tracker</code>). The merchant enables it as an app embed in <em>Online Store &rarr; Themes &rarr; Customize &rarr; App embeds</em>; Shopify then renders it on every storefront page. Events are sent to the Storecops platform and nowhere else. Under the app embed they travel through Shopify's app proxy to <code>/apps/storecops/track</code>, which the platform authenticates with the proxy signature &mdash; no key is exposed to the storefront. A manual install instead posts directly to <code>/api/v1/track</code> with a write-only ingest key.</p>
 
     <h2>2. Identifiers</h2>
-    <table>
+    <div class="table-scroll"><table>
       <thead>
         <tr><th>Identifier</th><th>Storage</th><th>Purpose</th><th>Lifetime</th></tr>
       </thead>
@@ -42,11 +42,11 @@
         <tr><td><code>visitor_id</code></td><td>localStorage (<code>sc_vid</code>)</td><td>Links behavioral events across pages for the same visitor</td><td>Persistent until browser clear</td></tr>
         <tr><td><code>session_id</code></td><td>sessionStorage (<code>sc_sid</code>)</td><td>Groups events within a single browsing session</td><td>Session only (cleared on tab close)</td></tr>
       </tbody>
-    </table>
+    </table></div>
     <div class="note">Neither identifier contains PII. Both are random UUIDs generated client-side. No cookies are used.</div>
 
     <h2>3. Events Collected</h2>
-    <table>
+    <div class="table-scroll"><table>
       <thead>
         <tr><th>Event Type</th><th>Trigger</th><th>Consent Required</th><th>Data Sent</th></tr>
       </thead>
@@ -94,10 +94,10 @@
           <td>depth percentage</td>
         </tr>
       </tbody>
-    </table>
+    </table></div>
 
     <h2>4. Common Fields in Every Event</h2>
-    <table>
+    <div class="table-scroll"><table>
       <thead>
         <tr><th>Field</th><th>Type</th><th>Description</th></tr>
       </thead>
@@ -108,7 +108,7 @@
         <tr><td><code>visitor_id</code></td><td>UUID string</td><td>Random visitor identifier (see Section 2)</td></tr>
         <tr><td><code>session_id</code></td><td>UUID string</td><td>Random session identifier (see Section 2)</td></tr>
       </tbody>
-    </table>
+    </table></div>
 
     <h2>5. Data NOT Collected</h2>
     <ul>
@@ -147,7 +147,7 @@
 
     <h2>9. Merchant API</h2>
     <p>Merchants can programmatically trigger events via the global <code>window.Storecops</code> object:</p>
-    <table>
+    <div class="table-scroll"><table>
       <thead>
         <tr><th>Method</th><th>Event</th><th>Parameters</th></tr>
       </thead>
@@ -158,7 +158,7 @@
         <tr><td><code>Storecops.purchase(order)</code></td><td>purchase</td><td>Order object (merchant-defined)</td></tr>
         <tr><td><code>Storecops.debug()</code></td><td>—</td><td>Returns current consent state and identifiers (no transmission)</td></tr>
       </tbody>
-    </table>
+    </table></div>
 
     <h2>10. Contact</h2>
     <p>Questions about this tracker? <a href="mailto:privacy@storecops.com">privacy@storecops.com</a></p>

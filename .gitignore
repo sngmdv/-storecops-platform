@@ -23,3 +23,6 @@ RAILWAY_DEPLOY_MEMORY.md
 
 # database snapshots (scripts/backup.js) — never commit these
 data/backups/
+
+# M10 browser-pass evidence (local only)
+.m10-shots/

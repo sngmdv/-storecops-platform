@@ -931,3 +931,22 @@ h4 { font-size: clamp(18px, 2vw, 24px); }
   white-space: nowrap;
   border: 0;
 }
+
+/* M10: a legal-page table is wider than a phone viewport, and a `<table>` is
+   not a scroll container — `overflow-x` does not apply to `display: table`.
+   The table must therefore sit in a block-level wrapper that scrolls.
+   Guarded by test/responsiveTables.test.js, which fails if a `<table>` in
+   public/ is not immediately preceded by such a wrapper. */
+.legal .table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* M10: a fully-qualified identifier in an inline <code> — e.g.
+   `window.Shopify.customerPrivacy.analyticsProcessingAllowed` — offers no
+   break opportunity, so it pushes the whole document past a phone viewport
+   even when every table is contained. `anywhere` supplies one, and also lets
+   a table cell shrink instead of forcing the table wider. */
+.legal code {
+  overflow-wrap: anywhere;
+}

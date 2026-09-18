@@ -339,12 +339,80 @@
       const activeNav = ADMIN_PARENT[hash] ?? (hash || "overview");
       document.querySelectorAll(".side-nav a").forEach(a => a.classList.toggle("active", a.dataset.route === activeNav));
       destroyCharts();
+      stopActivityStream(); // the feed's DOM is about to be replaced
       view.innerHTML = '<div class="a-empty"><span class="spinner"></span> Loading…</div>';
       // Store-detail needs the id param
       const maybePromise = raw.startsWith("store-detail/") ? target.render(raw.split("/")[1]) : target.render();
       maybePromise.catch(e => { view.innerHTML = `<div class="a-card"><h3>Error</h3><p class="a-sub">${esc(e.message)}</p></div>`; });
     }
     window.addEventListener("hashchange", route);
+
+    /* ── Activity stream ──────────────────────────────────────── */
+    /* The stream carries the operator credential in a header, and
+       `EventSource` cannot set custom headers. It therefore 401'd, and because
+       `onerror` was never handled it retried forever in silence — the feed
+       looked connected while never once updating. Read the stream with
+       `fetch` instead, which can send X-API-Key. */
+    let activityStreamCtrl = null;
+
+    function activityRow(a, when, isNew) {
+      const tint = a.severity === 'success' ? 'rgba(8,144,108,0.1)'
+        : a.severity === 'critical' ? 'rgba(239,68,68,0.1)' : 'var(--surface-2)';
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:flex-start;gap:10px;padding:8px;border-bottom:1px solid var(--card-border)'
+        + (isNew ? ';background:rgba(8,144,108,0.05)' : '');
+      row.innerHTML = `
+        <div style="width:32px;height:32px;border-radius:50%;background:${tint};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px">${a.icon || '📋'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:500;font-size:13px">${esc(a.title)}</div>
+          <div style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.message)}</div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);white-space:nowrap">${when}</div>`;
+      return row;
+    }
+
+    function stopActivityStream() {
+      if (activityStreamCtrl) { activityStreamCtrl.abort(); activityStreamCtrl = null; }
+    }
+
+    function startActivityStream(activityDiv) {
+      stopActivityStream();
+      const ctrl = new AbortController();
+      activityStreamCtrl = ctrl;
+      (async () => {
+        let res;
+        try {
+          res = await fetch(API + "/admin/activity/stream", {
+            headers: { "X-API-Key": API_KEY }, signal: ctrl.signal,
+          });
+        } catch (e) { return; }              // aborted, or the server is down
+        if (!res.ok || !res.body) return;
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        try {
+          for (;;) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            const frames = buf.split("\n\n");
+            buf = frames.pop();
+            for (const frame of frames) {
+              const line = frame.split("\n").find(l => l.startsWith("data:"));
+              if (!line) continue;
+              let data;
+              try { data = JSON.parse(line.slice(5).trim()); } catch (e) { continue; }
+              if (data.type !== 'activity' || !data.activity) continue;
+              const row = activityRow(data.activity, "just now", true);
+              if (activityDiv.firstChild) activityDiv.insertBefore(row, activityDiv.firstChild);
+              else activityDiv.appendChild(row);
+              while (activityDiv.children.length > 15) activityDiv.removeChild(activityDiv.lastChild);
+              setTimeout(() => { row.style.background = 'transparent'; }, 2000);
+            }
+          }
+        } catch (e) { /* aborted mid-read */ }
+      })();
+    }
 
     /* ── Overview ─────────────────────────────────────────────── */
     async function renderOverview(container = view) {
@@ -427,51 +495,13 @@
       if (activityDiv) {
         try {
           const activities = await api("/admin/activity/feed?limit=15");
-          activityDiv.innerHTML = activities.length === 0
-            ? '<div class="a-empty">No recent activity</div>'
-            : activities.map(a => `
-              <div style="display:flex;align-items:flex-start;gap:10px;padding:8px;border-bottom:1px solid var(--card-border)">
-                <div style="width:32px;height:32px;border-radius:50%;background:${a.severity === 'success' ? 'rgba(8,144,108,0.1)' : a.severity === 'critical' ? 'rgba(239,68,68,0.1)' : 'var(--surface-2)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px">${a.icon || '📋'}</div>
-                <div style="flex:1;min-width:0">
-                  <div style="font-weight:500;font-size:13px">${esc(a.title)}</div>
-                  <div style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.message)}</div>
-                </div>
-                <div style="font-size:11px;color:var(--muted);white-space:nowrap">${timeAgo(a.timestamp)}</div>
-              </div>
-            `).join('');
-
-          // Connect to SSE for real-time updates
-          const eventSource = new EventSource(`/api/v1/admin/activity/stream`);
-          eventSource.onmessage = (event) => {
-            try {
-              const data = JSON.parse(event.data);
-              if (data.type === 'activity' && data.activity) {
-                const newActivity = data.activity;
-                const firstChild = activityDiv.firstChild;
-                const newEl = document.createElement('div');
-                newEl.style.cssText = 'display:flex;align-items:flex-start;gap:10px;padding:8px;border-bottom:1px solid var(--card-border);background:rgba(8,144,108,0.05)';
-                newEl.innerHTML = `
-                  <div style="width:32px;height:32px;border-radius:50%;background:${newActivity.severity === 'success' ? 'rgba(8,144,108,0.1)' : newActivity.severity === 'critical' ? 'rgba(239,68,68,0.1)' : 'var(--surface-2)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px">${newActivity.icon || '📋'}</div>
-                  <div style="flex:1;min-width:0">
-                    <div style="font-weight:500;font-size:13px">${esc(newActivity.title)}</div>
-                    <div style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(newActivity.message)}</div>
-                  </div>
-                  <div style="font-size:11px;color:var(--muted);white-space:nowrap">just now</div>
-                `;
-                if (firstChild) {
-                  activityDiv.insertBefore(newEl, firstChild);
-                } else {
-                  activityDiv.appendChild(newEl);
-                }
-                // Keep only last 15 items
-                while (activityDiv.children.length > 15) {
-                  activityDiv.removeChild(activityDiv.lastChild);
-                }
-                // Flash effect
-                setTimeout(() => { newEl.style.background = 'transparent'; }, 2000);
-              }
-            } catch (e) {}
-          };
+          activityDiv.innerHTML = "";
+          if (activities.length === 0) {
+            activityDiv.innerHTML = '<div class="a-empty">No recent activity</div>';
+          } else {
+            for (const a of activities) activityDiv.appendChild(activityRow(a, timeAgo(a.timestamp), false));
+          }
+          startActivityStream(activityDiv);
         } catch (e) {
           activityDiv.innerHTML = '<div class="a-empty">Activity feed unavailable</div>';
         }
@@ -1221,7 +1251,7 @@
         ${stores.length > 0 ? `
         <div class="a-card">
           <h3>Fraud by Store</h3>
-          <table class="a-table">
+          <div style="overflow-x:auto"><table class="a-table">
             <thead><tr><th>Store</th><th>Total Returns</th><th>Flagged</th><th>Value</th></tr></thead>
             <tbody>
               ${stores.map(([sid, s]) => `<tr>
@@ -1231,7 +1261,7 @@
                 <td>${money(s.value)}</td>
               </tr>`).join('')}
             </tbody>
-          </table>
+          </table></div>
         </div>` : '<div class="a-card"><p class="a-sub" style="text-align:center;padding:40px">No return data yet</p></div>'}`;
     }
 
