@@ -96,6 +96,18 @@ to the item-41 guard because it is a *factory's return value*, not a call argume
 that forgot `wrap()`, on a public endpoint whose only credential is the query token). 324/324 guarded
 afterwards, and the count is asserted so the scan cannot pass by shrinking. Two defects in the harness
 itself were caught before shipping an all-clear. See the item-42 write-up below.
+**Items 18 and 43 done 2026-09-18** → 795 tests green, 50 suites. Item 18 was the last M6 residual: one
+signed order body could be replayed into another store's path. **Reproduced first** — serving HEAD's
+routes in place, the replay returned **200 `{"accepted":true}`** and wrote an event for the victim. Now
+**409**, zero events, logged. The mitigation the ledger recorded (check the payload's `myshopify_domain`)
+**cannot work**: verified against Shopify's docs, an order payload carries no shop field and the HMAC
+covers the raw body only, so the only shop identifier Shopify sends is an unsigned header. The fix
+therefore makes a captured body **consumable exactly once** instead — which also closed a plain
+correctness bug, since the order path had no idempotency and Shopify retries 8 times over 4 hours, so a
+retry double-counted the purchase and the stock decrement. Item 43 was found while adding the collection
+item 18 needed: the guard that claimed to fail "the moment a collection is added without being
+classified" **could not fail** — measured, a bogus collection left all 9 tests green while silently
+scheduling itself for deletion on uninstall. Mutation-checked 5/5 and 1/1. See both write-ups below.
 
 ## P0 — Launch blockers
 1. SHOPIFY_CLIENT_ID/SECRET empty + shopify.app.toml:47 placeholder → sessionToken.js:109 fails closed, embedded 401
@@ -656,6 +668,108 @@ immediately: it failed because the page did not name the extension, so the page 
     2026-09-18** — found by challenging the "everything is done" claim, not by the audit. Widening the
     scan from one file to all of `src/server/` found **7** unguarded handlers, not 1. See the item-42
     write-up below.
+43. ~~**PRIV-001 (found 2026-09-18)** The collection-classification guard claimed, in
+    `privacy.js` and in its own test header, to "fail the moment a collection is added to `COLLECTIONS`
+    without being classified". **It cannot fail.** `PURGEABLE_COLLECTIONS` is derived by subtracting the
+    three exemption maps from `COLLECTIONS`, so every name is classified *by construction* and
+    `classificationReport().unclassified` is structurally always empty. Measured: appending
+    `brandNewUnclassifiedThing` to `COLLECTIONS` left **all 9 tests green**, while silently making the new
+    collection **purgeable** — deleted on uninstall with nobody having decided that.~~ **FIXED 2026-09-18**
+    — found while adding the `webhookDeliveries` collection for item 18. See the item-43 write-up below.
+
+### Item 43 (PRIV-001) — a guard that certified safety it never tested — FIXED 2026-09-18
+
+**What it claimed vs what it did.** `test/privacyPurge.test.js` opened with "The first test is the
+important one: it fails the moment a collection is added to `COLLECTIONS` without being classified in
+src/server/privacy.js", and `privacy.js` repeated the claim. The assertion is
+`assert.deepEqual(report.unclassified, [])` — and `unclassified` is computed as
+`COLLECTIONS.filter((name) => !classified.has(name))` where `classified` already includes
+`PURGEABLE_COLLECTIONS`, which is itself `COLLECTIONS.filter(not in any exemption map)`. The union is
+`COLLECTIONS` by construction. **The assertion cannot fail, for any input.**
+
+**Measured, not reasoned.** A bogus name was appended to `COLLECTIONS` and the suite re-run: **9/9 green.**
+The new collection had silently become **purgeable**, which for a collection that ought to be
+platform-global or under a legal hold means it is **deleted on uninstall** and nothing says so. `auditLog`
+moved into the purge set this way would destroy the evidence trail GDPR accountability depends on.
+
+**Why this is the same family as items 41 and 42.** All three are a control that reports success while
+checking less than it appears to. Item 41's detector skipped a CallExpression position; item 42's scan
+read one file; item 43's assertion was a tautology. In each case the *test suite was green* — which is
+exactly why each had to be found by attacking the control rather than by reading the code.
+
+**The fix, and why it is a fixture rather than a second list.** `CLASSIFIED_INVENTORY` freezes the 54
+collection names in the test file. Adding a collection now fails until its class is decided, and updating
+the fixture without classifying fails the `classificationReport` tests — both directions are covered.
+It is deliberately **not** a parallel source of truth: `privacy.js` still derives behaviour from
+`COLLECTIONS`, and the assertion fails if the two disagree either way, so the fixture cannot drift
+silently. Re-injecting the bogus collection now fails the test, and the file restores byte-identical.
+
+**The irony worth recording:** this was found *because* item 18 needed a new collection, and the guard
+that was supposed to force exactly that decision turned out to be the one thing that could not. It also
+explains why the ledger's own "add it to privacy.js" instruction had never once been enforced.
+
+### Item 18 (WEBHOOK-TENANT-001) — cross-tenant webhook injection — FIXED 2026-09-18
+
+**Reproduced before fixing.** HEAD's `createApp.js` was served in place (extracted to a temp file, no git
+state touched) and one signed order body was POSTed to a second store's path:
+
+```
+PRE-FIX: replayed into store_beta -> 200 {"accepted":true, ...}
+PRE-FIX: beta events: 1, alpha events: 0
+```
+
+One captured body, one cross-tenant write. After the fix the same request is **409**, with **zero** events
+for the victim and a logged cross-tenant event.
+
+**The recorded mitigation was wrong, and checking it was the whole job.** The ledger said to confirm the
+payload's `myshopify_domain` against the `:store_id`. Shopify's docs
+(`/docs/apps/build/webhooks/delivery-structure`) describe the body as "the full REST resource payload for
+the topic" and list the full header set; the Order and Return resources carry **no shop field**, so the
+proposed check cannot fire on either affected route. The only shop identifier Shopify sends for those
+topics is the `X-Shopify-Shop-Domain` header, and the HMAC is computed over **the raw body only** — so a
+replayer sets that header freely. There is no signed tenant to check. The test sets the header to the
+**victim's own** domain so that only the digest can be what refuses the request; otherwise a weaker check
+would take the credit.
+
+**So the fix changes the question.** Since the first use of a body cannot be bound to a tenant, the body is
+made **consumable exactly once**: the sha256 of the raw signed bytes is recorded against the store it was
+processed for, a later presentation naming a different store is refused, and one naming the same store
+short-circuits. Residual, documented rather than papered over: an attacker who both intercepts a delivery
+and wins the race to present it first.
+
+**A security fix that was also a correctness fix.** The order path had **no idempotency at all** and
+`eventTracker.track` inserts unconditionally, while Shopify retries a failed delivery **8 times over 4
+hours**. A retried `orders/create` therefore inserted a second purchase event and decremented stock a
+second time — in normal operation, with no attacker involved. Measured: a repeated identical body now
+returns `{"ok":true,"duplicate":true}` and leaves **exactly one** event.
+
+**`isDuplicateWebhook` replaced, not extended.** The four compliance routes used a local helper with six
+defects, all recorded in the commit: dedupe rows written into `webhookQueue` (the **outbound** queue, so
+`webhookRetryQueue.status()` counted them in `total` while matching none of its buckets, and its cleanup
+walked a table that grows with order volume); a 64-bit truncated digest used as a key; a fallback that
+hashed `JSON.stringify(req.body)` — which **strips whitespace**, collapsing two distinct signed bodies
+onto one digest (reproduced in the test as a control); `expires_at` stored and never read, making the
+declared 24h TTL decorative; `return false` on a storage error, i.e. **fail open** on a security control;
+and it was never applied to the two routes that take their `:store_id` from the caller. All six routes now
+share one admission path.
+
+**Fail closed, and never write twice.** An unverifiable delivery gets **503, not 200** — the caller's
+credential is not what is wrong, and Shopify retries for four hours, so a transient storage failure costs
+a retry rather than the event. A throw during processing **releases** the reservation, or the retry would
+be answered 200-and-dropped as a duplicate and the order lost permanently. A refused tenant claim does
+**not** reserve, or the guard would block the legitimate delivery that follows it — the guard attacking
+itself, which is pinned by its own test.
+
+**Storage.** New collection `webhookDeliveries` (54), classified **purgeable deliberately** (a digest, a
+store id, a topic and a timestamp — no customer identifier) with indexes on `digest` (hit on every inbound
+webhook, so it must not full-scan) and on the UTC day `bucket`, making the expiry sweep an equality match
+rather than the very scan the digest index exists to avoid. The sweep is bounded to whole days and
+throttled to once an hour, so a delivery admitted moments ago can never be swept.
+
+**Harness defect caught mid-run.** The mutation harness reported a false MISS on "accept any signature at
+the edge": `if (!valid) {` appears **twice** in `security.js` (the `/track` verifier and the Shopify one)
+and the bare anchor silently mutated the wrong function. The harness now aborts unless an anchor matches
+**exactly one** site. Mutation-checked 5/5 after the fix, every file restored byte-identical.
 
 ### Item 42 (RBAC-001) — the RBAC middleware, and the guard that could not see it — FIXED 2026-09-18
 
@@ -1055,12 +1169,29 @@ Four new suites; each carries a **control test** so it cannot pass vacuously.
   forged/unknown bearer rejected, expired session rejected **and its row
   deleted**, logout deletes the row (not tombstone) and cannot be replayed.
   Zero leaks, zero vacuous routes.
-  **RESIDUAL RISK (documented, not fixed):** `/webhooks/orders|returns/:store_id`
+  **RESIDUAL — CLOSED 2026-09-18 (item 18).** `/webhooks/orders|returns/:store_id`
   are root-level and HMAC-gated, not tenant-gated. Shopify signs the request
   **body**, not the URL, so a captured signed payload could be replayed against a
-  different store's path — cross-tenant event *injection*. Mitigation: after
-  verification, confirm the payload's `myshopify_domain` resolves to the same
-  store as the `:store_id` param. Not exploitable without a captured signed body.
+  different store's path — cross-tenant event *injection*.
+  **Reproduced** against the pre-fix routes: one signed order body replayed straight
+  into another store returned **200 `{"accepted":true}`** and created an event for the
+  victim, with the real owner getting none. Now **409**, zero events for the victim,
+  and a logged cross-tenant event.
+  **The mitigation recorded here did not work and had to be replaced.** It said to
+  confirm the payload's `myshopify_domain` against the `:store_id` param. Verified
+  against Shopify's delivery-structure docs: the body is "the full REST resource
+  payload for the topic", and the Order and Return resources carry **no shop field** —
+  so that check cannot fire on either affected route. The only shop identifier Shopify
+  sends is the `X-Shopify-Shop-Domain` **header**, and the HMAC covers the raw body
+  only, so a replayer sets the header freely. The tenant is therefore not
+  authenticable, and the fix makes a captured body **consumable exactly once** instead.
+  Residual, inherent to the signing scheme and documented in
+  `src/server/webhookTenancy.js`: an attacker who both intercepts a delivery and wins
+  the race to present it first. See the item-18 write-up below.
+  **The same missing mechanism was also an everyday bug:** the order path had no
+  idempotency, `eventTracker.track` inserts unconditionally, and Shopify retries a
+  failed delivery 8 times over 4 hours — so a retried `orders/create` double-counted
+  the purchase and decremented stock twice. Fixed by the same record.
 - **M7 GDPR zero-rows — VERIFIED**, and it found a real defect.
   `test/m7GdprZeroRows.test.js` (12 tests). Seeds the identifier into **every**
   collection derived from `COLLECTIONS` (the old test seeded 12 of 53 and
