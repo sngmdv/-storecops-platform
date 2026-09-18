@@ -33,6 +33,23 @@
  * under a legal hold, while redaction (`redactCustomerData`) scrubs the customer
  * identifiers out of *every* store-scoped collection — including the held ones —
  * leaving the financial row itself intact.
+ *
+ * THE DEFAULT IS "PURGEABLE", WHICH IS A FOOTGUN
+ * ----------------------------------------------
+ * `PURGEABLE_COLLECTIONS` is derived by subtracting the three maps above from
+ * `COLLECTIONS`, so an unlisted collection is classified as purgeable *by
+ * construction*. `classificationReport().unclassified` is therefore structurally
+ * always empty and can never report a missing decision. Measured, not reasoned:
+ * adding a collection to `COLLECTIONS` and classifying it nowhere left every test
+ * in `test/privacyPurge.test.js` green, while silently scheduling the new
+ * collection for deletion on uninstall.
+ *
+ * The decision record is the `CLASSIFIED_INVENTORY` fixture in that test file: it
+ * freezes the collection list, so a collection cannot be added without stating
+ * what it is. If you are adding one, add it there *and* decide here. Deleting data
+ * that should have been kept is not recoverable, whereas keeping data that could
+ * have been deleted is merely untidy — which is why the burden sits on the
+ * deletion path.
  */
 
 const { COLLECTIONS, } = require('../storage/store',);

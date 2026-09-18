@@ -257,6 +257,9 @@ const COLLECTIONS = [
   // Webhook Retry Queue
   'webhookQueue', // outbound webhook delivery queue
 
+  // Inbound webhook deliveries (Shopify)
+  'webhookDeliveries', // one row per processed inbound delivery: signed-body digest -> tenant
+
   // Onboarding
   'onboardingStates', // per-store onboarding progress
 

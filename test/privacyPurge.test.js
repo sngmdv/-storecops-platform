@@ -9,8 +9,21 @@
  * `supportTickets` and others. `customers/redact` is a Shopify App Store
  * requirement, so that was a submission blocker.
  *
- * The first test is the important one: it fails the moment a collection is added
- * to `COLLECTIONS` without being classified in src/server/privacy.js.
+ * The first test below is NOT the important one, contrary to what this comment
+ * used to claim. It cannot fail: `privacy.js` derives `PURGEABLE_COLLECTIONS` by
+ * subtracting the three exemption maps from `COLLECTIONS`, so every name is
+ * classified *by construction* and `unclassified` is structurally always empty.
+ * Measured, not reasoned: appending `brandNewUnclassifiedThing` to `COLLECTIONS`
+ * left all 9 tests in this file green — while silently making the new collection
+ * **purgeable**, i.e. deleted on uninstall, with nobody having decided that. A
+ * collection that belonged under a legal hold or in the platform-global set would
+ * simply have been deleted, and the guard would have said nothing.
+ *
+ * `freezes the collection inventory` below is the test that actually holds the
+ * line: it compares `COLLECTIONS` against a frozen fixture, so adding a collection
+ * fails until its class is decided. `CLASSIFIED_INVENTORY` is a test fixture, not a
+ * second source of truth — `privacy.js` still derives behaviour from `COLLECTIONS`,
+ * and the assertion fails if the two disagree in either direction.
  */
 
 const { describe, it, } = require('node:test',);
@@ -26,7 +39,57 @@ const {
 const CUST = 'cust_guard_1';
 const EMAIL = 'guard@example.com';
 
+/**
+ * The frozen collection inventory — the list of every collection that has had a
+ * purge-classification decision made about it, sorted.
+ *
+ * This exists because the derived-by-subtraction design makes "purgeable" the
+ * silent default. `privacy.js` cannot detect an unclassified collection, so the
+ * only place a missing decision can be observed is here, against a fixed list.
+ *
+ * Adding a collection to `COLLECTIONS` without touching this list fails the test
+ * below. Updating this list without classifying the collection in `privacy.js`
+ * fails the `classificationReport` tests instead. Both directions are covered.
+ */
+const CLASSIFIED_INVENTORY = [
+  'actions', 'activityLogs', 'attributions',
+  'auditLog', 'campaignActions', 'campaigns',
+  'channelSuppressions', 'competitorAds', 'competitorSnapshots',
+  'connectors', 'consentRecords', 'customers',
+  'deepAudits', 'deliveries', 'emailSuppressions',
+  'events', 'externalSignals', 'featureUsage',
+  'forecasts', 'integrations', 'inventory',
+  'invoices', 'leads', 'marketingSpend',
+  'monitoringEvents', 'notifications', 'oauthStates',
+  'onboardingStates', 'passwordResets', 'payments',
+  'pendingConnections', 'purchaseOrders', 'reportRequests',
+  'reports', 'retargetingAudiences', 'retentionSnapshots',
+  'returnAuditLog', 'returns', 'rules',
+  'searchConsole', 'secretLedger', 'sentimentSamples',
+  'seoAudits', 'seoOptimizations', 'sessions',
+  'siteAudits', 'subscriptions', 'supportTickets',
+  'trackedCompetitors', 'trendReports', 'twoFactorSecrets',
+  'users',
+  // PURGEABLE, decided deliberately: this holds a sha256 of the signed request
+  // body, the store_id it was attributed to, the topic and a timestamp — no
+  // customer identifier of any kind. Deleting it on uninstall is correct: the
+  // store is gone, so no further delivery can be attributed to it and the
+  // replay guard has nothing left to protect.
+  'webhookDeliveries', 'webhookQueue',
+];
+
 describe('privacy: collection classification', () => {
+  it('freezes the collection inventory, so a new collection forces a decision', () => {
+    assert.deepEqual(
+      [...COLLECTIONS,].sort(),
+      CLASSIFIED_INVENTORY,
+      'COLLECTIONS changed. Decide what the new collection is — purgeable, platform-global, under '
+      + 'legal hold, or retained by the caller — record that decision in src/server/privacy.js, then '
+      + 'update CLASSIFIED_INVENTORY. The default is PURGEABLE, so a collection added without a '
+      + 'decision is DELETED on uninstall and nothing else will tell you.',
+    );
+  },);
+
   it('classifies every collection exactly once', () => {
     const report = classificationReport();
 
