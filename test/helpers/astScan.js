@@ -223,12 +223,20 @@ function scanSource(source, file,) {
   return out;
 }
 
-/** Scan every `.js` file directly inside `dir`. */
-function scanDir(dir,) {
+/** Scan every `.js` file under `dir`, recursively. */
+function scanDir(dir, baseDir = dir,) {
   const out = [];
-  for (const file of fs.readdirSync(dir,).filter((f,) => f.endsWith('.js',),).sort()) {
-    const source = fs.readFileSync(path.join(dir, file,), 'utf8',);
-    out.push(...scanSource(source, file,),);
+  const entries = fs.readdirSync(dir, { withFileTypes: true, },)
+    .sort((a, b,) => a.name.localeCompare(b.name,),);
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name,);
+    if (entry.isDirectory()) {
+      out.push(...scanDir(fullPath, baseDir,),);
+    } else if (entry.isFile() && entry.name.endsWith('.js',)) {
+      const source = fs.readFileSync(fullPath, 'utf8',);
+      const rel = path.relative(baseDir, fullPath,).split(path.sep,).join('/',);
+      out.push(...scanSource(source, rel,),);
+    }
   }
   return out;
 }

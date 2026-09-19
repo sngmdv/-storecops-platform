@@ -163,4 +163,23 @@
       });
     });
   }
+  /* ── FAQ Accordion ── */
+  const qaButtons = document.querySelectorAll(".qa-q");
+  qaButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const item = btn.closest(".qa");
+      const answer = item?.querySelector(".qa-a");
+      const isOpen = item?.classList.contains("open");
+      document.querySelectorAll(".qa.open").forEach((el) => {
+        el.classList.remove("open");
+        el.querySelector(".qa-a")?.style.setProperty("max-height", "0px");
+        el.querySelector(".qa-q")?.setAttribute("aria-expanded", "false");
+      });
+      if (item && answer && !isOpen) {
+        item.classList.add("open");
+        btn.setAttribute("aria-expanded", "true");
+        answer.style.setProperty("max-height", answer.scrollHeight + "px");
+      }
+    });
+  });
 })();

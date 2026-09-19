@@ -270,8 +270,8 @@ test('the scan actually read the server layer — it is not passing vacuously', 
     'the scan no longer sees router.<verb> registrations inside createApp.js',
   );
   assert.ok(
-    has((h,) => h.file === 'apiRoutes.js' && h.path === '/unsubscribe',),
-    'the scan no longer sees the wrap() path in apiRoutes.js',
+    has((h,) => (h.file === 'routes/admin.js' || h.file === 'admin.js' || h.file === 'apiRoutes.js') && h.path === '/unsubscribe',),
+    'the scan no longer sees the wrap() path for /unsubscribe (moved to routes/admin.js by the F4 split)',
   );
 
   // The wrap() path must remain the dominant one — if `wrap` stopped being

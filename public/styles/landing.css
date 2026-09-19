@@ -950,3 +950,43 @@ h4 { font-size: clamp(18px, 2vw, 24px); }
 .legal code {
   overflow-wrap: anywhere;
 }
+
+/* ── FAQ (NovaGrid transfer: accordion section the landing was missing) ── */
+.faq { max-width: 800px; margin: 0 auto; padding: 96px 24px; }
+.faq-list { margin-top: 32px; border-top: 1px solid var(--card-border); }
+.qa { border-bottom: 1px solid var(--card-border); }
+.qa-q {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: none;
+  border: 0;
+  padding: 20px 4px;
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+.qa-q:hover { color: var(--primary); }
+.qa-x {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--card-border);
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--ink-muted);
+  transition: transform 0.25s ease, color 0.2s, border-color 0.2s;
+}
+.qa.open .qa-x { transform: rotate(45deg); color: var(--primary); border-color: var(--primary); }
+.qa-a { max-height: 0; overflow: hidden; transition: max-height 0.25s ease-out; }
+.qa-a p { padding: 0 4px 20px; color: var(--ink-soft); font-size: 15px; line-height: 1.65; }
+.qa-a a { color: var(--primary); }
